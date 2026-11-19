@@ -15,3 +15,4 @@ BOOL STHReadPreview(NSString *bundle,CGRect physicalKeyboard,CGRect scene,CGRect
 // stage:1 lifecycle,2 no editable responder,3 no safe composer,4 measured,5 moved,6 restored.
 void STHReportEditor(NSString *bundle,int stage,CGRect assembly,double keyTop,double lift,unsigned rows);
 BOOL STHReadLayoutUsingKeyboard(NSString *bundle,CGRect scene,CGRect measuredKeyboard,CGRect *mapped,double *inset);
+BOOL STHReadPhysicalLayout(NSString *bundle,CGRect *card,CGRect *keyboard);

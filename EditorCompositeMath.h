@@ -28,13 +28,23 @@ static inline bool STHCompositeRow(STHRect group,STHRect row,STHRect field,doubl
 }
 // If a private layout repeatedly counteracts our transform, do not grow it
 // unbounded. Preserve the smallest effective correction, reset on true targets.
-typedef struct{bool valid;double before,after,keys,requested;unsigned counteractions;} STHResidualHistory;
+typedef struct{bool valid;double before,after,keys,requested,bestEffective,referenceBottom;unsigned counteractions;} STHResidualHistory;
 static inline double STHBoundedResidual(STHResidualHistory *s,double desired,double before,double keys,double nowLift){
- if(s->valid&&fabs(keys-s->keys)<=.5&&fabs(before-s->before)<=.5&&
-    fabs(s->after-keys)<=.75&&desired>nowLift+.75){
-  s->counteractions++;
-  if(s->counteractions>=2)desired=fmin(desired,nowLift);
- }else s->counteractions=0;
+ bool same=s->valid&&fabs(keys-s->keys)<=.5;
+ bool newGeometry=same&&before>s->referenceBottom+.75;
+ if(!same||newGeometry){s->counteractions=0;s->bestEffective=0;s->referenceBottom=before;}
+ if(same&&!newGeometry&&fabs(s->after-keys)<=.75&&s->requested>.25){
+  if(s->bestEffective<=0||s->requested<s->bestEffective)s->bestEffective=s->requested;
+ }
+ // Keep evidence of a successful correction across an alternating aligned
+ // and counteracted pass.2.0.13 reset the counter on every aligned pass.
+ if(same&&!newGeometry&&s->bestEffective>.25&&desired>s->bestEffective+.75&&nowLift>.25){
+  s->counteractions++;desired=fmin(desired,s->bestEffective);
+ }
  s->valid=true;s->before=before;s->keys=keys;s->requested=desired;return desired;
+}
+static inline bool STHCanReleaseComposerClip(double height,double sceneHeight,bool isWindow,bool customMask){
+ return !isWindow&&!customMask&&isfinite(height)&&isfinite(sceneHeight)&&height>1&&sceneHeight>1&&
+        height<=fmin(260,sceneHeight*.40);
 }
 #endif

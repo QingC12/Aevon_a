@@ -41,6 +41,8 @@ jobs:
           python3 test_editor_composite_contract.py
           xcrun --sdk macosx clang -std=c11 -Wall -Wextra -Werror test_editor_composite.c -o /tmp/stheno-editor-composite
           /tmp/stheno-editor-composite
+          xcrun --sdk macosx clang -std=c11 -Wall -Wextra -Werror test_keyboard_plane.c -o /tmp/stheno-keyboard-plane
+          /tmp/stheno-keyboard-plane
           xcrun --sdk macosx clang -fobjc-arc -Wall -Wextra -Wno-unused-parameter test_composite_layout.m -framework Foundation -framework CoreGraphics -o /tmp/stheno-composite-layout
           /tmp/stheno-composite-layout
       - name: Test scene-only keyboard contract and session cache
@@ -58,7 +60,7 @@ jobs:
         run: |
           xcrun --sdk macosx clang -std=c11 -Wall -Wextra -Werror test_layout_math.c -o /tmp/stheno-layout-math
           /tmp/stheno-layout-math
-          xcrun --sdk macosx clang -fobjc-arc -Wall -Wextra -Wno-unused-parameter test_layout_bus.m LayoutBus.m -framework Foundation -framework QuartzCore -framework CoreGraphics -o /tmp/stheno-layout-bus
+          xcrun --sdk macosx clang -fobjc-arc -Wall -Wextra -Wno-unused-parameter test_layout_bus.m LayoutBus.m LayoutProbe.m -framework Foundation -framework QuartzCore -framework CoreGraphics -o /tmp/stheno-layout-bus
           /tmp/stheno-layout-bus
       - name: Test default size only on first presentation
         run: |

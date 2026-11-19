@@ -1,4 +1,5 @@
 #import "LayoutBus.h"
+#import "LayoutProbe.h"
 #import <QuartzCore/QuartzCore.h>
 #import <notify.h>
 #import <syslog.h>
@@ -99,6 +100,7 @@ BOOL STHPublishLayout(NSString *bundle,CGRect card,CGRect keyboard,BOOL active){
  t.lastCard=a;t.lastKeys=b;t.writerActive=YES;
  if(changed)notify_post(channel(bundle,@"changed").UTF8String); // heartbeat is silent
  if(!t.ackObserved){
+  STHObserveLayoutProbe(bundle);
   t.ackObserved=YES;int observed=-1;
   notify_register_dispatch(channel(bundle,@"applied").UTF8String,&observed,dispatch_get_main_queue(),^(int n){
    uint64_t ack=0,scene=0,frame=0;
@@ -194,6 +196,21 @@ BOOL STHReadLayoutUsingKeyboard(NSString *bundle,CGRect scene,CGRect keys,CGRect
   BOOL ok=STHMapHostedKeyboard(STHUnpackRect(card),(STHRect){keys.origin.x,keys.origin.y,keys.size.width,keys.size.height},
    (STHRect){scene.origin.x,scene.origin.y,scene.size.width,scene.size.height},&out,inset);
   if(ok&&mapped)*mapped=CGRectMake(out.x,out.y,out.w,out.h);return ok;
+ }
+ return NO;
+}
+
+BOOL STHReadPhysicalLayout(NSString *bundle,CGRect *cardOut,CGRect *keysOut){
+ STHLayoutTokens *t=getTokens(bundle);if(!t.valid)return NO;
+ for(int attempt=0;attempt<3;attempt++){
+  uint64_t first=0,last=0,c=0,k=0;
+  if(notify_get_state(t.commit,&first)!=0||!recent(first)||(first&(1ULL<<61)))return NO;
+  BOOL slot=(first>>62)&1;
+  if(notify_get_state(slot?t.card1:t.card0,&c)!=0||notify_get_state(slot?t.keys1:t.keys0,&k)!=0)return NO;
+  if(notify_get_state(t.commit,&last)!=0)return NO;if(first!=last)continue;
+  STHRect a=STHUnpackRect(c),b=STHUnpackRect(k);if(!STHFiniteRect(a)||!STHFiniteRect(b))return NO;
+  if(cardOut)*cardOut=CGRectMake(a.x,a.y,a.w,a.h);
+  if(keysOut)*keysOut=CGRectMake(b.x,b.y,b.w,b.h);return YES;
  }
  return NO;
 }

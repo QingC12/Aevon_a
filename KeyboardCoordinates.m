@@ -283,5 +283,5 @@ void STHInstallKeyboardNotifications(void) {
   if(refreshQueued)return;refreshQueued=YES;
   dispatch_async(dispatch_get_main_queue(),^{refreshQueued=NO;refreshHostedLayout();});
  });
- STHWriteLayoutLog(@"2.0.13 app adapter: preserved QQ/Minis/WeChat routes; composite control-owner profiles");
+ STHWriteLayoutLog(@"2.0.14 app adapter: validated keyplanes, native geometry shield, bounded clipped-row repair; normal routes preserved");
 }

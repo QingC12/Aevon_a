@@ -3,6 +3,7 @@
 #import <QuartzCore/QuartzCore.h>
 #import <objc/runtime.h>
 #import "LayoutBus.h"
+#import "LayoutProbe.h"
 #import "EditorAssembly.h"
 #import "EditorRefinement.h"
 #import "EditorCompositeMath.h"
@@ -44,7 +45,11 @@ static void restoreView(UIView *v){
   [UIView performWithoutAnimation:^{v.transform=s.original;}];
  [adjustments removeObjectForKey:v];
 }
-static void restoreAll(void){for(UIView *v in adjustments.keyEnumerator.allObjects)restoreView(v);lastComposer=nil;}
+static void restoreCompositeClips(void);
+static void restoreAll(void){
+ for(UIView *v in adjustments.keyEnumerator.allObjects)restoreView(v);
+ restoreCompositeClips();lastComposer=nil;
+}
 static CGRect baseline(UIView *v,id<UICoordinateSpace> scene){
  STHCompositeTransform *s=[adjustments objectForKey:v];
  if(s&&!CGAffineTransformEqualToTransform(v.transform,s.applied)){
@@ -111,11 +116,14 @@ static CGRect visibleRect(UIView *v,UIWindowScene *scene,BOOL unshifted){
  }
  return r;
 }
+#include "CompositeRows.inc"
 static void protrusions(UIView *v,UIView *root,UIWindowScene *scene,int depth,int *budget,BOOL unshifted,CGRect *group){
  if(!shown(v)||depth>5||--*budget<0)return;
  if(v!=root){
-  CGRect r=visibleRect(v,scene,unshifted);int b=100;
-  if(!CGRectIsNull(r)&&STHRefinedRow(rr(*group),rr(r),scene.coordinateSpace.bounds.size.height,rowEvidence(v,0,&b),YES)){
+  CGRect r=visibleRect(v,scene,unshifted);unsigned controls=0;double bottom=-CGFLOAT_MAX;int b=240;
+  peerMetrics(v,editingField,scene,0,&b,&controls,&bottom);
+  if(editingField&&!CGRectIsNull(r)&&STHCompositeRow(rr(*group),rr(r),rr(baseline(editingField,scene.coordinateSpace)),
+      scene.coordinateSpace.bounds.size.height,YES,controls,namedPanel(v))){
    *group=CGRectUnion(*group,r);if(unshifted)protrudingCount++;
   }
  }
@@ -144,6 +152,7 @@ static double priorAtBottom(NSArray<UIView *> *views,UIWindowScene *scene){
 static NSArray<UIView *> *assembly(UIView *root,UIWindowScene *scene,CGRect *bounds){
  CGRect group=baseline(root,scene.coordinateSpace);
  protrudingCount=0;int childBudget=600;
+ scanInternalRows(root,scene,&group);
  // A panel can be inside an unclipped composer but extend below its bounds.
  // It moves with its ancestor: measure it, never apply a second child shift.
  for(int pass=0;pass<3;pass++){childBudget=600;protrusions(root,root,scene,0,&childBudget,YES,&group);}
@@ -251,7 +260,7 @@ static void report(int stage,CGRect r,double top,double lift,unsigned rows){
  lift=STHBoundedResidual(&residualHistory,lift,CGRectGetMaxY(actual),keys.origin.y,fmax(0,prior));
  BOOL changed=NO;
  if(!adjustments)adjustments=[NSMapTable weakToStrongObjectsMapTable];
- for(UIView *v in views){if(v.superview)changed=moveView(v,scene,lift)||changed;}
+ for(UIView *v in views){if(v.superview){protectAdditionalPart(v);changed=moveView(v,scene,lift)||changed;}}
  CGRect measured=measuredGroup(views,scene);
  residualHistory.after=CGRectGetMaxY(measured);
  unsigned rows=(unsigned)views.count-1+protrudingCount;

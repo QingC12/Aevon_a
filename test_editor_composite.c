@@ -37,8 +37,17 @@ int main(void){
  }
  STHResidualHistory history={0};
  double cap=STHBoundedResidual(&history,17,489.5,472.5,0);near(cap,17);history.after=472.5;
- cap=STHBoundedResidual(&history,34,489.5,472.5,17);near(cap,34);history.after=472.5;
- cap=STHBoundedResidual(&history,51,489.5,472.5,34);near(cap,34); // no17,34,51,... growth
- cap=STHBoundedResidual(&history,40,500,460,34);near(cap,40); // genuine new target allowed
+ for(int i=0;i<200;i++){
+  cap=STHBoundedResidual(&history,34,489.5,472.5,17);near(cap,17);
+  history.after=489.5; // next pass was counteracted, must not erase successful17pt
+  cap=STHBoundedResidual(&history,17,472.5,472.5,17);near(cap,17);
+  history.after=472.5;
+ }
+ cap=STHBoundedResidual(&history,40,500,460,17);near(cap,40); // genuine new target allowed
+ assert(STHCanReleaseComposerClip(112,731,false,false));
+ assert(STHCanReleaseComposerClip(193.5,731,false,false));
+ assert(!STHCanReleaseComposerClip(731,731,false,false));
+ assert(!STHCanReleaseComposerClip(112,731,true,false));
+ assert(!STHCanReleaseComposerClip(112,731,false,true));
  puts("Composite cases passed: keep QQ/Minis/WeChat, reject20pt leaf, complete reply owner+2rows,100x20 native relayouts and bounded feedback");
 }

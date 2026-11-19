@@ -10,7 +10,10 @@
 @property(nonatomic,weak) UIView *superview;
 @property(nonatomic,strong) NSMutableArray<UIView *> *subviews;
 @property(nonatomic) CGRect rect;
-@property(nonatomic,readonly) CGRect bounds;
+@property(nonatomic) CGRect bounds;
+@property(nonatomic) CGRect frame;
+@property(nonatomic) CGPoint center;
+@property(nonatomic) BOOL lastSetterSawOriginal;
 @property(nonatomic) CGAffineTransform transform;
 @property(nonatomic) BOOL hidden;
 @property(nonatomic) double alpha;
@@ -25,6 +28,8 @@
 @interface UIWindow:UIView @end
 @interface UIScrollView:UIView @end
 @interface UIControl:UIView @end
+@interface UILabel:UIView @end
+@interface UIImageView:UIView @end
 @interface TestSpace:NSObject
 @property CGRect bounds;
 @end
@@ -36,6 +41,11 @@
 @implementation UIView
 -(instancetype)init{if((self=[super init])){_subviews=[NSMutableArray new];_alpha=1;_transform=CGAffineTransformIdentity;_gestureRecognizers=@[];}return self;}
 -(CGRect)bounds{return CGRectMake(0,0,self.rect.size.width,self.rect.size.height);}
+-(void)setBounds:(CGRect)b{self.lastSetterSawOriginal=CGAffineTransformIsIdentity(self.transform);CGRect r=self.rect;r.size=b.size;self.rect=r;}
+-(CGRect)frame{return CGRectOffset(self.rect,self.transform.tx,self.transform.ty);}
+-(void)setFrame:(CGRect)f{self.lastSetterSawOriginal=CGAffineTransformIsIdentity(self.transform);self.rect=CGRectOffset(f,-self.transform.tx,-self.transform.ty);}
+-(CGPoint)center{return CGPointMake(CGRectGetMidX(self.rect),CGRectGetMidY(self.rect));}
+-(void)setCenter:(CGPoint)p{self.lastSetterSawOriginal=CGAffineTransformIsIdentity(self.transform);CGRect r=self.rect;r.origin=CGPointMake(p.x-r.size.width*.5,p.y-r.size.height*.5);self.rect=r;}
 -(UIWindow *)window{if([self isKindOfClass:UIWindow.class])return (UIWindow *)self;return self.superview.window;}
 -(BOOL)isDescendantOfView:(UIView *)view{for(UIView *v=self;v;v=v.superview)if(v==view)return YES;return NO;}
 -(CGRect)convertRect:(CGRect)rect toCoordinateSpace:(id)space{
@@ -47,6 +57,8 @@
 @implementation UIWindow @end
 @implementation UIScrollView @end
 @implementation UIControl @end
+@implementation UILabel @end
+@implementation UIImageView @end
 @interface STHCompositeTransform:NSObject
 @property CGAffineTransform original;
 @property CGAffineTransform applied;
@@ -94,8 +106,18 @@ int main(void){@autoreleasepool{
   [parent layoutSubviews];assert(parent.sawOriginal);
   assert(CGAffineTransformEqualToTransform(owner.transform,state.applied));
  }
+ // Production setters run at native transform, not only layoutSubviews.
+ for(int cycle=0;cycle<100;cycle++){
+  owner.frame=CGRectMake(0,330,430,175);
+  assert(owner.lastSetterSawOriginal&&owner.rect.origin.y==330);
+  owner.bounds=CGRectMake(0,0,430,175);assert(owner.lastSetterSawOriginal);
+  owner.center=CGPointMake(215,417.5);assert(owner.lastSetterSawOriginal);
+  assert(owner.rect.origin.y==330&&CGAffineTransformEqualToTransform(owner.transform,state.applied));
+ }
  NativeParent *unrelated=[NativeParent new];UIView *unrelatedChild=[UIView new];
  unrelated.target=unrelatedChild;unrelatedChild.transform=CGAffineTransformMakeTranslation(0,-9);
+ unrelatedChild.frame=CGRectMake(0,100,430,40);
+ assert(!unrelatedChild.lastSetterSawOriginal); // unselected instance never neutralized
  [unrelated layoutSubviews];assert(!unrelated.sawOriginal&&unrelatedChild.transform.ty==-9);
  parent.independentChange=YES;[parent layoutSubviews];
  assert([adjustments objectForKey:owner]==nil&&owner.transform.a==1.2);
@@ -104,5 +126,5 @@ int main(void){@autoreleasepool{
  [adjustments setObject:state forKey:owner];installNeutralLayout(owner);
  parent.closeDuringLayout=YES;[parent layoutSubviews];
  assert(!active&&CGAffineTransformIsIdentity(owner.transform)&&[adjustments objectForKey:owner]==nil);
- puts("Production layout shield passed100 native relayouts, complete175pt owner, unrelated-instance passthrough and independent app transform wins");
+ puts("Production geometry shield passed100 native relayouts and100 frame/bounds/center setters, complete175pt owner, unrelated-instance passthrough and independent app transform wins");
 }return 0;}

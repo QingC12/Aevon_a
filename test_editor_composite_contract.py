@@ -8,15 +8,26 @@ new=(r/'EditorCompositeGuard.m').read_text();structure=(r/'CompositeStructure.in
 assert 'composerOwner(field,window,scene)' in new
 assert 'STHCompositeRow' in new and 'editingField=field' in new
 assert 'STHTransparentTailDrop(' not in new
-assert 'native(view,selector)' in structure
-assert structure.index('part.transform=state.original')<structure.index('@try{native(view,selector);}')<structure.index('part.transform=state.applied')
-assert 'neutralLayoutDepth' in structure and 'class_addMethod' in structure
+shield=(r/'NativeGeometryShield.inc').read_text()
+assert 'NativeGeometryShield.inc' in structure
+assert shield.index('part.transform=state.original')<shield.index('@try{native();}')<shield.index('part.transform=state.applied')
+for setter in ['@selector(setFrame:)','@selector(setBounds:)','@selector(setCenter:)']:
+ assert setter in shield
+assert 'neutralLayoutDepth' in shield and 'class_addMethod' in shield
+assert 'protectAdditionalPart(v)' in new
+rows=(r/'CompositeRows.inc').read_text()
+assert 'canReveal(v,root,scene)' in rows and 'STHCanReleaseComposerClip' in rows
+assert '.hidden=NO' not in rows and '.alpha=1' not in rows
+assert 'STHReportLayoutProbe' in rows and 'NSStringFromClass(v.class)' in rows
 assert 'STHBoundedResidual' in new
 policy=(r/'EditorPolicy.m').read_text()
 assert 'if(STHCompositeEnabled())STHEditorVisibilityCompositeEvent(showing)' in policy
 assert 'else if(STHRefinementEnabled())STHEditorVisibilityRefinedEvent(showing)' in policy
 measure=(r/'KeyboardCompositeMeasurement.m').read_text()
-assert 'UIKBKeyplaneView' in measure and 'CGRectIsNull(core)' in measure
+assert 'UIKBKeyplaneView' in measure and 'STHReadPhysicalLayout' in measure
+assert 'confidence' in measure and 'STHKeyboardConnectedRow' in measure
+assert 'specific||[n containsString:@"InputSetContainer"]' not in measure
+assert 'CGRectUnion(*out,r)' not in measure
 sound=(r/'NotificationPolicy.m').read_text()
 for forbidden in ['setObject:', 'setPersistentDomain:', 'AudioServicesPlay', 'UNUserNotificationCenter', 'setBool:', 'setInteger:']:
  assert forbidden not in sound

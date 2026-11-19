@@ -12,7 +12,8 @@ static BOOL namedPanel(UIView *v){
 }
 static void peerMetrics(UIView *view,UIView *field,UIWindowScene *scene,int depth,int *budget,unsigned *count,double *bottom){
  if(!shown(view)||depth>6||--*budget<0||view==field||[view isDescendantOfView:field])return;
- BOOL control=[view isKindOfClass:UIControl.class]||view.gestureRecognizers.count||namedPanel(view);
+ BOOL decoration=[view isKindOfClass:UIImageView.class]||[view isKindOfClass:UILabel.class];
+ BOOL control=[view isKindOfClass:UIControl.class]||view.gestureRecognizers.count||namedPanel(view)||decoration;
  if(control&&![view isKindOfClass:UIScrollView.class]){
   CGRect r=[view convertRect:view.bounds toCoordinateSpace:scene.coordinateSpace];
   if(r.size.width>=6&&r.size.height>=6&&r.size.height<=240){(*count)++;*bottom=fmax(*bottom,CGRectGetMaxY(r));}
@@ -40,48 +41,4 @@ static UIView *composerOwner(UIView *field,UIWindow *window,UIWindowScene *scene
  }
  return root;
 }
-static void installNeutralLayout(UIView *root){
- // Let AutoLayout see original child transforms while it recomputes frames;
- // only reapply our temporary offsets AFTER native layout. This prevents the
- // Coolapk17,34,51... feedback observed despite unchanged measured controls.
- if(!layoutAncestors)layoutAncestors=[NSHashTable weakObjectsHashTable];
- [layoutAncestors removeAllObjects];
- if(!patchedLayoutClasses)patchedLayoutClasses=[NSMutableSet new];
- for(UIView *v=root;v&&v!=root.window;v=v.superview){
-  if(v!=root&&v!=root.superview&&v!=root.superview.superview)break;
-  [layoutAncestors addObject:v];Class cls=object_getClass(v);
-  NSValue *key=[NSValue valueWithPointer:(__bridge const void *)cls];
-  if([patchedLayoutClasses containsObject:key])continue;
-  SEL selector=@selector(layoutSubviews);Method method=class_getInstanceMethod(cls,selector);if(!method)continue;
-  void(*native)(id,SEL)=(void *)method_getImplementation(method);
-  IMP replacement=imp_implementationWithBlock(^(UIView *view){
-   if(neutralLayoutDepth||![layoutAncestors containsObject:view]){native(view,selector);return;}
-   neutralLayoutDepth++;
-   NSMutableDictionary<NSValue *,STHCompositeTransform *> *restore=[NSMutableDictionary new];
-   NSArray<UIView *> *live=adjustments.keyEnumerator.allObjects;
-   for(UIView *part in live){
-    if(part!=view&&![part isDescendantOfView:view])continue;
-    STHCompositeTransform *state=[adjustments objectForKey:part];
-    if(state&&CGAffineTransformEqualToTransform(part.transform,state.applied)){
-     restore[[NSValue valueWithNonretainedObject:part]]=state;
-     [UIView performWithoutAnimation:^{part.transform=state.original;}];
-    }
-   }
-   @try{native(view,selector);}@finally{
-    for(UIView *part in live){
-     STHCompositeTransform *state=restore[[NSValue valueWithNonretainedObject:part]];
-     if(!state||!active||[adjustments objectForKey:part]!=state||![layoutAncestors containsObject:view])continue;
-     if(CGAffineTransformEqualToTransform(part.transform,state.original))
-      [UIView performWithoutAnimation:^{part.transform=state.applied;}];
-     else [adjustments removeObjectForKey:part]; // independent app transform wins
-    }
-    neutralLayoutDepth--;
-   }
-  });
-  // Add a class-local method if inherited, never replace a shared superclass
-  // implementation merely because this instance happens to inherit it.
-  if(!class_addMethod(cls,selector,replacement,method_getTypeEncoding(method)))
-   class_replaceMethod(cls,selector,replacement,method_getTypeEncoding(method));
-  [patchedLayoutClasses addObject:key];
- }
-}
+#include "NativeGeometryShield.inc"
