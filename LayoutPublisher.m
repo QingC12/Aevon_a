@@ -76,3 +76,9 @@ void STHStopLayout(void) {
  }
  observedModel=nil;observedBundle=nil;
 }
+
+__attribute__((constructor)) static void layoutPublisherReady(void) {
+ dispatch_async(dispatch_get_main_queue(),^{
+  STHWriteLayoutLog(@"stheno 2.0.6 host layout publisher initialized (no text logging)");
+ });
+}

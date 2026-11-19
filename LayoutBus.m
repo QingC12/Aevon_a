@@ -45,6 +45,7 @@ void STHWriteLayoutLog(NSString *line) {
  for(NSString *path in paths){
   @try{
    NSFileManager *fm=NSFileManager.defaultManager;
+   [fm createDirectoryAtPath:path.stringByDeletingLastPathComponent withIntermediateDirectories:YES attributes:nil error:NULL];
    NSDictionary *attr=[fm attributesOfItemAtPath:path error:NULL];
    if([attr[NSFileSize] unsignedLongLongValue]>262144)[fm removeItemAtPath:path error:NULL];
    if(![fm fileExistsAtPath:path]&&![fm createFileAtPath:path contents:nil attributes:@{NSFilePosixPermissions:@0600}])continue;

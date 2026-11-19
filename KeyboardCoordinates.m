@@ -19,6 +19,7 @@ static __weak UIWindowScene *lastNormalizedScene;
 static CGRect lastNormalizedEnd;
 static BOOL hasNormalizedEnd;
 static BOOL postingLayoutRefresh;
+static NSNumber *originalKeyboardDuration,*originalKeyboardCurve;
 
 static BOOL actualHost(UIView *view,UIWindow *target,int depth,int *remaining,CGRect *best) {
  if(!view||depth>14||--*remaining<0||view.hidden||view.alpha<.01)return NO;
@@ -106,6 +107,10 @@ static NSDictionary *normalizedInfo(NSNotification *note,SEL selector) {
  BOOL visible=[name isEqualToString:UIKeyboardWillShowNotification]||[name isEqualToString:UIKeyboardDidShowNotification]||
   [name isEqualToString:UIKeyboardWillChangeFrameNotification]||[name isEqualToString:UIKeyboardDidChangeFrameNotification];
  if(!visible)return raw;
+ if(!postingLayoutRefresh){
+  if([raw[UIKeyboardAnimationDurationUserInfoKey] isKindOfClass:NSNumber.class])originalKeyboardDuration=raw[UIKeyboardAnimationDurationUserInfoKey];
+  if([raw[UIKeyboardAnimationCurveUserInfoKey] isKindOfClass:NSNumber.class])originalKeyboardCurve=raw[UIKeyboardAnimationCurveUserInfoKey];
+ }
  NSDictionary *cached=objc_getAssociatedObject(note,&cacheKey);if(cached)return cached;
  id value=raw[UIKeyboardFrameEndUserInfoKey];if(![value isKindOfClass:NSValue.class])return raw;
  converting=YES;
@@ -174,8 +179,8 @@ static void refreshHostedLayout(void) {
    [NSNotificationCenter.defaultCenter postNotificationName:UIKeyboardWillChangeFrameNotification object:nil
     userInfo:@{UIKeyboardFrameBeginUserInfoKey:[NSValue valueWithCGRect:begin],
                UIKeyboardFrameEndUserInfoKey:[NSValue valueWithCGRect:end],
-               UIKeyboardAnimationDurationUserInfoKey:@0.1,
-               UIKeyboardAnimationCurveUserInfoKey:@7,UIKeyboardIsLocalUserInfoKey:@YES}];
+               UIKeyboardAnimationDurationUserInfoKey:originalKeyboardDuration?:@0.25,
+               UIKeyboardAnimationCurveUserInfoKey:originalKeyboardCurve?:@7,UIKeyboardIsLocalUserInfoKey:@YES}];
   }@catch(NSException *e){}
   postingLayoutRefresh=NO;
   STHReportLayout(NSBundle.mainBundle.bundleIdentifier,overlap,YES);
