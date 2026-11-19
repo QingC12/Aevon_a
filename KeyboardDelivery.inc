@@ -6,7 +6,7 @@ static NSMutableDictionary<NSString *,NSNotification *> *heldNotes;
 static NSMutableDictionary<NSString *,NSNumber *> *heldOrder;
 static NSUInteger holdOrder,holdGeneration;
 static __thread BOOL delivering;
-static BOOL heldSession;
+static BOOL heldSession,awaitingDidHide;
 static BOOL keyboardEvent(NSString *name){return [name hasPrefix:@"UIKeyboard"]&&
  ([name isEqualToString:UIKeyboardWillShowNotification]||[name isEqualToString:UIKeyboardDidShowNotification]||
   [name isEqualToString:UIKeyboardWillChangeFrameNotification]||[name isEqualToString:UIKeyboardDidChangeFrameNotification]||
@@ -49,9 +49,11 @@ static BOOL interceptNotification(NSNotificationCenter *center,NSNotification *n
  int status=STHLayoutStatus(NSBundle.mainBundle.bundleIdentifier);
  BOOL hide=hideEvent(note.name);
  if(hide){
-  if(!status&&!heldSession&&!session.visible&&!session.hasSceneFrame)return NO;
+  if(!status&&!heldSession&&!session.visible&&!session.hasSceneFrame&&!awaitingDidHide)return NO;
+  awaitingDidHide=[note.name isEqualToString:UIKeyboardWillHideNotification];
   discardHeld();heldSession=NO;deliverFrozen(center,note);return YES;
  }
+ awaitingDidHide=NO;
  if(status==2){queueHeld(note);return YES;}
  if(status==1){
   if(heldNotes.count)flushHeld(YES);

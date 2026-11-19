@@ -45,6 +45,8 @@ int main(void){@autoreleasepool{
  phase=2;send(@"UIKeyboardWillShowNotification",545);assert(heldNotes.count==1);
  send(@"UIKeyboardWillHideNotification",932);assert(heldNotes.count==0);
  flushHeld(YES);assert(callbacks==2);
+ int beforeDid=preparations;phase=0;
+ send(@"UIKeyboardDidHideNotification",932);assert(preparations==beforeDid+1&&!awaitingDidHide);
  // Inactive/fullscreen notification is forwarded untouched.
  [NSNotificationCenter.defaultCenter removeObserver:a];[NSNotificationCenter.defaultCenter removeObserver:b];
  __block double fullscreen=0;
