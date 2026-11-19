@@ -98,7 +98,7 @@ assert at+sz<0x4000 and img[at:at+sz]==bytes(sz)
 img[at:at+sz]=lc;struct.pack_into('<II',img,16,n+1,nbytes+sz)
 core=OUT/'Stheno.dylib';core.write_bytes(img)
 # Compile recovered dispatch source, not the proprietary original project.
-run('xcrun','clang','-target','arm64e-apple-ios16.1','-isysroot',run('xcrun','--sdk','iphoneos','--show-sdk-path').decode().strip(),'-fobjc-arc','-O2','-dynamiclib','Gesture.m','native.S','-framework','UIKit','-framework','Foundation','-framework','QuartzCore','-install_name','@loader_path/SthenoGesture.dylib','-o',OUT/'SthenoGesture.dylib')
+run('xcrun','clang','-target','arm64e-apple-ios16.1','-isysroot',run('xcrun','--sdk','iphoneos','--show-sdk-path').decode().strip(),'-fobjc-arc','-O2','-dynamiclib','Gesture.m','native.S','-framework','UIKit','-framework','Foundation','-framework','QuartzCore','-framework','CoreGraphics','-install_name','@loader_path/SthenoGesture.dylib','-o',OUT/'SthenoGesture.dylib')
 for p in [core,OUT/'SthenoGesture.dylib']:
  run('codesign','--force','--sign','-','--timestamp=none',p,stderr=subprocess.STDOUT)
  run('codesign','--verify','--strict',p,stderr=subprocess.STDOUT)
