@@ -33,6 +33,10 @@ jobs:
           /tmp/stheno-layout-math
           xcrun --sdk macosx clang -fobjc-arc -Wall -Wextra -Wno-unused-parameter test_layout_bus.m LayoutBus.m -framework Foundation -framework QuartzCore -framework CoreGraphics -o /tmp/stheno-layout-bus
           /tmp/stheno-layout-bus
+      - name: Test default size only on first presentation
+        run: |
+          xcrun --sdk macosx clang -fobjc-arc -Wall -Wextra -Wno-unused-parameter test_default_size.m -framework Foundation -o /tmp/stheno-default-size
+          /tmp/stheno-default-size
       - name: Verify private Orion ABI and isolation
         run: python3 test_embed_orion.py
       - name: Build and verify arm64e binaries and Debian archive

@@ -64,7 +64,7 @@ for cmd,p,sz in cmds_o:
    q=p+72+j*80
    if temp[q:q+16].split(b'\0')[0]==b'__text':rel=struct.unpack_from('<II',temp,q+56)
 absolute={'_dlsym':0xb03bc,'_original_setup_plus4':0x4994c,'_original_update_plus4':0x4ad48,'_original_end_plus4':0x4c368,'_original_long_plus4':0x3e420,'_original_tap_plus4':0x3e77c,
-          '_original_keyboard_show_plus4':0x87b90,'_original_keyboard_hide_target':0xd780c}
+          '_original_keyboard_show_plus4':0x87b90,'_original_keyboard_hide_target':0xd780c,'_original_present_plus4':0x41aa0}
 assert rel is not None
 for j in range(rel[1]):
  r,info=struct.unpack_from('<II',temp,rel[0]+8*j);ix=info&0xffffff;typ=info>>28;external=(info>>27)&1
@@ -81,6 +81,7 @@ img[address:address+size]=code
 changes={0x3dff0:(bytes.fromhex('64660214'),0xd9100),0x49948:(bytes.fromhex('7f2303d5'),0xd9140),0x4ad44:(bytes.fromhex('7f2303d5'),0xd9180),0x4c364:(bytes.fromhex('7f2303d5'),0xd91c0),0x3e41c:(bytes.fromhex('7f2303d5'),0xd9200),0x3e778:(bytes.fromhex('7f2303d5'),0xd9240)}
 changes[0x87b8c]=(bytes.fromhex('7f2303d5'),0xd9380)
 changes[0x87dfc]=(bytes.fromhex('843e0114'),0xd93c0)
+changes[0x41a9c]=(bytes.fromhex('7f2303d5'),0xd9440)
 for a,(old,target) in changes.items():
  assert img[a:a+4]==old,(hex(a),img[a:a+4].hex())
  img[a:a+4]=branch(a,target)
@@ -109,7 +110,7 @@ img,orion_image,orion_manifest=prepare(img,(ROOT/'inputs/Orion.arm64e').read_byt
 core=OUT/'Stheno.dylib';core.write_bytes(img)
 orion=OUT/'Orion';orion.write_bytes(orion_image)
 # Compile recovered dispatch source, not the proprietary original project.
-run('xcrun','clang','-target','arm64e-apple-ios16.1','-isysroot',run('xcrun','--sdk','iphoneos','--show-sdk-path').decode().strip(),'-fobjc-arc','-O2','-dynamiclib','Gesture.m','Keyboard.m','LayoutPublisher.m','LayoutBus.m','native.S','-framework','UIKit','-framework','Foundation','-framework','QuartzCore','-framework','CoreGraphics','-install_name','@loader_path/SthenoGesture.dylib','-o',OUT/'SthenoGesture.dylib')
+run('xcrun','clang','-target','arm64e-apple-ios16.1','-isysroot',run('xcrun','--sdk','iphoneos','--show-sdk-path').decode().strip(),'-fobjc-arc','-O2','-dynamiclib','Gesture.m','Keyboard.m','DefaultSize.m','LayoutPublisher.m','LayoutBus.m','native.S','-framework','UIKit','-framework','Foundation','-framework','QuartzCore','-framework','CoreGraphics','-install_name','@loader_path/SthenoGesture.dylib','-o',OUT/'SthenoGesture.dylib')
 # Privately load a scoped application-side inset adapter after the original keyboard hooks.
 ki=next(i for i,(m,b) in enumerate(rows) if m.name.endswith('/SthenoKeyboard.dylib'))
 keyboard_image=bytearray(rows[ki][1]);keyboard_original=bytes(keyboard_image)
@@ -141,7 +142,7 @@ assert hashlib.sha256(license_bytes).hexdigest()=='5afa9b37c934d452ecd7d3c184367
 rows.append((license_entry,license_bytes))
 for i,(m,b) in enumerate(controls):
  if Path(m.name).name=='control':
-  fields={'Name':'stheno','Version':'2.0.6','Description':'stheno','Architecture':'iphoneos-arm64e',
+  fields={'Name':'stheno','Version':'2.0.7','Description':'stheno','Architecture':'iphoneos-arm64e',
           'Installed-Size':str((sum(len(x) for _,x in rows)+1023)//1024)}
   lines=[];skip=False
   for line in b.decode().splitlines():
@@ -158,7 +159,7 @@ for i,(m,b) in enumerate(controls):
     lines.append(f'{field}: {fields[field]}' if field in fields else line)
   controls[i]=(m,('\n'.join(lines)+'\n').encode())
 for n,b in [('debian-binary',b'2.0\n'),('control.tar.xz',tarwrite(controls)),('data.tar.xz',tarwrite(rows))]:(OUT/n).write_bytes(b)
-result=OUT/'stheno_2.0.6_iphoneos-arm64e.deb'
+result=OUT/'stheno_2.0.7_iphoneos-arm64e.deb'
 result.write_bytes(arwrite([(n,(OUT/n).read_bytes()) for n in ('debian-binary','control.tar.xz','data.tar.xz')]))
 verify=tarread(arread(result.read_bytes())['data.tar.xz']);assert len(verify)==len(rows)
 for (a,b),(c,d) in zip(rows,verify):assert a.name==c.name and b==d

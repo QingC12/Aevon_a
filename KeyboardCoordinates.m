@@ -57,9 +57,18 @@ BOOL STHResolveKeyboard(UIWindowScene *scene,UIWindow *keyboard,CGRect raw,BOOL 
  UIWindow *target=STHTargetKeyboardWindow(scene,keyboard);
  if(!target)return NO;
  CGRect mapped=CGRectNull;
- if(STHReadLayout(NSBundle.mainBundle.bundleIdentifier,target.bounds,&mapped,overlap)){
-  lastSource=@"hosted-card-scale-and-origin";
-  if(local)*local=mapped;if(targetOut)*targetOut=target;
+ // The host card represents the complete SCENE, not each popup/content window.
+ // A comment window may be shorter by a header/safe-area strip (45pt in the
+ // supplied log). Map once to the scene, then convert to this specific window.
+ if(STHReadLayout(NSBundle.mainBundle.bundleIdentifier,scene.coordinateSpace.bounds,&mapped,overlap)){
+  lastSource=@"hosted-scene-then-window";
+  CGRect sceneBounds=scene.coordinateSpace.bounds;
+  STHRect frame=STHOcclusionFrame((STHRect){sceneBounds.origin.x,sceneBounds.origin.y,sceneBounds.size.width,sceneBounds.size.height},
+    (STHRect){mapped.origin.x,mapped.origin.y,mapped.size.width,mapped.size.height});
+  CGRect canonical=CGRectMake(frame.x,frame.y,frame.w,frame.h);
+  CGRect converted=[target convertRect:canonical fromCoordinateSpace:scene.coordinateSpace];
+  *overlap=fmin(CGRectGetHeight(target.bounds),fmax(0,CGRectGetMaxY(target.bounds)-CGRectGetMinY(converted)));
+  if(local)*local=converted;if(targetOut)*targetOut=target;
   return YES;
  }
  CGRect r=CGRectNull;
@@ -128,10 +137,18 @@ static NSDictionary *normalizedInfo(NSNotification *note,SEL selector) {
    // Deliver the physical keyboard's app-scene frame, not a screen-height based
    // rectangle. Both direct notification handlers and UIKit see this result.
    CGRect frame=[scene.coordinateSpace convertRect:local fromCoordinateSpace:target];
+   // Custom comment bars often lift by frame.height, whereas UIKit uses top.
+   // Both must describe the SAME bottom occlusion in the complete scene.
+   if([lastSource isEqualToString:@"hosted-scene-then-window"]){
+    CGRect b=scene.coordinateSpace.bounds;
+    STHRect f=STHOcclusionFrame((STHRect){b.origin.x,b.origin.y,b.size.width,b.size.height},
+      (STHRect){frame.origin.x,frame.origin.y,frame.size.width,frame.size.height});
+    frame=CGRectMake(f.x,f.y,f.w,f.h);
+   }
    NSMutableDictionary *updated=[raw mutableCopy];
    updated[UIKeyboardFrameEndUserInfoKey]=[NSValue valueWithCGRect:frame];
    id beginValue=raw[UIKeyboardFrameBeginUserInfoKey];
-   if([lastSource isEqualToString:@"hosted-card-scale-and-origin"]){
+   if([lastSource isEqualToString:@"hosted-scene-then-window"]){
     CGRect begin=frame;
     if(hasNormalizedEnd&&lastNormalizedScene==scene)begin=lastNormalizedEnd;
     else begin.origin.y=CGRectGetMaxY(scene.coordinateSpace.bounds);
@@ -166,8 +183,11 @@ static void refreshHostedLayout(void) {
   if(!STHFloatingKeyboardScope(scene))continue;
   UIWindow *window=STHTargetKeyboardWindow(scene,nil);if(!window)continue;
   CGRect local;double overlap=0;
-  if(!STHReadLayout(NSBundle.mainBundle.bundleIdentifier,window.bounds,&local,&overlap))continue;
-  CGRect end=[scene.coordinateSpace convertRect:local fromCoordinateSpace:window];
+  if(!STHReadLayout(NSBundle.mainBundle.bundleIdentifier,scene.coordinateSpace.bounds,&local,&overlap))continue;
+  CGRect b=scene.coordinateSpace.bounds;
+  STHRect f=STHOcclusionFrame((STHRect){b.origin.x,b.origin.y,b.size.width,b.size.height},
+   (STHRect){local.origin.x,local.origin.y,local.size.width,local.size.height});
+  CGRect end=CGRectMake(f.x,f.y,f.w,f.h);
   if(hasNormalizedEnd&&lastNormalizedScene==scene&&
      fabs(end.origin.y-lastNormalizedEnd.origin.y)<.75&&fabs(end.size.height-lastNormalizedEnd.size.height)<.75&&
      fabs(end.origin.x-lastNormalizedEnd.origin.x)<.75&&fabs(end.size.width-lastNormalizedEnd.size.width)<.75)return;

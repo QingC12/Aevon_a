@@ -14,15 +14,23 @@ static CGRect keyboardFrame;
 static dispatch_source_t layoutTimer;
 static CFTimeInterval lastLog;
 static CGRect previousCard;
+static id keyboardFrameObserver;
+static BOOL usableKeyboard(CGRect r,CGRect screen) {
+ return isfinite(r.origin.x)&&isfinite(r.origin.y)&&isfinite(r.size.width)&&isfinite(r.size.height)&&
+  r.size.width>=screen.size.width*.7&&r.size.height>=60&&r.size.height<screen.size.height*.7&&
+  fabs(CGRectGetMaxY(r)-CGRectGetMaxY(screen))<=10;
+}
 
 static BOOL physicalKeyboardHost(UIView *v,UIScreen *screen,int depth,int *budget,CGRect *best) {
  if(!v||v.hidden||v.alpha<.01||depth>14||--*budget<0)return NO;
  NSString *name=NSStringFromClass(v.class);BOOL found=NO;
- if([name containsString:@"InputSetHost"]||[name containsString:@"RemoteKeyboardPlaceholder"]){
+ if([name containsString:@"InputSetHost"]||[name containsString:@"RemoteKeyboardPlaceholder"]||
+    [name containsString:@"InputSetContainer"]){
   CGRect r=[v convertRect:v.bounds toCoordinateSpace:screen.fixedCoordinateSpace];
   CGRect b=screen.bounds;
-  if(r.size.width>=b.size.width*.7&&r.size.height>=60&&r.size.height<b.size.height*.7&&
-     fabs(CGRectGetMaxY(r)-CGRectGetMaxY(b))<=10){*best=r;found=YES;}
+  if(usableKeyboard(r,b)){
+   *best=CGRectIsNull(*best)?r:CGRectUnion(*best,r);found=YES;
+  }
  }
  for(UIView *child in v.subviews){if(*budget<=0)break;found=physicalKeyboardHost(child,screen,depth+1,budget,best)||found;}
  return found;
@@ -33,7 +41,12 @@ static CGRect currentKeyboard(void) {
  if([cls respondsToSelector:selector]){
   id w=((id(*)(id,SEL,UIScreen *,BOOL))objc_msgSend)(cls,selector,s,NO);
   if([w isKindOfClass:UIWindow.class]){int budget=512;CGRect r=CGRectNull;
-   if(physicalKeyboardHost(w,s,0,&budget,&r))return r;
+   if(physicalKeyboardHost(w,s,0,&budget,&r)){
+    // The native keyboard notification may include a toolbar outside the
+    // keys-only host. Preserve its earlier top instead of dropping that band.
+    if(usableKeyboard(keyboardFrame,s.bounds))r=CGRectUnion(r,keyboardFrame);
+    return r;
+   }
   }
  }
  return keyboardFrame;
@@ -79,6 +92,14 @@ void STHStopLayout(void) {
 
 __attribute__((constructor)) static void layoutPublisherReady(void) {
  dispatch_async(dispatch_get_main_queue(),^{
-  STHWriteLayoutLog(@"stheno 2.0.6 host layout publisher initialized (no text logging)");
+  STHWriteLayoutLog(@"stheno 2.0.7 host layout publisher initialized (no text logging)");
+  keyboardFrameObserver=[NSNotificationCenter.defaultCenter addObserverForName:UIKeyboardWillChangeFrameNotification object:nil queue:NSOperationQueue.mainQueue usingBlock:^(NSNotification *note){
+   if(!observedModel)return;
+   id value=note.userInfo[UIKeyboardFrameEndUserInfoKey];
+   if([value isKindOfClass:NSValue.class]){
+    CGRect r=[value CGRectValue];
+    if(usableKeyboard(r,UIScreen.mainScreen.bounds)){keyboardFrame=r;publishCurrent();}
+   }
+  }];
  });
 }

@@ -26,6 +26,14 @@ static inline bool STHMapHostedKeyboard(STHRect card,STHRect keyboard,STHRect ap
  if(!isfinite(lift))return false;
  *local=out;*overlap=fmin(app.h,lift);return true;
 }
+// Notification consumers may use either endFrame.origin.y OR endFrame.height.
+// Make these equivalent: expose the bottom occlusion, not the full remote keys
+// extending below the floating scene. Non-overlap becomes zero-height offscene.
+static inline STHRect STHOcclusionFrame(STHRect scene,STHRect mapped) {
+ double inset=fmin(scene.h,fmax(0,scene.y+scene.h-mapped.y));
+ if(mapped.x+mapped.w<=scene.x||mapped.x>=scene.x+scene.w)inset=0;
+ return (STHRect){scene.x,scene.y+scene.h-inset,scene.w,inset};
+}
 // Signed 1/8pt rectangle in one notify state: no files, text or credentials.
 static inline bool STHPackRect(STHRect r,uint64_t *out) {
  if(!STHFiniteRect(r))return false;

@@ -241,3 +241,13 @@ begin STHNativeRefreshGeometry
  mov x20,x0
  target 0x9c67c
  finish
+
+begin STHNativePresent
+ mov x20,x0
+ target 0xd9480
+ finish
+begin STHNativeInitialSize
+ mov x20,x0
+ bl LresetSize
+ target 0x9c67c
+ finish

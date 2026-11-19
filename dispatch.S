@@ -107,3 +107,15 @@ _orig_keyboard_show:
 .org 0x410
 _orig_keyboard_hide:
  b _original_keyboard_hide_target
+
+// Every newly presented model starts with the same defaults as bottom-right reset.
+.org 0x440
+_present:
+ mov x0,x20
+ adr x16,Lpresent
+ b _resolve
+Lpresent: .asciz "STHFirstPresentation"
+.org 0x480
+_orig_present:
+ pacibsp
+ b _original_present_plus4

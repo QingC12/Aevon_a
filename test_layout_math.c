@@ -20,6 +20,19 @@ int main(void){
  test((STHRect){40,300,320,640},keyboard,app,487.5);
  test((STHRect){0,-100,400,800},keyboard,app,150);
  test((STHRect){0,100,400,800},(STHRect){500,550,400,300},app,0);
+ // Device log: Aweme full-width card y=86.1667 height731, keyboard top590.
+ // Full remote keyboard height342 is NOT the occlusion227.1667.
+ STHRect scene={0,0,430,731},mapped;double inset=0;
+ assert(STHMapHostedKeyboard((STHRect){0,86.1666667,430,731},(STHRect){0,590,430,342},scene,&mapped,&inset));
+ STHRect notice=STHOcclusionFrame(scene,mapped);
+ assert(fabs(inset-227.1666667)<.001&&fabs(notice.h-inset)<.001);
+ assert(fabs((scene.y+scene.h-notice.y)-notice.h)<.001);
+ assert(fabs(notice.y+86.1666667-590)<.001);
+ // Including the notified toolbar moves the input bottom up by27 physical pt,
+ // not a blanket app-specific offset.
+ assert(STHMapHostedKeyboard((STHRect){0,86.1666667,430,731},(STHRect){0,563,430,369},scene,&mapped,&inset));
+ notice=STHOcclusionFrame(scene,mapped);assert(fabs(notice.h-254.1666667)<.001);
+ notice=STHOcclusionFrame(scene,(STHRect){0,900,430,342});assert(notice.h==0&&notice.y==731);
  STHRect result;double overlap;
  assert(!STHMapHostedKeyboard((STHRect){0,0,0,100},keyboard,app,&result,&overlap));
  uint64_t packed=0;STHRect card={-150.125,220.5,390,844};assert(STHPackRect(card,&packed));
