@@ -1,0 +1,90 @@
+from pathlib import Path
+import hashlib,struct,subprocess,json,sys,tarfile,io,shutil,copy,os
+ROOT=Path(__file__).resolve().parent
+os.chdir(ROOT)
+OUT=ROOT/'build';OUT.mkdir(exist_ok=True)
+def run(*args,**kw): return subprocess.check_output([str(x) for x in args],**kw)
+def sections(b):
+ n=struct.unpack_from('<I',b,16)[0];p=32;secs={};cmds=[]
+ for _ in range(n):
+  cmd,size=struct.unpack_from('<II',b,p);cmds.append((cmd,p,size))
+  if cmd==0x19:
+   count=struct.unpack_from('<I',b,p+64)[0]
+   for j in range(count):
+    q=p+72+80*j;name=b[q:q+16].split(b'\0')[0].decode();a,s,o=struct.unpack_from('<QQI',b,q+32);secs[name]=(a,s,o)
+  p+=size
+ return secs,cmds
+def branch(a,b):
+ d=b-a;assert d%4==0 and -(1<<27)<=d<(1<<27)
+ return struct.pack('<I',0x14000000|((d//4)&0x3ffffff))
+def tarread(raw):
+ with tarfile.open(fileobj=io.BytesIO(raw)) as t:
+  return [(x,t.extractfile(x).read() if x.isfile() else b'') for x in t]
+def tarwrite(rows):
+ buf=io.BytesIO()
+ with tarfile.open(fileobj=buf,mode='w:xz',format=tarfile.GNU_FORMAT) as t:
+  for m,data in rows:
+   m=copy.copy(m);m.size=len(data);t.addfile(m,io.BytesIO(data) if m.isfile() else None)
+ return buf.getvalue()
+base=ROOT/'inputs/base.deb'
+assert hashlib.sha256(base.read_bytes()).hexdigest()=='67937ea54f1a79d43bb48242c436e0c78b0177ef79d251e4c21465286ee1dace'
+rows=tarread(run('ar','p',base,'data.tar.xz'));controls=tarread(run('ar','p',base,'control.tar.xz'))
+mi=next(i for i,(m,b) in enumerate(rows) if m.name.endswith('/Stheno.dylib'));img=bytearray(rows[mi][1])
+assert hashlib.sha256(img).hexdigest()=='d5612f269f5a63347d8187fd25f75a0dca45c1608bdf38986112a5bb770fb9e7'
+secs,cmds=sections(img)
+assert img[0xd9000:0xdc000]==bytes(0x3000)
+# Assemble and link a position-fixed, self-contained dispatcher into existing executable padding.
+run('xcrun','clang','-target','arm64e-apple-ios16.1','-c','dispatch.S','-o',OUT/'dispatch.o')
+link=['xcrun','ld','-arch','arm64e','-dylib','-platform_version','ios','16.1','17.0','-no_fixup_chains','-no_adhoc_codesign','-segaddr','__TEXT','0xd5000','-o',OUT/'dispatch.dylib',OUT/'dispatch.o']
+for name,value in {'_dlsym':0xb03bc,'_original_setup_plus4':0x4994c,'_original_update_plus4':0x4ad48,'_original_end_plus4':0x4c368,'_original_long_plus4':0x3e420,'_original_tap_plus4':0x3e77c}.items():
+ link+=['-alias',f'{name}_unused',f'{name}_unused'] if False else ['-defsym',f'{name}={hex(value)}']
+# Apple's ld has no --defsym. Use an absolute-symbol object instead.
+absolute='\n'.join(f'.globl {k}\n{k} = {hex(v)}' for k,v in {'_dlsym':0xb03bc,'_original_setup_plus4':0x4994c,'_original_update_plus4':0x4ad48,'_original_end_plus4':0x4c368,'_original_long_plus4':0x3e420,'_original_tap_plus4':0x3e77c}.items())+'\n'
+(OUT/'absolute.S').write_text(absolute)
+run('xcrun','clang','-target','arm64e-apple-ios16.1','-c',OUT/'absolute.S','-o',OUT/'absolute.o')
+link=link[:link.index('-defsym')]+[OUT/'absolute.o']
+run(*link)
+temp=(OUT/'dispatch.dylib').read_bytes();sec,_=sections(temp);address,size,offset=sec['__text']
+assert address==0xd9000,hex(address)
+assert size<0x1000
+img[address:address+size]=temp[offset:offset+size]
+# Entry hooks are all PAC prologues, except the known classifier tail branch.
+changes={0x3dff0:(bytes.fromhex('64660214'),0xd9100),0x49948:(bytes.fromhex('7f2303d5'),0xd9140),0x4ad44:(bytes.fromhex('7f2303d5'),0xd9180),0x4c364:(bytes.fromhex('7f2303d5'),0xd91c0),0x3e41c:(bytes.fromhex('7f2303d5'),0xd9200),0x3e778:(bytes.fromhex('7f2303d5'),0xd9240)}
+for a,(old,target) in changes.items():
+ assert img[a:a+4]==old,(hex(a),img[a:a+4].hex())
+ img[a:a+4]=branch(a,target)
+# Quarter-second hold and a single-click recognizer; custom dispatch controls applicable zones.
+assert img[0x9b54:0x9b58]==bytes.fromhex('00106c1e')
+(OUT/'constants.S').write_text('.text\nfmov d0, #0.25\nmov x0,#1\n')
+run('xcrun','clang','-target','arm64e-apple-ios16.1','-c',OUT/'constants.S','-o',OUT/'constants.o')
+ob=(OUT/'constants.o').read_bytes();sc,_=sections(ob);_,sz,off=sc['__text'];code=ob[off:off+sz]
+img[0x9b54:0x9b58]=code[:4]
+assert img[0x9c4c:0x9c50]==bytes.fromhex('0015889a');img[0x9c4c:0x9c50]=code[4:8]
+# Always visit the end bridge so it can clear active-touch state even after a hold.
+assert struct.unpack_from('<I',img,0xaa18)[0]&0x7e000000==0x36000000
+img[0xaa18:0xaa1c]=bytes.fromhex('1f2003d5')
+# Dependency loads before any of the patched entry points.
+name=b'@loader_path/SthenoGesture.dylib\0';sz=(24+len(name)+7)&~7
+lc=struct.pack('<6I',0xc,sz,24,2,0x10000,0x10000)+name;lc+=bytes(sz-len(lc))
+n,nbytes=struct.unpack_from('<II',img,16);at=32+nbytes
+assert at+sz<0x4000 and img[at:at+sz]==bytes(sz)
+img[at:at+sz]=lc;struct.pack_into('<II',img,16,n+1,nbytes+sz)
+core=OUT/'Stheno.dylib';core.write_bytes(img)
+# Compile recovered dispatch source, not the proprietary original project.
+run('xcrun','clang','-target','arm64e-apple-ios16.1','-isysroot',run('xcrun','--sdk','iphoneos','--show-sdk-path').decode().strip(),'-fobjc-arc','-O2','-dynamiclib','Gesture.m','native.S','-framework','UIKit','-framework','Foundation','-framework','QuartzCore','-install_name','@loader_path/SthenoGesture.dylib','-o',OUT/'SthenoGesture.dylib')
+for p in [core,OUT/'SthenoGesture.dylib']:
+ run('codesign','--force','--sign','-','--timestamp=none',p,stderr=subprocess.STDOUT)
+ run('codesign','--verify','--strict',p,stderr=subprocess.STDOUT)
+ rows[mi]=(rows[mi][0],core.read_bytes())
+helper=copy.copy(rows[mi][0]);helper.name='./Library/MobileSubstrate/DynamicLibraries/SthenoGesture.dylib';rows.append((helper,(OUT/'SthenoGesture.dylib').read_bytes()))
+for i,(m,b) in enumerate(controls):
+ if Path(m.name).name=='control':
+  lines=b.decode().splitlines();lines=[('Version: 0.1.12-3~backgroundreuse1+memoryopt1+fix1+arm64e2.gesture1' if l.startswith('Version:') else 'Architecture: iphoneos-arm64e' if l.startswith('Architecture:') else 'Installed-Size: '+str((sum(len(x) for _,x in rows)+1023)//1024) if l.startswith('Installed-Size:') else l) for l in lines]
+  controls[i]=(m,('\n'.join(lines)+'\n').encode())
+for n,b in [('debian-binary',b'2.0\n'),('control.tar.xz',tarwrite(controls)),('data.tar.xz',tarwrite(rows))]:(OUT/n).write_bytes(b)
+result=OUT/'Stheno-arm64e-RootHide-Gestures-test.deb'
+run('ar','rc',result,'debian-binary','control.tar.xz','data.tar.xz',cwd=OUT)
+verify=tarread(run('ar','p',result,'data.tar.xz'));assert len(verify)==len(rows)
+for (a,b),(c,d) in zip(rows,verify):assert a.name==c.name and b==d
+manifest={'artifact':result.name,'sha256':hashlib.sha256(result.read_bytes()).hexdigest(),'size':result.stat().st_size,'patch_entries':{hex(a):hex(t) for a,(_,t) in changes.items()},'device_tested':False}
+(OUT/'build-manifest.json').write_text(json.dumps(manifest,indent=2));print(json.dumps(manifest))
