@@ -11,6 +11,10 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+      - name: Test yellow-zone gesture transitions
+        run: |
+          xcrun --sdk macosx clang -std=c11 -Wall -Wextra -Werror test_gesture_rules.c -o /tmp/stheno-gesture-rules
+          /tmp/stheno-gesture-rules
       - name: Build and verify arm64e binaries and Debian archive
         run: python3 build.py
       - uses: actions/upload-artifact@v4
