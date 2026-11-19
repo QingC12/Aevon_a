@@ -6,3 +6,4 @@ BOOL STHReadLayout(NSString *bundle,CGRect appBounds,CGRect *local,double *overl
 void STHObserveLayout(NSString *bundle,dispatch_block_t block);
 void STHReportLayout(NSString *bundle,double overlap,BOOL applied);
 void STHWriteLayoutLog(NSString *line);
+void STHReportNotificationFrame(NSString *bundle,CGRect scene,CGRect frame);

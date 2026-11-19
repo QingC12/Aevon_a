@@ -8,6 +8,8 @@
 @property int keyboard;
 @property int commit;
 @property int ack;
+@property int appScene;
+@property int appFrame;
 @property int observed;
 @property BOOL valid;
 @property BOOL ackObserved;
@@ -31,6 +33,10 @@ static STHLayoutTokens *getTokens(NSString *bundle) {
  uint32_t c=notify_register_check(channel(bundle,@"commit").UTF8String,&commit);
  uint32_t d=notify_register_check(channel(bundle,@"ack").UTF8String,&ack);
  t.card=card;t.keyboard=keyboard;t.commit=commit;t.ack=ack;
+ int scene=-1,frame=-1;
+ notify_register_check(channel(bundle,@"appScene").UTF8String,&scene);
+ notify_register_check(channel(bundle,@"appFrame").UTF8String,&frame);
+ t.appScene=scene;t.appFrame=frame;
  t.valid=a==0&&b==0&&c==0&&d==0;
  tokens[bundle]=t;return t;
 }
@@ -73,8 +79,11 @@ BOOL STHPublishLayout(NSString *bundle,CGRect card,CGRect keyboard,BOOL active) 
  if(!t.ackObserved){
   t.ackObserved=YES;int observe=-1;
   notify_register_dispatch(channel(bundle,@"applied").UTF8String,&observe,dispatch_get_main_queue(),^(int n){
-   uint64_t ack=0;if(notify_get_state(t.ack,&ack)==0)
-    STHWriteLayoutLog([NSString stringWithFormat:@"app-ack bundle=%@ overlap=%.3f applied=%d",bundle,(ack&0xffffffffULL)/8.0,(int)(ack>>63)]);
+   uint64_t ack=0,scene=0,frame=0;
+   notify_get_state(t.appScene,&scene);notify_get_state(t.appFrame,&frame);
+   STHRect s=STHUnpackRect(scene),f=STHUnpackRect(frame);
+   if(notify_get_state(t.ack,&ack)==0)
+    STHWriteLayoutLog([NSString stringWithFormat:@"app-ack bundle=%@ overlap=%.3f applied=%d scene={%.3f,%.3f,%.3f,%.3f} notice={%.3f,%.3f,%.3f,%.3f}",bundle,(ack&0xffffffffULL)/8.0,(int)(ack>>63),s.x,s.y,s.w,s.h,f.x,f.y,f.w,f.h]);
   });
  }
  return YES;
@@ -102,4 +111,11 @@ void STHReportLayout(NSString *bundle,double overlap,BOOL applied) {
  STHLayoutTokens *t=getTokens(bundle);if(!t.valid||!isfinite(overlap)||overlap<0)return;
  uint64_t ack=((uint64_t)llround(overlap*8)&0xffffffffULL)|(applied?(1ULL<<63):0);
  if(notify_set_state(t.ack,ack)==0)notify_post(channel(bundle,@"applied").UTF8String);
+}
+
+void STHReportNotificationFrame(NSString *bundle,CGRect scene,CGRect frame) {
+ STHLayoutTokens *t=getTokens(bundle);if(!t.valid)return;
+ uint64_t a=0,b=0;
+ if(STHPackRect((STHRect){scene.origin.x,scene.origin.y,scene.size.width,scene.size.height},&a))notify_set_state(t.appScene,a);
+ if(STHPackRect((STHRect){frame.origin.x,frame.origin.y,frame.size.width,frame.size.height},&b))notify_set_state(t.appFrame,b);
 }

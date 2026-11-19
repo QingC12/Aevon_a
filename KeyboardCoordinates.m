@@ -166,6 +166,7 @@ static NSDictionary *normalizedInfo(NSNotification *note,SEL selector) {
    // Avoid mixing corrected end frame with stale legacy keyboard bounds.
    if(updated[@"UIKeyboardBoundsUserInfoKey"])
     updated[@"UIKeyboardBoundsUserInfoKey"]=[NSValue valueWithCGRect:CGRectMake(0,0,frame.size.width,frame.size.height)];
+   STHReportNotificationFrame(NSBundle.mainBundle.bundleIdentifier,scene.coordinateSpace.bounds,frame);
    lastNormalizedScene=scene;lastNormalizedEnd=frame;hasNormalizedEnd=YES;
    result=[updated copy];objc_setAssociatedObject(note,&cacheKey,result,OBJC_ASSOCIATION_RETAIN_NONATOMIC);
    latestScreenFrame=incoming;latestAt=CACurrentMediaTime();
