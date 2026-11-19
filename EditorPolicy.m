@@ -1,5 +1,8 @@
 #import <Foundation/Foundation.h>
 #import "EditorProfiles.h"
+#import "EditorCompositeProfiles.h"
+extern void STHEditorVisibilityCompositeEvent(BOOL);
+BOOL STHCompositeEnabled(void){return STHCompositeProfile(NSBundle.mainBundle.bundleIdentifier.UTF8String)>0;}
 extern void STHEditorVisibilityLegacyEvent(BOOL);
 extern void STHEditorVisibilityRefinedEvent(BOOL);
 BOOL STHRefinementEnabled(void){
@@ -10,6 +13,7 @@ BOOL STHRefinementEnabled(void){
  });return enabled;
 }
 void STHEditorVisibilityEvent(BOOL showing){
- if(STHRefinementEnabled())STHEditorVisibilityRefinedEvent(showing);
+ if(STHCompositeEnabled())STHEditorVisibilityCompositeEvent(showing);
+ else if(STHRefinementEnabled())STHEditorVisibilityRefinedEvent(showing);
  else STHEditorVisibilityLegacyEvent(showing);
 }

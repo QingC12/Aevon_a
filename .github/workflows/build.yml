@@ -36,6 +36,13 @@ jobs:
           python3 test_editor_refined_contract.py
           xcrun --sdk macosx clang -std=c11 -Wall -Wextra -Werror test_editor_refinement.c -o /tmp/stheno-editor-refinement
           /tmp/stheno-editor-refinement
+      - name: Test complete composer ownership and preserve normal WeChat route
+        run: |
+          python3 test_editor_composite_contract.py
+          xcrun --sdk macosx clang -std=c11 -Wall -Wextra -Werror test_editor_composite.c -o /tmp/stheno-editor-composite
+          /tmp/stheno-editor-composite
+          xcrun --sdk macosx clang -fobjc-arc -Wall -Wextra -Wno-unused-parameter test_composite_layout.m -framework Foundation -framework CoreGraphics -o /tmp/stheno-composite-layout
+          /tmp/stheno-composite-layout
       - name: Test scene-only keyboard contract and session cache
         run: |
           python3 test_keyboard_contract.py

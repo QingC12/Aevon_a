@@ -110,7 +110,7 @@ img,orion_image,orion_manifest=prepare(img,(ROOT/'inputs/Orion.arm64e').read_byt
 core=OUT/'Stheno.dylib';core.write_bytes(img)
 orion=OUT/'Orion';orion.write_bytes(orion_image)
 # Compile recovered dispatch source, not the proprietary original project.
-run('xcrun','clang','-target','arm64e-apple-ios16.1','-isysroot',run('xcrun','--sdk','iphoneos','--show-sdk-path').decode().strip(),'-fobjc-arc','-O2','-dynamiclib','Gesture.m','Keyboard.m','DefaultSize.m','LayoutPublisher.m','LayoutBus.m','native.S','-framework','UIKit','-framework','Foundation','-framework','QuartzCore','-framework','CoreGraphics','-install_name','@loader_path/SthenoGesture.dylib','-o',OUT/'SthenoGesture.dylib')
+run('xcrun','clang','-target','arm64e-apple-ios16.1','-isysroot',run('xcrun','--sdk','iphoneos','--show-sdk-path').decode().strip(),'-fobjc-arc','-O2','-dynamiclib','Gesture.m','Keyboard.m','DefaultSize.m','LayoutPublisher.m','NotificationPolicy.m','LayoutBus.m','native.S','-framework','UIKit','-framework','Foundation','-framework','QuartzCore','-framework','CoreGraphics','-install_name','@loader_path/SthenoGesture.dylib','-o',OUT/'SthenoGesture.dylib')
 # Privately load a scoped application-side inset adapter after the original keyboard hooks.
 ki=next(i for i,(m,b) in enumerate(rows) if m.name.endswith('/SthenoKeyboard.dylib'))
 keyboard_image=bytearray(rows[ki][1]);keyboard_original=bytes(keyboard_image)
@@ -124,7 +124,7 @@ keyboard_image[start:start+size]=command
 struct.pack_into('<II',keyboard_image,16,count+1,command_size+size)
 assert keyboard_image[0x4000:]==keyboard_original[0x4000:]
 keyboard_binary=OUT/'SthenoKeyboard.dylib';keyboard_binary.write_bytes(keyboard_image)
-run('xcrun','clang','-target','arm64e-apple-ios16.1','-isysroot',run('xcrun','--sdk','iphoneos','--show-sdk-path').decode().strip(),'-fobjc-arc','-O2','-dynamiclib','KeyboardInset.m','KeyboardCoordinates.m','EditorGuard.m','EditorPolicy.m','EditorRefinedGuard.m','KeyboardMeasurement.m','KeyboardRefinedMeasurement.m','LayoutBus.m','-framework','UIKit','-framework','Foundation','-framework','CoreGraphics','-framework','QuartzCore','-install_name','@loader_path/SthenoKeyboardInset.dylib','-o',OUT/'SthenoKeyboardInset.dylib')
+run('xcrun','clang','-target','arm64e-apple-ios16.1','-isysroot',run('xcrun','--sdk','iphoneos','--show-sdk-path').decode().strip(),'-fobjc-arc','-O2','-dynamiclib','KeyboardInset.m','KeyboardCoordinates.m','EditorGuard.m','EditorPolicy.m','EditorRefinedGuard.m','EditorCompositeGuard.m','KeyboardMeasurement.m','KeyboardRefinedMeasurement.m','KeyboardCompositeMeasurement.m','LayoutBus.m','-framework','UIKit','-framework','Foundation','-framework','CoreGraphics','-framework','QuartzCore','-install_name','@loader_path/SthenoKeyboardInset.dylib','-o',OUT/'SthenoKeyboardInset.dylib')
 for p in [core,OUT/'SthenoGesture.dylib',orion,keyboard_binary,OUT/'SthenoKeyboardInset.dylib']:
  run('codesign','--force','--sign','-','--timestamp=none',p,stderr=subprocess.STDOUT)
  run('codesign','--verify','--strict',p,stderr=subprocess.STDOUT)
@@ -142,7 +142,7 @@ assert hashlib.sha256(license_bytes).hexdigest()=='5afa9b37c934d452ecd7d3c184367
 rows.append((license_entry,license_bytes))
 for i,(m,b) in enumerate(controls):
  if Path(m.name).name=='control':
-  fields={'Name':'stheno','Version':'2.0.12','Description':'stheno','Architecture':'iphoneos-arm64e',
+  fields={'Name':'stheno','Version':'2.0.13','Description':'stheno','Architecture':'iphoneos-arm64e',
           'Installed-Size':str((sum(len(x) for _,x in rows)+1023)//1024)}
   lines=[];skip=False
   for line in b.decode().splitlines():
@@ -159,7 +159,7 @@ for i,(m,b) in enumerate(controls):
     lines.append(f'{field}: {fields[field]}' if field in fields else line)
   controls[i]=(m,('\n'.join(lines)+'\n').encode())
 for n,b in [('debian-binary',b'2.0\n'),('control.tar.xz',tarwrite(controls)),('data.tar.xz',tarwrite(rows))]:(OUT/n).write_bytes(b)
-result=OUT/'stheno_2.0.12_iphoneos-arm64e.deb'
+result=OUT/'stheno_2.0.13_iphoneos-arm64e.deb'
 result.write_bytes(arwrite([(n,(OUT/n).read_bytes()) for n in ('debian-binary','control.tar.xz','data.tar.xz')]))
 verify=tarread(arread(result.read_bytes())['data.tar.xz']);assert len(verify)==len(rows)
 for (a,b),(c,d) in zip(rows,verify):assert a.name==c.name and b==d

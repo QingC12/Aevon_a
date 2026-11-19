@@ -293,6 +293,7 @@ void STHEditorVisibilityRefinedEvent(BOOL showing){
 static id focusFieldObserver,focusTextObserver;
 __attribute__((constructor)) static void editorGuardReady(void){
  extern BOOL STHRefinementEnabled(void);if(!STHRefinementEnabled())return;
+ extern BOOL STHCompositeEnabled(void);if(STHCompositeEnabled())return;
  dispatch_async(dispatch_get_main_queue(),^{
   void(^focus)(NSNotification *)=^(NSNotification *note){
    if(STHLayoutStatus(NSBundle.mainBundle.bundleIdentifier)>0)STHEditorVisibilityRefinedEvent(YES);

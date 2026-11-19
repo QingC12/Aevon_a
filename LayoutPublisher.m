@@ -147,7 +147,7 @@ void STHStopLayout(void){
  keyboardFrameAt=0;lastHeartbeat=0;source=nil;
 }
 __attribute__((constructor)) static void ready(void){dispatch_async(dispatch_get_main_queue(),^{
- STHWriteLayoutLog(@"stheno 2.0.11 publisher: session-local initial geometry and editor diagnostics");
+ STHWriteLayoutLog(@"stheno 2.0.13 publisher: keyboard geometry unchanged; notification policy diagnostic only");
  void(^update)(NSNotification *)=^(NSNotification *n){
   if(!observedModel||applying)return;
   id v=n.userInfo[UIKeyboardFrameEndUserInfoKey];if(![v isKindOfClass:NSValue.class])return;
