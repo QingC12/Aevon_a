@@ -106,10 +106,18 @@ for p in [core,OUT/'SthenoGesture.dylib']:
 helper=copy.copy(rows[mi][0]);helper.name='./Library/MobileSubstrate/DynamicLibraries/SthenoGesture.dylib';rows.append((helper,(OUT/'SthenoGesture.dylib').read_bytes()))
 for i,(m,b) in enumerate(controls):
  if Path(m.name).name=='control':
-  lines=b.decode().splitlines();lines=[('Version: 0.1.12-3~backgroundreuse1+memoryopt1+fix1+arm64e2.gesture1' if l.startswith('Version:') else 'Architecture: iphoneos-arm64e' if l.startswith('Architecture:') else 'Installed-Size: '+str((sum(len(x) for _,x in rows)+1023)//1024) if l.startswith('Installed-Size:') else l) for l in lines]
+  fields={'Name':'stheno','Version':'2.0.1','Description':'stheno','Architecture':'iphoneos-arm64e',
+          'Installed-Size':str((sum(len(x) for _,x in rows)+1023)//1024)}
+  lines=[];skip=False
+  for line in b.decode().splitlines():
+   if line.startswith((' ','\t')):
+    if not skip:lines.append(line)
+    continue
+   field=line.partition(':')[0];skip=field=='Description'
+   lines.append(f'{field}: {fields[field]}' if field in fields else line)
   controls[i]=(m,('\n'.join(lines)+'\n').encode())
 for n,b in [('debian-binary',b'2.0\n'),('control.tar.xz',tarwrite(controls)),('data.tar.xz',tarwrite(rows))]:(OUT/n).write_bytes(b)
-result=OUT/'Stheno-arm64e-RootHide-Gestures-test.deb'
+result=OUT/'stheno_2.0.1_iphoneos-arm64e.deb'
 result.write_bytes(arwrite([(n,(OUT/n).read_bytes()) for n in ('debian-binary','control.tar.xz','data.tar.xz')]))
 verify=tarread(arread(result.read_bytes())['data.tar.xz']);assert len(verify)==len(rows)
 for (a,b),(c,d) in zip(rows,verify):assert a.name==c.name and b==d

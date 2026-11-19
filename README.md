@@ -7,9 +7,10 @@ This private project reconstructs the requested portrait-gesture dispatch from t
 - Existing hit-region geometry and width calculations remain in the original image.
 - Red sides: one tap invokes native dock/minimize; .25s stationary hold arms native window movement.
 - Green bottom corners: reuse native corner scaling.
-- Blue bottom-left: .25s hold requests landscape (native orientation 3).
-- Blue bottom-right: .25s hold restores the model initializer's four scale values (.8,1,1,.8) and clears native aspect trim; position and other settings are kept.
-- Yellow bottom-center: native window movement without hold.
+- Blue bottom-left: hold for .25s to switch from portrait to landscape. In landscape, hold the middle of either original side edge or the lower-left blue segment for .25s to return to portrait.
+- Blue bottom-right: hold for .25s to restore the model initializer's four scale values (.8,1,1,.8) and clear native aspect trim.
+- Yellow bottom-center: drag to move the window. An upward flick that matches the original Stheno threshold closes the window on release.
+- Sileo package name is `stheno` and the version is `2.0.1`. The Debian control file retains only `stheno` as its short description.
 - Assumed subdivisions within the existing bottom band, left to right: green 0–15%, blue 15–35%, yellow 35–65%, blue 65–85%, green 85–100%. These are inferred from the user's drawing, not measured device pixels.
 - The original four-edge interaction switch and existing exclusion checks still apply. They are not silently enabled and no hit-zone width is expanded.
 

@@ -76,12 +76,55 @@ _STHNativeReset:
 begin STHNativeDock
  target 0x447d4
  finish
+begin STHNativeCloseFlick
+ mov x20, x0
+ target 0x507bc
+ finish
+
+// ReflectManager's orientation getter, using the same key paths as native long press.
+.globl _STHNativeOrientation
+_STHNativeOrientation:
+ pacibsp
+ sub sp, sp, #64
+ stp x29, x30, [sp, #48]
+ add x29, sp, #48
+ stp x19, x20, [sp, #16]
+ stp x21, x22, [sp, #32]
+ mov x20, x0
+ adrp x22, _sth_core_base@PAGE
+ ldr x22, [x22, _sth_core_base@PAGEOFF]
+ add x0, x22, #0xb6, lsl #12
+ add x0, x0, #0x808
+ target 0xb091c
+ mov x19, x0
+ add x0, x22, #0xb6, lsl #12
+ add x0, x0, #0x830
+ target 0xb091c
+ mov x21, x0
+ mov x8, sp
+ mov x0, x20
+ mov x1, x19
+ mov x2, x21
+ target 0xaeecc
+ mov x0, x19
+ target 0xb0a0c
+ mov x0, x21
+ target 0xb0a0c
+ ldr x0, [sp]
+ ldp x19, x20, [sp, #16]
+ ldp x21, x22, [sp, #32]
+ ldp x29, x30, [sp, #48]
+ add sp, sp, #64
+ retab
+
 begin STHNativeRotate
  mov x20, x0
- mov x0, #3
+ mov x0, x1
  mov x1, #1
+ // The native window animation takes the same orientation as the scene update.
+ stp x0, xzr, [sp, #-16]!
  target 0x42b94
- mov x0, #3
+ ldp x0, xzr, [sp], #16
  mov x1, x20
  target 0x45740
  finish
