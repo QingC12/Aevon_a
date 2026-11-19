@@ -7,7 +7,7 @@
 static __weak UIView *composer;
 static CGAffineTransform originalTransform,appliedTransform;
 static double appliedSceneY;
-static CADisplayLink *link;
+static CADisplayLink *editorDisplayLink;
 static CFTimeInterval deadline,lastLog;
 static BOOL active,haveTransform;
 static NSMapTable<UIView *,NSValue *> *rowOriginals,*rowApplied;
@@ -56,7 +56,7 @@ static CGRect assemblyFrame(UIView *root,id<UICoordinateSpace> scene){
 @end
 @implementation STHEditorGuard
 +(void)tick:(CADisplayLink *)sender {
- if(!active||CACurrentMediaTime()>deadline){[link invalidate];link=nil;return;}
+ if(!active||CACurrentMediaTime()>deadline){[editorDisplayLink invalidate];editorDisplayLink=nil;return;}
  for(UIScene *s in UIApplication.sharedApplication.connectedScenes){
   if(![s isKindOfClass:UIWindowScene.class])continue;UIWindowScene *scene=(UIWindowScene *)s;
   if(STHLayoutStatus(NSBundle.mainBundle.bundleIdentifier)!=1)continue;
@@ -110,8 +110,8 @@ static CGRect assemblyFrame(UIView *root,id<UICoordinateSpace> scene){
 @end
 void STHEditorVisibilityEvent(BOOL showing){
  if(![NSThread isMainThread])return;
- if(!showing){active=NO;[link invalidate];link=nil;restore();return;}
+ if(!showing){active=NO;[editorDisplayLink invalidate];editorDisplayLink=nil;restore();return;}
  active=YES;deadline=CACurrentMediaTime()+1.2;
- if(!link){link=[CADisplayLink displayLinkWithTarget:STHEditorGuard.class selector:@selector(tick:)];
-  link.preferredFramesPerSecond=30;[link addToRunLoop:NSRunLoop.mainRunLoop forMode:NSRunLoopCommonModes];}
+ if(!editorDisplayLink){editorDisplayLink=[CADisplayLink displayLinkWithTarget:STHEditorGuard.class selector:@selector(tick:)];
+  editorDisplayLink.preferredFramesPerSecond=30;[editorDisplayLink addToRunLoop:NSRunLoop.mainRunLoop forMode:NSRunLoopCommonModes];}
 }
