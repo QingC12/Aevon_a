@@ -113,7 +113,9 @@ static NSDictionary *normalizedInfo(NSNotification *note,SEL selector) {
    UIWindowScene *scene=(UIWindowScene *)s;
    if(!STHFloatingKeyboardScope(scene))continue;
    CGRect local=CGRectNull;double overlap=0;UIWindow *target=nil;
-   if(!STHResolveKeyboard(scene,nil,incoming,NO,&local,&overlap,&target))continue;
+   if(!STHResolveKeyboard(scene,nil,incoming,NO,&local,&overlap,&target)){
+    lastSource=@"fallback-unresolved";recordLayout(scene,incoming,CGRectNull,-1);continue;
+   }
    // Deliver the physical keyboard's app-scene frame, not a screen-height based
    // rectangle. Both direct notification handlers and UIKit see this result.
    CGRect frame=[scene.coordinateSpace convertRect:local fromCoordinateSpace:target];
