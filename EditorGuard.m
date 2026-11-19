@@ -173,7 +173,7 @@ static void report(int stage,CGRect r,double top,double lift,unsigned rows){
  report(changed?5:4,measured,keys.origin.y,lift,(unsigned)views.count-1);
 }
 @end
-void STHEditorVisibilityEvent(BOOL showing){
+void STHEditorVisibilityLegacyEvent(BOOL showing){
  if(![NSThread isMainThread])return;
  if(!showing){active=NO;haveMeasured=NO;measuredScene=nil;[display invalidate];display=nil;restoreAll();report(6,CGRectZero,0,0,0);return;}
  if(!active){active=YES;lastTick=0;report(1,CGRectZero,0,0,0);}
@@ -183,9 +183,10 @@ void STHEditorVisibilityEvent(BOOL showing){
 }
 static id focusFieldObserver,focusTextObserver;
 __attribute__((constructor)) static void editorGuardReady(void){
+ extern BOOL STHRefinementEnabled(void);if(STHRefinementEnabled())return;
  dispatch_async(dispatch_get_main_queue(),^{
   void(^focus)(NSNotification *)=^(NSNotification *note){
-   if(STHLayoutStatus(NSBundle.mainBundle.bundleIdentifier)>0)STHEditorVisibilityEvent(YES);
+   if(STHLayoutStatus(NSBundle.mainBundle.bundleIdentifier)>0)STHEditorVisibilityLegacyEvent(YES);
   };
   focusFieldObserver=[NSNotificationCenter.defaultCenter addObserverForName:UITextFieldTextDidBeginEditingNotification object:nil queue:NSOperationQueue.mainQueue usingBlock:focus];
   focusTextObserver=[NSNotificationCenter.defaultCenter addObserverForName:UITextViewTextDidBeginEditingNotification object:nil queue:NSOperationQueue.mainQueue usingBlock:focus];

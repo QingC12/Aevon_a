@@ -2,6 +2,20 @@
 
 This private project reconstructs the requested portrait-gesture dispatch from the supplied Stheno binary. It is a replacement gesture module with ABI bridges, **not a recovery of the original full Swift source tree**.
 
+## 2.0.12 focused refinements
+
+The user reports QQ/Minis are now aligned; those bundles and all non-selected bundles keep the2.0.11 algorithm through an isolated compatibility route. A hash check reconstructs the previous `EditorGuard.m` except entry naming/route guard and verifies its exact2.0.11 hash; the original `KeyboardMeasurement.m` is unchanged. Only WeChat, Coolapk, Douyin and WeiFeng use the refinement module. App profiles select measurement policy, not fixed per-app pixel offsets.
+
+The new log shows a305pt WeChat container repeatedly displaced by253.5/270.5pt and later returning a much lower frame. The refined selector picks the FIRST compact editor ancestor, not the largest eligible ancestor. Corrections use current visible residual and the contributing bottom view's existing shift, rather than unbounded baseline accumulation. This is a code-level response to the measured symptoms, not proof of every private app's final UI.
+
+Douyin reports112pt composer and zero attached rows. The new scan includes bounded control rows deeper in nearby branches, permits small measured layout spacing only under a common container, and measures unclipped descendant panels extending below the selected parent's bounds. Descendants move only with their parent (no second child transform), and ancestor clipping is respected. Large conversation/comment lists are rejected. The supplied log does not include a view tree, so emoji ownership detection remains heuristic.
+
+The refined physical-keyboard path does not treat a UIKit wrapper around the responder's own `inputAccessoryView` as system keyboard height. Exact host candidates take precedence over broad containers, and only a responder-declared app accessory can trim its measured overlapping band. No universal17/57/61pt subtraction is used. This targets possible double inclusion suggested by the differences between computed host top and measured guard top; actual ownership must be verified at runtime.
+
+WeiFeng additionally permits collapsing a SMALL measured transparent tail, only when the wrapper has no fill/layer contents/mask/border/custom drawing, controls are stable, and the gap matches that tail. Otherwise no downward adjustment is applied. This does not drag arbitrary high editors down. Diagnostics include controls envelope as `editor-report stage7` (its rows field is flags:1 transparent,2 protrusion,4 refined measured keys,8 tail profile). Existing4/5 reports remain assembly measurements. No input text is read.
+
+Existing native keyboard spring, full-width/restore, first-open default size, gesture code and layout transport stay unchanged. This release is statically/CI verified only, not run on the user's device. Private view heuristics and app-driven AutoLayout/transform feedback still require device acceptance.
+
 ## Behavior
 
 - Existing hit-region geometry and width calculations remain in the original image.
@@ -12,7 +26,7 @@ This private project reconstructs the requested portrait-gesture dispatch from t
 - Yellow bottom-center: touch and drag immediately to move; release is passed once to the original Stheno edge-middle drag-end routine with hit class 4 and its long-press latch cleared. Native flick threshold, cleanup and animation decide closing. There is no .25s hold requirement, 24pt threshold or custom close action.
 - Yellow continuous movement never changes its saved edge-middle hit class. The native close recognition code is byte-for-byte preserved, and build.py asserts this before signing.
 - Movement and corner scaling use original Stheno update paths. Docking uses the original SwiftUI spring transaction; closing uses the original native release path. Restoring a docked window and switching orientations retain their original callbacks.
-- Sileo lists `stheno` at `2.0.11`. The Debian control file retains `stheno` as its short description.
+- Sileo lists `stheno` at `2.0.12`. The Debian control file retains `stheno` as its short description.
 - Keyboard: the touched portrait floating card is sized to the full screen width and horizontally centered, without the old 12pt margin or 35% cap. Hide restores the snapshot, unless the user changed it while typing. Hardware/floating keyboards and landscape retain native behavior.
 - Keyboard coordinates now prefer a fresh, per-bundle snapshot published by SpringBoard: the native final card rectangle (which already includes final scale) and docked physical keyboard rectangle. Application notifications and UIKit insets map the keyboard using BOTH the card origin and its screen-to-app scale. Top-positioned cards can have zero obstruction; lower cards get the correct larger local obstruction. Native InputSetHost/physical-screen conversion remains a fallback if the host snapshot is absent. The native card's `finalFrame` is already computed as base frame times final scale at `0x9c73c–0x9c758`; it is not multiplied by scale a second time.
 - In2.0.10 the FIRST keyboard target is synchronous: focus pre-announces the predicted full-width card, a validated physical WillShow frame maps immediately, and the actual target is committed after Keyboard.m sets native geometry. No keyboard notices are queued or replayed. Pending UIKit queries retain native values instead of forcing zero. Later corrections retain the pairwise stability filter and double-buffer transport; sustained changes remain possible. This replaces2.0.9's160–250ms startup hold, which the new log confirms delayed application acknowledgments by172–365ms.

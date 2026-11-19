@@ -31,6 +31,11 @@ jobs:
           /tmp/stheno-editor-lifecycle
           xcrun --sdk macosx clang -std=c11 -Wall -Wextra -Werror test_keyboard_coordinates.c -o /tmp/stheno-keyboard-coordinates
           /tmp/stheno-keyboard-coordinates
+      - name: Test focused refinements without changing QQ and Minis
+        run: |
+          python3 test_editor_refined_contract.py
+          xcrun --sdk macosx clang -std=c11 -Wall -Wextra -Werror test_editor_refinement.c -o /tmp/stheno-editor-refinement
+          /tmp/stheno-editor-refinement
       - name: Test scene-only keyboard contract and session cache
         run: |
           python3 test_keyboard_contract.py
