@@ -283,5 +283,5 @@ void STHInstallKeyboardNotifications(void) {
   if(refreshQueued)return;refreshQueued=YES;
   dispatch_async(dispatch_get_main_queue(),^{refreshQueued=NO;refreshHostedLayout();});
  });
- STHWriteLayoutLog(@"2.0.11 app adapter: independent editor lifecycle, late-hide guard, persistent focused assembly");
+ STHWriteLayoutLog(@"2.0.12 app adapter: isolated compatible/refined editor profiles; shared lifecycle unchanged");
 }
