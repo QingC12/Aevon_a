@@ -142,7 +142,7 @@ assert hashlib.sha256(license_bytes).hexdigest()=='5afa9b37c934d452ecd7d3c184367
 rows.append((license_entry,license_bytes))
 for i,(m,b) in enumerate(controls):
  if Path(m.name).name=='control':
-  fields={'Name':'stheno','Version':'2.0.7','Description':'stheno','Architecture':'iphoneos-arm64e',
+  fields={'Name':'stheno','Version':'2.0.8','Description':'stheno','Architecture':'iphoneos-arm64e',
           'Installed-Size':str((sum(len(x) for _,x in rows)+1023)//1024)}
   lines=[];skip=False
   for line in b.decode().splitlines():
@@ -159,7 +159,7 @@ for i,(m,b) in enumerate(controls):
     lines.append(f'{field}: {fields[field]}' if field in fields else line)
   controls[i]=(m,('\n'.join(lines)+'\n').encode())
 for n,b in [('debian-binary',b'2.0\n'),('control.tar.xz',tarwrite(controls)),('data.tar.xz',tarwrite(rows))]:(OUT/n).write_bytes(b)
-result=OUT/'stheno_2.0.7_iphoneos-arm64e.deb'
+result=OUT/'stheno_2.0.8_iphoneos-arm64e.deb'
 result.write_bytes(arwrite([(n,(OUT/n).read_bytes()) for n in ('debian-binary','control.tar.xz','data.tar.xz')]))
 verify=tarread(arread(result.read_bytes())['data.tar.xz']);assert len(verify)==len(rows)
 for (a,b),(c,d) in zip(rows,verify):assert a.name==c.name and b==d

@@ -27,6 +27,11 @@ jobs:
           /tmp/stheno-keyboard-inset
           xcrun --sdk macosx clang -std=c11 -Wall -Wextra -Werror test_keyboard_coordinates.c -o /tmp/stheno-keyboard-coordinates
           /tmp/stheno-keyboard-coordinates
+      - name: Test scene-only keyboard contract and session cache
+        run: |
+          python3 test_keyboard_contract.py
+          xcrun --sdk macosx clang -std=c11 -Wall -Wextra -Werror test_keyboard_session.c -o /tmp/stheno-keyboard-session
+          /tmp/stheno-keyboard-session
       - name: Test physical card mapping and cross-process geometry transport
         run: |
           xcrun --sdk macosx clang -std=c11 -Wall -Wextra -Werror test_layout_math.c -o /tmp/stheno-layout-math

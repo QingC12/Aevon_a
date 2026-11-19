@@ -1,45 +1,47 @@
-// Notification-based editors (comments/chat) and UIKit insets must share a single
-// app-scene coordinate system. Never inspect or log input text.
+// Canonical keyboard geometry for app-scene queries and notification consumers.
+// This module is never installed in SpringBoard or the keyboard service.
 #import <UIKit/UIKit.h>
 #import <objc/runtime.h>
 #import <objc/message.h>
 #import <QuartzCore/QuartzCore.h>
 #import "KeyboardCoordinates.h"
+#import "KeyboardSession.h"
 #import "LayoutBus.h"
 extern BOOL STHFloatingKeyboardScope(UIWindowScene *);
 extern UIWindow *STHTargetKeyboardWindow(UIWindowScene *,UIWindow *);
 static NSDictionary *(*originalInfo)(id,SEL);
-static char cacheKey;
+static char cachedInfoKey,normalizedKey;
 static __thread BOOL converting;
 static __weak UIWindow *recentKeyboard;
-static CGRect latestScreenFrame;
-static CFTimeInterval latestAt;
-static NSString *lastSource;
-static __weak UIWindowScene *lastNormalizedScene;
-static CGRect lastNormalizedEnd;
-static BOOL hasNormalizedEnd;
+static __weak UIWindowScene *sessionScene;
+static STHKeyboardSession session;
 static BOOL postingLayoutRefresh;
-static NSNumber *originalKeyboardDuration,*originalKeyboardCurve;
+static NSNumber *originalDuration,*originalCurve;
+static NSString *resolutionSource;
+static NSDictionary *lastRealMetadata;
+
+static STHRect rectValue(CGRect r) { return (STHRect){r.origin.x,r.origin.y,r.size.width,r.size.height}; }
+static CGRect cgRect(STHRect r) { return CGRectMake(r.x,r.y,r.w,r.h); }
+static CGRect canonical(CGRect bounds,CGRect raw) { return cgRect(STHOcclusionFrame(rectValue(bounds),rectValue(raw))); }
 
 static BOOL actualHost(UIView *view,UIWindow *target,int depth,int *remaining,CGRect *best) {
  if(!view||depth>14||--*remaining<0||view.hidden||view.alpha<.01)return NO;
  NSString *name=NSStringFromClass(view.class);
- BOOL host=[name containsString:@"InputSetHost"]||[name containsString:@"RemoteKeyboardPlaceholder"];
+ BOOL host=[name containsString:@"InputSetHost"]||[name containsString:@"RemoteKeyboardPlaceholder"]||[name containsString:@"InputSetContainer"];
  BOOL found=NO;
  if(host){
   CGRect r=[view convertRect:view.bounds toView:target];double overlap=0;
-  if(CGRectGetWidth(r)>=CGRectGetWidth(target.bounds)*.7 &&
-    CGRectGetHeight(r)>=60 && STHLocalKeyboardOverlap(target.bounds.origin.x,target.bounds.origin.y,
-     target.bounds.size.width,target.bounds.size.height,r.origin.x,r.origin.y,r.size.width,r.size.height,NO,&overlap)){
-   if(CGRectIsNull(*best)||CGRectGetHeight(r)>CGRectGetHeight(*best))*best=r;
-   found=YES;
+  if(CGRectGetWidth(r)>=CGRectGetWidth(target.bounds)*.7&&CGRectGetHeight(r)>=60&&
+     STHLocalKeyboardOverlap(target.bounds.origin.x,target.bounds.origin.y,target.bounds.size.width,target.bounds.size.height,
+        r.origin.x,r.origin.y,r.size.width,r.size.height,NO,&overlap)){
+   *best=CGRectIsNull(*best)?r:CGRectUnion(*best,r);found=YES;
   }
  }
  for(UIView *child in view.subviews){if(*remaining<=0)break;found=actualHost(child,target,depth+1,remaining,best)||found;}
  return found;
 }
 static UIWindow *existingKeyboard(UIWindowScene *scene) {
- UIWindow *known=recentKeyboard;if(known&&!known.hidden)return known;
+ UIWindow *known=recentKeyboard;if(known&&!known.hidden&&known.screen==scene.screen)return known;
  Class cls=NSClassFromString(@"UIRemoteKeyboardWindow");
  SEL method=NSSelectorFromString(@"remoteKeyboardWindowForScreen:create:");
  if([cls respondsToSelector:method]){
@@ -48,172 +50,161 @@ static UIWindow *existingKeyboard(UIWindowScene *scene) {
  }
  return nil;
 }
+static BOOL physicalFrame(CGRect raw,UIScreen *screen) {
+ double scale=screen.nativeScale;if(scale<=0)return NO;
+ return STHPhysicalFrame(raw.origin.x,raw.origin.y,raw.size.width,raw.size.height,
+                        screen.nativeBounds.size.width/scale,screen.nativeBounds.size.height/scale);
+}
 
-BOOL STHResolveKeyboard(UIWindowScene *scene,UIWindow *keyboard,CGRect raw,BOOL ignoreX,
- CGRect *local,double *overlap,UIWindow **targetOut) {
+// ALL callers of this function receive SCENE coordinates and SCENE inset.
+// A target popup/key UIWindow is used only to measure a fallback host, never
+// to redefine the scene's height or add its origin to a scene-level API.
+BOOL STHResolveKeyboardScene(UIWindowScene *scene,UIWindow *keyboard,CGRect physical,BOOL ignoreX,CGRect *frame,double *inset) {
  if(!STHFloatingKeyboardScope(scene))return NO;
- if(!keyboard)keyboard=existingKeyboard(scene);
- if(keyboard)recentKeyboard=keyboard;
- UIWindow *target=STHTargetKeyboardWindow(scene,keyboard);
- if(!target)return NO;
- CGRect mapped=CGRectNull;
- // The host card represents the complete SCENE, not each popup/content window.
- // A comment window may be shorter by a header/safe-area strip (45pt in the
- // supplied log). Map once to the scene, then convert to this specific window.
- if(STHReadLayout(NSBundle.mainBundle.bundleIdentifier,scene.coordinateSpace.bounds,&mapped,overlap)){
-  lastSource=@"hosted-scene-then-window";
-  CGRect sceneBounds=scene.coordinateSpace.bounds;
-  STHRect frame=STHOcclusionFrame((STHRect){sceneBounds.origin.x,sceneBounds.origin.y,sceneBounds.size.width,sceneBounds.size.height},
-    (STHRect){mapped.origin.x,mapped.origin.y,mapped.size.width,mapped.size.height});
-  CGRect canonical=CGRectMake(frame.x,frame.y,frame.w,frame.h);
-  CGRect converted=[target convertRect:canonical fromCoordinateSpace:scene.coordinateSpace];
-  *overlap=fmin(CGRectGetHeight(target.bounds),fmax(0,CGRectGetMaxY(target.bounds)-CGRectGetMinY(converted)));
-  if(local)*local=converted;if(targetOut)*targetOut=target;
-  return YES;
- }
- CGRect r=CGRectNull;
- if(keyboard&&!keyboard.hidden&&keyboard.alpha>.01){
-  int remaining=512;actualHost(keyboard,target,0,&remaining,&r);
- }
- if(!CGRectIsNull(r))lastSource=@"keyboard-host";
- else {
-  if(CGRectIsNull(raw)){
-   if(CACurrentMediaTime()-latestAt>3)return NO;
-   raw=latestScreenFrame;
+ CGRect bounds=scene.coordinateSpace.bounds,raw=CGRectNull;
+ double ignored=0;
+ if(STHReadLayout(NSBundle.mainBundle.bundleIdentifier,bounds,&raw,&ignored)){
+  resolutionSource=@"host-scene";
+ }else{
+  if(!keyboard)keyboard=existingKeyboard(scene);
+  if(keyboard)recentKeyboard=keyboard;
+  UIWindow *target=STHTargetKeyboardWindow(scene,keyboard);if(!target)return NO;
+  CGRect local=CGRectNull;
+  if(keyboard&&!keyboard.hidden&&keyboard.alpha>.01){int budget=512;actualHost(keyboard,target,0,&budget,&local);}
+  if(!CGRectIsNull(local)){
+   raw=[scene.coordinateSpace convertRect:local fromCoordinateSpace:target];
+   resolutionSource=@"host-view-to-scene";
+  }else{
+   if(CGRectIsNull(physical)){
+    if(!session.hasPhysicalFrame||CACurrentMediaTime()-session.physicalAt>1.5)return NO;
+    physical=cgRect(session.physicalFrame);
+   }
+   if(!physicalFrame(physical,target.screen))return NO;
+   raw=[scene.coordinateSpace convertRect:physical fromCoordinateSpace:target.screen.fixedCoordinateSpace];
+   resolutionSource=@"physical-to-scene";
   }
-  UIScreen *screen=target.screen;
-  double nativeScale=screen.nativeScale;
-  if(nativeScale<=0)return NO;
-  double physicalW=screen.nativeBounds.size.width/nativeScale;
-  double physicalH=screen.nativeBounds.size.height/nativeScale;
-  if(!STHPhysicalFrame(raw.origin.x,raw.origin.y,raw.size.width,raw.size.height,physicalW,physicalH))return NO;
-  // Physical screen is NOT UIScreen.bounds, which the original tweak virtualizes.
-  r=[target convertRect:raw fromCoordinateSpace:screen.fixedCoordinateSpace];
-  lastSource=@"physical-screen-to-window";
  }
- CGRect b=target.bounds;
- if(!STHLocalKeyboardOverlap(b.origin.x,b.origin.y,b.size.width,b.size.height,
-    r.origin.x,r.origin.y,r.size.width,r.size.height,ignoreX,overlap))return NO;
- if(local)*local=r;if(targetOut)*targetOut=target;
+ if(!isfinite(raw.origin.x)||!isfinite(raw.origin.y)||!isfinite(raw.size.width)||!isfinite(raw.size.height))return NO;
+ if(ignoreX){raw.origin.x=bounds.origin.x;raw.size.width=bounds.size.width;}
+ CGRect result=canonical(bounds,raw);
+ if(frame)*frame=result;if(inset)*inset=result.size.height;
  return YES;
 }
 
-static void recordLayout(UIWindowScene *scene,CGRect incoming,CGRect local,double inset) {
+static void decision(UIWindowScene *scene,CGRect frame,double inset) {
  static CFTimeInterval last=0;CFTimeInterval now=CACurrentMediaTime();
+ STHReportNotificationFrame(NSBundle.mainBundle.bundleIdentifier,scene.coordinateSpace.bounds,frame);
+ STHReportLayout(NSBundle.mainBundle.bundleIdentifier,inset,YES);
  if(now-last<.25)return;last=now;
- STHWriteLayoutLog([NSString stringWithFormat:@"app scene=%@ incoming=%@ local=%@ inset=%.2f source=%@",
-  NSStringFromCGRect(scene.coordinateSpace.bounds),NSStringFromCGRect(incoming),NSStringFromCGRect(local),inset,lastSource]);
- if(inset>=0)STHReportLayout(NSBundle.mainBundle.bundleIdentifier,inset,YES);
+ STHWriteLayoutLog([NSString stringWithFormat:@"decision source=%@ scene=%@ end=%@ inset=%.3f (computed, not measured editor)",
+   resolutionSource,NSStringFromCGRect(scene.coordinateSpace.bounds),NSStringFromCGRect(frame),inset]);
+}
+static BOOL resolveScene(CGRect physical,UIWindowScene **found,CGRect *frame,double *inset) {
+ for(UIScene *s in UIApplication.sharedApplication.connectedScenes){
+  if(![s isKindOfClass:UIWindowScene.class])continue;
+  UIWindowScene *scene=(UIWindowScene *)s;
+  if(STHResolveKeyboardScene(scene,nil,physical,NO,frame,inset)){
+   if(found)*found=scene;return YES;
+  }
+ }
+ return NO;
+}
+static NSDictionary *frameInfo(NSDictionary *metadata,CGRect begin,CGRect end) {
+ NSMutableDictionary *info=metadata?[metadata mutableCopy]:[NSMutableDictionary new];
+ info[UIKeyboardFrameBeginUserInfoKey]=[NSValue valueWithCGRect:begin];
+ info[UIKeyboardFrameEndUserInfoKey]=[NSValue valueWithCGRect:end];
+ if(info[@"UIKeyboardBoundsUserInfoKey"])
+  info[@"UIKeyboardBoundsUserInfoKey"]=[NSValue valueWithCGRect:CGRectMake(0,0,end.size.width,end.size.height)];
+ return [info copy];
 }
 
 static NSDictionary *normalizedInfo(NSNotification *note,SEL selector) {
  NSDictionary *raw=originalInfo(note,selector);
- if(converting||![NSThread isMainThread]||![raw isKindOfClass:NSDictionary.class])return raw;
+ // Self-generated frames are already canonical. Never put them in the physical cache.
+ if(objc_getAssociatedObject(note,&normalizedKey)||converting||![NSThread isMainThread]||![raw isKindOfClass:NSDictionary.class])return raw;
+ NSDictionary *cached=objc_getAssociatedObject(note,&cachedInfoKey);if(cached)return cached;
  NSString *name=note.name;
- if([name isEqualToString:UIKeyboardWillHideNotification]||[name isEqualToString:UIKeyboardDidHideNotification]){
-  latestAt=0;latestScreenFrame=CGRectNull;hasNormalizedEnd=NO;return raw;
- }
- BOOL visible=[name isEqualToString:UIKeyboardWillShowNotification]||[name isEqualToString:UIKeyboardDidShowNotification]||
-  [name isEqualToString:UIKeyboardWillChangeFrameNotification]||[name isEqualToString:UIKeyboardDidChangeFrameNotification];
- if(!visible)return raw;
- if(!postingLayoutRefresh){
-  if([raw[UIKeyboardAnimationDurationUserInfoKey] isKindOfClass:NSNumber.class])originalKeyboardDuration=raw[UIKeyboardAnimationDurationUserInfoKey];
-  if([raw[UIKeyboardAnimationCurveUserInfoKey] isKindOfClass:NSNumber.class])originalKeyboardCurve=raw[UIKeyboardAnimationCurveUserInfoKey];
- }
- NSDictionary *cached=objc_getAssociatedObject(note,&cacheKey);if(cached)return cached;
- id value=raw[UIKeyboardFrameEndUserInfoKey];if(![value isKindOfClass:NSValue.class])return raw;
- converting=YES;
- NSDictionary *result=raw;
+ BOOL hide=[name isEqualToString:UIKeyboardWillHideNotification]||[name isEqualToString:UIKeyboardDidHideNotification];
+ BOOL show=[name isEqualToString:UIKeyboardWillShowNotification]||[name isEqualToString:UIKeyboardDidShowNotification];
+ BOOL change=[name isEqualToString:UIKeyboardWillChangeFrameNotification]||[name isEqualToString:UIKeyboardDidChangeFrameNotification];
+ if(!show&&!change&&!hide)return raw;
+ id v=raw[UIKeyboardFrameEndUserInfoKey];if(![v isKindOfClass:NSValue.class])return raw;
+ converting=YES;NSDictionary *result=raw;
  @try{
-  CGRect incoming=[value CGRectValue];
-  for(UIScene *s in UIApplication.sharedApplication.connectedScenes){
-   if(![s isKindOfClass:UIWindowScene.class])continue;
-   UIWindowScene *scene=(UIWindowScene *)s;
-   if(!STHFloatingKeyboardScope(scene))continue;
-   CGRect local=CGRectNull;double overlap=0;UIWindow *target=nil;
-   if(!STHResolveKeyboard(scene,nil,incoming,NO,&local,&overlap,&target)){
-    lastSource=@"fallback-unresolved";recordLayout(scene,incoming,CGRectNull,-1);continue;
-   }
-   // Deliver the physical keyboard's app-scene frame, not a screen-height based
-   // rectangle. Both direct notification handlers and UIKit see this result.
-   CGRect frame=[scene.coordinateSpace convertRect:local fromCoordinateSpace:target];
-   // Custom comment bars often lift by frame.height, whereas UIKit uses top.
-   // Both must describe the SAME bottom occlusion in the complete scene.
-   if([lastSource isEqualToString:@"hosted-scene-then-window"]){
+  CGRect incoming=[v CGRectValue],end=CGRectNull;
+  UIWindowScene *scene=nil;double inset=0;
+  if(hide){
+   scene=sessionScene;
+   if(scene&&session.hasSceneFrame){
     CGRect b=scene.coordinateSpace.bounds;
-    STHRect f=STHOcclusionFrame((STHRect){b.origin.x,b.origin.y,b.size.width,b.size.height},
-      (STHRect){frame.origin.x,frame.origin.y,frame.size.width,frame.size.height});
-    frame=CGRectMake(f.x,f.y,f.w,f.h);
+    end=CGRectMake(b.origin.x,CGRectGetMaxY(b),b.size.width,0);
    }
-   NSMutableDictionary *updated=[raw mutableCopy];
-   updated[UIKeyboardFrameEndUserInfoKey]=[NSValue valueWithCGRect:frame];
-   id beginValue=raw[UIKeyboardFrameBeginUserInfoKey];
-   if([lastSource isEqualToString:@"hosted-scene-then-window"]){
-    CGRect begin=frame;
-    if(hasNormalizedEnd&&lastNormalizedScene==scene)begin=lastNormalizedEnd;
-    else begin.origin.y=CGRectGetMaxY(scene.coordinateSpace.bounds);
-    updated[UIKeyboardFrameBeginUserInfoKey]=[NSValue valueWithCGRect:begin];
-   } else if([beginValue isKindOfClass:NSValue.class]){
-    CGRect begin=[beginValue CGRectValue];
-    UIScreen *screen=target.screen;double scale=screen.nativeScale;
-    double physicalW=scale>0?screen.nativeBounds.size.width/scale:0;
-    if(isfinite(begin.origin.x)&&isfinite(begin.origin.y)&&isfinite(begin.size.width)&&isfinite(begin.size.height)
-       &&physicalW>1&&begin.size.width>=physicalW*.7&&begin.size.height>0){
-     CGRect b=[scene.coordinateSpace convertRect:begin fromCoordinateSpace:screen.fixedCoordinateSpace];
-     updated[UIKeyboardFrameBeginUserInfoKey]=[NSValue valueWithCGRect:b];
-    }
+  }else resolveScene(incoming,&scene,&end,&inset);
+  if(scene&&!CGRectIsNull(end)){
+   // Preserve the original animation metadata for app input bars.
+   if([raw[UIKeyboardAnimationDurationUserInfoKey] isKindOfClass:NSNumber.class])originalDuration=raw[UIKeyboardAnimationDurationUserInfoKey];
+   if([raw[UIKeyboardAnimationCurveUserInfoKey] isKindOfClass:NSNumber.class])originalCurve=raw[UIKeyboardAnimationCurveUserInfoKey];
+   CGRect begin=session.hasSceneFrame&&sessionScene==scene?cgRect(session.sceneFrame):end;
+   if(!session.hasSceneFrame&&!hide)begin.origin.y=CGRectGetMaxY(scene.coordinateSpace.bounds);
+   if(!hide){
+    STHSessionPhysical(&session,rectValue(incoming),CACurrentMediaTime(),false,physicalFrame(incoming,scene.screen));
+    session.visible=YES;lastRealMetadata=raw;sessionScene=scene;
    }
-   // Avoid mixing corrected end frame with stale legacy keyboard bounds.
-   if(updated[@"UIKeyboardBoundsUserInfoKey"])
-    updated[@"UIKeyboardBoundsUserInfoKey"]=[NSValue valueWithCGRect:CGRectMake(0,0,frame.size.width,frame.size.height)];
-   STHReportNotificationFrame(NSBundle.mainBundle.bundleIdentifier,scene.coordinateSpace.bounds,frame);
-   lastNormalizedScene=scene;lastNormalizedEnd=frame;hasNormalizedEnd=YES;
-   result=[updated copy];objc_setAssociatedObject(note,&cacheKey,result,OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-   latestScreenFrame=incoming;latestAt=CACurrentMediaTime();
-   recordLayout(scene,incoming,local,overlap);break;
+   STHSessionCommit(&session,rectValue(end));
+   result=frameInfo(raw,begin,end);
+   objc_setAssociatedObject(note,&cachedInfoKey,result,OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+   decision(scene,end,inset);
   }
+  if(hide){STHSessionHide(&session);sessionScene=nil;lastRealMetadata=nil;recentKeyboard=nil;}
  }@catch(NSException *e){result=raw;}
  converting=NO;return result;
 }
 
+static BOOL refreshQueued;
 static void refreshHostedLayout(void) {
- if(postingLayoutRefresh||![NSThread isMainThread])return;
- for(UIScene *s in UIApplication.sharedApplication.connectedScenes){
-  if(![s isKindOfClass:UIWindowScene.class])continue;
-  UIWindowScene *scene=(UIWindowScene *)s;
-  if(!STHFloatingKeyboardScope(scene))continue;
-  UIWindow *window=STHTargetKeyboardWindow(scene,nil);if(!window)continue;
-  CGRect local;double overlap=0;
-  if(!STHReadLayout(NSBundle.mainBundle.bundleIdentifier,scene.coordinateSpace.bounds,&local,&overlap))continue;
-  CGRect b=scene.coordinateSpace.bounds;
-  STHRect f=STHOcclusionFrame((STHRect){b.origin.x,b.origin.y,b.size.width,b.size.height},
-   (STHRect){local.origin.x,local.origin.y,local.size.width,local.size.height});
-  CGRect end=CGRectMake(f.x,f.y,f.w,f.h);
-  if(hasNormalizedEnd&&lastNormalizedScene==scene&&
-     fabs(end.origin.y-lastNormalizedEnd.origin.y)<.75&&fabs(end.size.height-lastNormalizedEnd.size.height)<.75&&
-     fabs(end.origin.x-lastNormalizedEnd.origin.x)<.75&&fabs(end.size.width-lastNormalizedEnd.size.width)<.75)return;
-  CGRect begin=hasNormalizedEnd&&lastNormalizedScene==scene?lastNormalizedEnd:end;
-  postingLayoutRefresh=YES;
-  @try{
-   // Reissue only geometry changes when the host's animated final frame settles.
-   // No extra show/hide, no input events, and no native library code patch.
-   [NSNotificationCenter.defaultCenter postNotificationName:UIKeyboardWillChangeFrameNotification object:nil
-    userInfo:@{UIKeyboardFrameBeginUserInfoKey:[NSValue valueWithCGRect:begin],
-               UIKeyboardFrameEndUserInfoKey:[NSValue valueWithCGRect:end],
-               UIKeyboardAnimationDurationUserInfoKey:originalKeyboardDuration?:@0.25,
-               UIKeyboardAnimationCurveUserInfoKey:originalKeyboardCurve?:@7,UIKeyboardIsLocalUserInfoKey:@YES}];
-  }@catch(NSException *e){}
-  postingLayoutRefresh=NO;
-  STHReportLayout(NSBundle.mainBundle.bundleIdentifier,overlap,YES);
+ if(postingLayoutRefresh||![NSThread isMainThread]||!session.visible)return;
+ CGRect end;UIWindowScene *scene=nil;double inset=0;
+ if(!resolveScene(CGRectNull,&scene,&end,&inset)){
+  // Host has invalidated or stopped. Do not reuse its old app/physical snapshots.
+  if(sessionScene){CGRect mapped;double amount=0;
+   if(!STHReadLayout(NSBundle.mainBundle.bundleIdentifier,sessionScene.coordinateSpace.bounds,&mapped,&amount)){
+    STHSessionHide(&session);sessionScene=nil;lastRealMetadata=nil;
+   }
+  }
   return;
  }
+ if(sessionScene!=scene){session.hasSceneFrame=false;sessionScene=scene;}
+ if(!STHSessionNeedsDelivery(&session,rectValue(end)))return;
+ CGRect begin=session.hasSceneFrame?cgRect(session.sceneFrame):end;
+ // Commit BEFORE posting; neither idempotence nor hide depends on userInfo reads.
+ STHSessionCommit(&session,rectValue(end));
+ NSMutableDictionary *metadata=lastRealMetadata?[lastRealMetadata mutableCopy]:[NSMutableDictionary new];
+ metadata[UIKeyboardAnimationDurationUserInfoKey]=originalDuration?:@0.25;
+ metadata[UIKeyboardAnimationCurveUserInfoKey]=originalCurve?:@7;
+ metadata[UIKeyboardIsLocalUserInfoKey]=@YES;
+ NSDictionary *info=frameInfo(metadata,begin,end);
+ postingLayoutRefresh=YES;
+ @try{
+  for(NSString *name in @[UIKeyboardWillChangeFrameNotification,UIKeyboardDidChangeFrameNotification]){
+   NSNotification *note=[NSNotification notificationWithName:name object:nil userInfo:info];
+   objc_setAssociatedObject(note,&normalizedKey,@YES,OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+   [NSNotificationCenter.defaultCenter postNotification:note];
+  }
+  // Invalidate layout so a UIKit-only input client re-queries the SAME scene inset.
+  UIWindow *target=STHTargetKeyboardWindow(scene,nil);
+  [target setNeedsLayout];[target.rootViewController.view setNeedsLayout];
+  decision(scene,end,inset);
+ }@catch(NSException *e){}
+ postingLayoutRefresh=NO;
 }
-
 void STHInstallKeyboardNotifications(void) {
  Class concrete=object_getClass([NSNotification notificationWithName:@"stheno.layout.probe" object:nil userInfo:@{}]);
  Method m=class_getInstanceMethod(concrete,@selector(userInfo));if(!m)return;
  IMP old=method_getImplementation(m);if(old==(IMP)normalizedInfo)return;
  originalInfo=(void *)old;method_setImplementation(m,(IMP)normalizedInfo);
- STHObserveLayout(NSBundle.mainBundle.bundleIdentifier,^{refreshHostedLayout();});
- STHWriteLayoutLog(@"notification adapter ready; physical-card coordinate channel registered");
+ STHObserveLayout(NSBundle.mainBundle.bundleIdentifier,^{
+  if(refreshQueued)return;refreshQueued=YES;
+  dispatch_async(dispatch_get_main_queue(),^{refreshQueued=NO;refreshHostedLayout();});
+ });
+ STHWriteLayoutLog(@"2.0.8 app adapter: canonical SCENE inset, isolated physical/synthetic frames");
 }

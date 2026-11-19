@@ -7,23 +7,24 @@
 #import "KeyboardInsetMath.h"
 #import "LayoutBus.h"
 extern BOOL STHResolveKeyboard(UIWindowScene *,UIWindow *,CGRect,BOOL,CGRect *,double *,UIWindow **);
+extern BOOL STHResolveKeyboardScene(UIWindowScene *,UIWindow *,CGRect,BOOL,CGRect *,double *);
 extern void STHInstallKeyboardNotifications(void);
 static CGFloat (*previousInset)(id,SEL,UIWindowScene *,BOOL *,BOOL);
 static __unsafe_unretained id *frontmostSlot,*bundleSlot,*sceneSlot;
 static unsigned char *injectedSlot;
 
 BOOL STHFloatingKeyboardScope(UIWindowScene *scene) {
+ NSString *process=NSBundle.mainBundle.bundleIdentifier;
+ // The UIKit-filtered original library also loads in SpringBoard. Never let
+ // the APP adapter rewrite the physical keyboard publisher's notifications.
+ if([process isEqualToString:@"com.apple.springboard"]||
+    [process isEqualToString:@"com.apple.UIKit.remote-keyboard"]||
+    [process isEqualToString:@"com.apple.Spotlight"])return NO;
  if(![NSThread isMainThread]||!scene||!UIInterfaceOrientationIsPortrait(scene.interfaceOrientation))return NO;
- // A fresh per-bundle host snapshot is a stronger scope check than the legacy
- // cached frontmost value (which may still identify the floated app itself).
+ // Correct only while the host confirms this specific app is floated and its
+ // keyboard is active. A stale cached frontmost flag cannot keep it enabled.
  double overlap=0;
- if(STHReadLayout(NSBundle.mainBundle.bundleIdentifier,scene.coordinateSpace.bounds,NULL,&overlap))return YES;
- if(!injectedSlot||!*injectedSlot||!frontmostSlot||!bundleSlot)return NO;
- id front=*frontmostSlot,bundle=*bundleSlot;
- if(![front isKindOfClass:NSString.class]||![bundle isKindOfClass:NSString.class]||
-    [front length]==0||[bundle length]==0||[front isEqualToString:bundle])return NO;
- if(sceneSlot&&*sceneSlot&&*sceneSlot!=scene)return NO;
- return UIInterfaceOrientationIsPortrait(scene.interfaceOrientation);
+ return STHReadLayout(NSBundle.mainBundle.bundleIdentifier,scene.coordinateSpace.bounds,NULL,&overlap);
 }
 
 UIWindow *STHTargetKeyboardWindow(UIWindowScene *scene,UIWindow *keyboard) {
@@ -48,11 +49,17 @@ static CGFloat correctedInset(id receiver,SEL selector,UIWindowScene *scene,BOOL
  // Unlike 2.0.4, measure the actual InputSetHost/placeholder rather than using
  // the full-screen keyboard WINDOW as though its entire bounds were keys.
  @try{
-  if(STHResolveKeyboard(scene,keyboard,CGRectNull,ignoreX,&local,&overlap,NULL))return overlap;
+  // This API is explicitly FOR A WINDOW SCENE, not for its key/popup window.
+  // Returning an extra window-origin delta here causes the observed 45pt lift.
+  if(STHResolveKeyboardScene(scene,keyboard,CGRectNull,ignoreX,&local,&overlap))return overlap;
  }@catch(NSException *exception){}
  return old;
 }
 static void installInset(void) {
+ NSString *process=NSBundle.mainBundle.bundleIdentifier;
+ if([process isEqualToString:@"com.apple.springboard"]||
+    [process isEqualToString:@"com.apple.UIKit.remote-keyboard"]||
+    [process isEqualToString:@"com.apple.Spotlight"])return;
  void *handle=NULL;
  for(uint32_t i=0;i<_dyld_image_count();i++) {
   const char *name=_dyld_get_image_name(i);
