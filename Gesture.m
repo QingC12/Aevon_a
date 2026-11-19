@@ -8,6 +8,7 @@ uintptr_t sth_core_base=0;
 extern CGRect STHNativeRect(void *);
 extern double STHNativeScale(void *);
 extern void STHNativeSetScale(void *,double);
+extern void STHNativeReset(void *);
 extern void STHNativeDock(void *);
 extern void STHNativeRotate(void *);
 extern void STHNativeSetup(void *,void *);
@@ -29,6 +30,8 @@ typedef NS_ENUM(int, Zone) { ZOriginal, ZSide, ZCorner, ZRotate, ZReset, ZMove }
 @property BOOL active;
 @property BOOL holdArmed;
 @property NSUInteger generation;
+@property double lastTapAt;
+@property CGPoint lastTapPoint;
 @property CGRect frame;
 @end
 @implementation STHGestureState
@@ -53,7 +56,7 @@ static BOOL portrait(void) {
 }
 static STHGestureState *registerState(void *m) {
  STHGestureState *s=state(m);
- if (!s) { s=[STHGestureState new]; s.baselineScale=STHNativeScale(m); [states setObject:s forKey:(__bridge id)m]; }
+ if (!s) { s=[STHGestureState new]; [states setObject:s forKey:(__bridge id)m]; }
  return s;
 }
 // Preserve membership in the ORIGINAL hit region. Subdivide it along its length only.
@@ -110,10 +113,11 @@ void STHLong(void *m) {
  STHGestureState *s=state(m);
  if (!s||s.zone==ZOriginal) {
   // The underlying recognizer is now .25s. Preserve the original .5s elsewhere.
+  *latch(m)=0;
   void (*retain)(void *)=dlsym(RTLD_DEFAULT,"swift_retain");
   void (*release)(void *)=dlsym(RTLD_DEFAULT,"swift_release");
   NSUInteger generation=s.generation;
-  if(retain&&release){retain(m);dispatch_after(dispatch_time(DISPATCH_TIME_NOW,(int64_t)(0.25*NSEC_PER_SEC)),dispatch_get_main_queue(),^{STHGestureState *t=state(m);if(t&&t.generation==generation&&t.active&&!t.moving)STHNativeLong(m);release(m);});}
+  if(retain&&release){retain(m);dispatch_after(dispatch_time(DISPATCH_TIME_NOW,(int64_t)(0.25*NSEC_PER_SEC)),dispatch_get_main_queue(),^{STHGestureState *t=state(m);if(t&&t.generation==generation&&t.active&&!t.moving){*latch(m)=1;STHNativeLong(m);}release(m);});}
   return;
  }
  if (s.acted)return;
@@ -122,15 +126,21 @@ void STHLong(void *m) {
  if(s.zone==ZRotate){s.acted=YES;STHNativeRotate(m);}
  if(s.zone==ZReset){
   s.acted=YES;
-  // Reset to the configured size captured before this model's first custom gesture.
-  double baseline=*(double *)((char *)m+offset(0xf7918));
-  STHNativeSetScale(m,s.baselineScale-baseline);
+  // Restore the actual tuple from ReflectManager's initializer and clear aspect trim.
+  STHNativeReset(m);
  }
 }
 void STHTap(void *m,NSUInteger count) {
  STHGestureState *s=state(m);
- if(!s||s.zone==ZOriginal){STHNativeTap(m,count);return;}
- if(s.zone==ZSide&&!s.moving&&!s.acted){s.acted=YES;STHNativeDock(m);}
+ if(!s||s.zone==ZOriginal){
+  NSUInteger mask=[[[[NSUserDefaults standardUserDefaults] persistentDomainForName:@"com.nx.stheno"] objectForKey:@"SettingMask"] unsignedIntegerValue];
+  NSUInteger wanted=(mask&0x10000)?1:2;
+  double now=CACurrentMediaTime();
+  BOOL second=s.lastTapAt>0&&now-s.lastTapAt<0.35&&hypot(s.start.x-s.lastTapPoint.x,s.start.y-s.lastTapPoint.y)<30;
+  if(wanted==1||second){s.lastTapAt=0;STHNativeTap(m,wanted);}else{s.lastTapAt=now;s.lastTapPoint=s.start;}
+  return;
+ }
+ if(s.zone==ZSide&&!s.holdArmed&&!s.moving&&!s.acted){s.acted=YES;STHNativeDock(m);}
 }
 __attribute__((constructor)) static void init(void) {
  states=[NSMapTable weakToStrongObjectsMapTable];
