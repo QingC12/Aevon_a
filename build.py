@@ -4,6 +4,21 @@ ROOT=Path(__file__).resolve().parent
 os.chdir(ROOT)
 OUT=ROOT/'build';OUT.mkdir(exist_ok=True)
 def run(*args,**kw): return subprocess.check_output([str(x) for x in args],**kw)
+def arread(data):
+ assert data[:8]==b'!<arch>\n';out={};p=8
+ while p<len(data):
+  h=data[p:p+60];assert h[58:60]==b'`\n';n=int(h[48:58]);name=h[:16].decode().strip().rstrip('/');v=data[p+60:p+60+n]
+  if name.startswith('#1/'):
+   z=int(name[3:]);name=v[:z].rstrip(b'\0').decode();v=v[z:]
+  out[name]=v;p+=60+n+(n%2)
+ return out
+def arwrite(parts):
+ out=bytearray(b'!<arch>\n')
+ for name,b in parts:
+  h=f'{name+"/":<16}{0:<12}{0:<6}{0:<6}{"100644":<8}{len(b):<10}`\n'.encode();assert len(h)==60
+  out+=h+b
+  if len(b)%2:out+=b'\n'
+ return out
 def sections(b):
  n=struct.unpack_from('<I',b,16)[0];p=32;secs={};cmds=[]
  for _ in range(n):
@@ -28,7 +43,7 @@ def tarwrite(rows):
  return buf.getvalue()
 base=ROOT/'inputs/base.deb'
 assert hashlib.sha256(base.read_bytes()).hexdigest()=='67937ea54f1a79d43bb48242c436e0c78b0177ef79d251e4c21465286ee1dace'
-rows=tarread(run('ar','p',base,'data.tar.xz'));controls=tarread(run('ar','p',base,'control.tar.xz'))
+members=arread(base.read_bytes());rows=tarread(members['data.tar.xz']);controls=tarread(members['control.tar.xz'])
 mi=next(i for i,(m,b) in enumerate(rows) if m.name.endswith('/Stheno.dylib'));img=bytearray(rows[mi][1])
 assert hashlib.sha256(img).hexdigest()=='d5612f269f5a63347d8187fd25f75a0dca45c1608bdf38986112a5bb770fb9e7'
 secs,cmds=sections(img)
@@ -83,8 +98,8 @@ for i,(m,b) in enumerate(controls):
   controls[i]=(m,('\n'.join(lines)+'\n').encode())
 for n,b in [('debian-binary',b'2.0\n'),('control.tar.xz',tarwrite(controls)),('data.tar.xz',tarwrite(rows))]:(OUT/n).write_bytes(b)
 result=OUT/'Stheno-arm64e-RootHide-Gestures-test.deb'
-run('ar','rc',result,'debian-binary','control.tar.xz','data.tar.xz',cwd=OUT)
-verify=tarread(run('ar','p',result,'data.tar.xz'));assert len(verify)==len(rows)
+result.write_bytes(arwrite([(n,(OUT/n).read_bytes()) for n in ('debian-binary','control.tar.xz','data.tar.xz')]))
+verify=tarread(arread(result.read_bytes())['data.tar.xz']);assert len(verify)==len(rows)
 for (a,b),(c,d) in zip(rows,verify):assert a.name==c.name and b==d
 manifest={'artifact':result.name,'sha256':hashlib.sha256(result.read_bytes()).hexdigest(),'size':result.stat().st_size,'patch_entries':{hex(a):hex(t) for a,(_,t) in changes.items()},'device_tested':False}
 (OUT/'build-manifest.json').write_text(json.dumps(manifest,indent=2));print(json.dumps(manifest))
