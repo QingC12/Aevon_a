@@ -27,6 +27,8 @@ jobs:
           /tmp/stheno-keyboard-inset
           xcrun --sdk macosx clang -std=c11 -Wall -Wextra -Werror test_editor_visibility.c -o /tmp/stheno-editor-visibility
           /tmp/stheno-editor-visibility
+          xcrun --sdk macosx clang -std=c11 -Wall -Wextra -Werror test_editor_lifecycle.c -o /tmp/stheno-editor-lifecycle
+          /tmp/stheno-editor-lifecycle
           xcrun --sdk macosx clang -std=c11 -Wall -Wextra -Werror test_keyboard_coordinates.c -o /tmp/stheno-keyboard-coordinates
           /tmp/stheno-keyboard-coordinates
       - name: Test scene-only keyboard contract and session cache

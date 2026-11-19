@@ -13,6 +13,8 @@
 @property int ack;
 @property int appScene;
 @property int appFrame;
+@property int editorFrame;
+@property int editorState;
 @property int observed;
 @property BOOL valid;
 @property BOOL ackObserved;
@@ -41,6 +43,7 @@ static STHLayoutTokens *getTokens(NSString *bundle) {
  t.keys0=registerState(bundle,@"keys0");t.keys1=registerState(bundle,@"keys1");
  t.preview=registerState(bundle,@"preview");
  t.commit=registerState(bundle,@"commit");t.ack=registerState(bundle,@"ack");
+ t.editorFrame=registerState(bundle,@"editorFrame");t.editorState=registerState(bundle,@"editorState");
  t.appScene=registerState(bundle,@"appScene");t.appFrame=registerState(bundle,@"appFrame");
  t.valid=t.card0>=0&&t.card1>=0&&t.keys0>=0&&t.keys1>=0&&t.commit>=0&&t.ack>=0;
  tokens[bundle]=t;return t;
@@ -103,6 +106,16 @@ BOOL STHPublishLayout(NSString *bundle,CGRect card,CGRect keyboard,BOOL active){
    STHRect s=STHUnpackRect(scene),f=STHUnpackRect(frame);
    STHWriteLayoutLog([NSString stringWithFormat:@"app-ack bundle=%@ overlap=%.3f computed=%d scene={%.3f,%.3f,%.3f,%.3f} notice={%.3f,%.3f,%.3f,%.3f}",bundle,(ack&0xffffffffULL)/8.0,(int)(ack>>63),s.x,s.y,s.w,s.h,f.x,f.y,f.w,f.h]);
   });
+  int editorObserve=-1;
+  notify_register_dispatch(channel(bundle,@"editorMeasured").UTF8String,&editorObserve,dispatch_get_main_queue(),^(int n){
+   uint64_t before=0,after=0,rect=0;
+   notify_get_state(t.editorState,&before);notify_get_state(t.editorFrame,&rect);notify_get_state(t.editorState,&after);
+   if(before!=after||!(after>>63))return;
+   STHRect f=STHUnpackRect(rect);
+   int stage=(after>>48)&255;double key=(int16_t)(after&65535)/8.0;
+   double lift=(int16_t)((after>>16)&65535)/8.0;unsigned rows=(after>>32)&255;
+   STHWriteLayoutLog([NSString stringWithFormat:@"editor-report bundle=%@ stage=%d frame={%.3f,%.3f,%.3f,%.3f} keysTop=%.3f appliedLift=%.3f rows=%u (measured when stage4/5)",bundle,stage,f.x,f.y,f.w,f.h,key,lift,rows]);
+  });
  }
  return YES;
 }
@@ -155,4 +168,32 @@ BOOL STHReadPreview(NSString *bundle,CGRect keys,CGRect scene,CGRect *local,doub
  if(!STHMapHostedKeyboard(c,(STHRect){keys.origin.x,keys.origin.y,keys.size.width,keys.size.height},
   (STHRect){scene.origin.x,scene.origin.y,scene.size.width,scene.size.height},&out,inset))return NO;
  if(local)*local=CGRectMake(out.x,out.y,out.w,out.h);return YES;
+}
+
+void STHReportEditor(NSString *bundle,int stage,CGRect frame,double top,double lift,unsigned rows){
+ STHLayoutTokens *t=getTokens(bundle);if(!t.valid||t.editorFrame<0||t.editorState<0||!isfinite(top)||!isfinite(lift))return;
+ static uint64_t sequence;
+ uint64_t r=0;
+ if(frame.size.width>1&&frame.size.height>1&&!STHPackRect((STHRect){frame.origin.x,frame.origin.y,frame.size.width,frame.size.height},&r))return;
+ uint16_t k=(uint16_t)(int16_t)llround(fmax(-4095,fmin(4095,top))*8);
+ uint16_t l=(uint16_t)(int16_t)llround(fmax(-4095,fmin(4095,lift))*8);
+ uint64_t state=(1ULL<<63)|((uint64_t)(stage&255)<<48)|((++sequence&127)<<40)|((uint64_t)(rows&255)<<32)|((uint64_t)l<<16)|k;
+ notify_set_state(t.editorState,0);notify_set_state(t.editorFrame,r);notify_set_state(t.editorState,state);
+ notify_post(channel(bundle,@"editorMeasured").UTF8String);
+}
+
+BOOL STHReadLayoutUsingKeyboard(NSString *bundle,CGRect scene,CGRect keys,CGRect *mapped,double *inset){
+ STHLayoutTokens *t=getTokens(bundle);if(!t.valid)return NO;
+ for(int attempt=0;attempt<3;attempt++){
+  uint64_t a=0,b=0,card=0;
+  if(notify_get_state(t.commit,&a)!=0||!recent(a)||(a&(1ULL<<61)))return NO;
+  BOOL slot=(a>>62)&1;
+  if(notify_get_state(slot?t.card1:t.card0,&card)!=0||notify_get_state(t.commit,&b)!=0)return NO;
+  if(a!=b)continue;
+  STHRect out;
+  BOOL ok=STHMapHostedKeyboard(STHUnpackRect(card),(STHRect){keys.origin.x,keys.origin.y,keys.size.width,keys.size.height},
+   (STHRect){scene.origin.x,scene.origin.y,scene.size.width,scene.size.height},&out,inset);
+  if(ok&&mapped)*mapped=CGRectMake(out.x,out.y,out.w,out.h);return ok;
+ }
+ return NO;
 }

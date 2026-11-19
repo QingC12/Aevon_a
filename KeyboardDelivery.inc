@@ -25,11 +25,13 @@ static BOOL interceptNotification(NSNotificationCenter *center,NSNotification *n
  BOOL hide=hideEvent(note.name);
  if(hide){
   if(!status&&!heldSession&&!session.visible&&!session.hasSceneFrame&&!awaitingDidHide)return NO;
+  if(!prepareKeyboardLifecycle(note.name,status))return YES;
   awaitingDidHide=[note.name isEqualToString:UIKeyboardWillHideNotification];
   discardHeld();heldSession=NO;deliverFrozen(center,note);return YES;
  }
  awaitingDidHide=NO;
  if(status==1||status==2){
+  if(!prepareKeyboardLifecycle(note.name,status))return YES;
   // Synchronous original Will timing. Pending uses a validated physical frame
   // plus predicted full-width card, or returns native data untouched.
   heldSession=YES;deliverFrozen(center,note);return YES;

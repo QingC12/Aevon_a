@@ -110,6 +110,7 @@ void STHStartLayout(void *model,CGRect keyboard){
  if(!same){
   if(observedBundle)STHPublishLayout(observedBundle,CGRectZero,CGRectZero,NO);
   observedModel=(__bridge id)model;observedBundle=bundle;
+  keyboardFrame=CGRectNull;keyboardFrameAt=0;lastHeartbeat=0;source=@"new-session-awaiting-frame";
   STHSettleBegin(&settling,CACurrentMediaTime());STHBeginLayout(bundle);
   STHWriteLayoutLog([NSString stringWithFormat:@"session-begin %u bundle=%@ (awaiting stable final card)",settling.generation,bundle]);
  }
@@ -127,10 +128,10 @@ void STHUpdateLayout(void){
   // original WillShow transaction. Publish it immediately, do not wait160ms.
   STHNativeRefreshGeometry((__bridge void *)m);
   CGRect card=STHNativeRect((__bridge void *)m),keys=physicalKeys();
-  if(usable(keys,UIScreen.mainScreen.bounds)){
+  if(usable(keys,UIScreen.mainScreen.bounds)&&STHFiniteRect(rr(card))&&card.size.width>=40&&card.size.height>=40){
    settling.haveCommitted=YES;settling.committedCard=rr(card);settling.committedKeys=rr(keys);
    STHPublishLayout(observedBundle,card,keys,YES);lastHeartbeat=CACurrentMediaTime();
-   STHWriteLayoutLog([NSString stringWithFormat:@"initial-sync bundle=%@ card=%@ keyboard=%@ (no notification hold)",observedBundle,NSStringFromCGRect(card),NSStringFromCGRect(keys)]);
+   STHWriteLayoutLog([NSString stringWithFormat:@"initial-sync session=%u bundle=%@ card=%@ keyboard=%@ source=%@ nativeAge=%.3f (no notification hold)",settling.generation,observedBundle,NSStringFromCGRect(card),NSStringFromCGRect(keys),source,CACurrentMediaTime()-keyboardFrameAt]);
   }
  }
  tick();
@@ -143,9 +144,10 @@ void STHStopLayout(void){
  if(observedBundle){STHPublishLayout(observedBundle,CGRectZero,CGRectZero,NO);
   STHWriteLayoutLog([NSString stringWithFormat:@"session-hide %u bundle=%@",settling.generation,observedBundle]);}
  STHSettleEnd(&settling);observedModel=nil;observedBundle=nil;keyboardFrame=CGRectNull;
+ keyboardFrameAt=0;lastHeartbeat=0;source=nil;
 }
 __attribute__((constructor)) static void ready(void){dispatch_async(dispatch_get_main_queue(),^{
- STHWriteLayoutLog(@"stheno 2.0.10 publisher: immediate target geometry, corrections settled separately");
+ STHWriteLayoutLog(@"stheno 2.0.11 publisher: session-local initial geometry and editor diagnostics");
  void(^update)(NSNotification *)=^(NSNotification *n){
   if(!observedModel||applying)return;
   id v=n.userInfo[UIKeyboardFrameEndUserInfoKey];if(![v isKindOfClass:NSValue.class])return;

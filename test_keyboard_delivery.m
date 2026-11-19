@@ -4,6 +4,7 @@
 #include <assert.h>
 #include <stdio.h>
 #import "KeyboardSession.h"
+#import "EditorSession.h"
 // UIKit is unavailable on the macOS host; only names are mocked, not adapter code.
 static NSString *const UIKeyboardWillShowNotification=@"UIKeyboardWillShowNotification";
 static NSString *const UIKeyboardDidShowNotification=@"UIKeyboardDidShowNotification";
@@ -20,6 +21,17 @@ static void STHWriteLayoutLog(NSString *s){}
 static NSDictionary *normalizedInfo(NSNotification *note,SEL selector){
  preparations++;
  return @{@"top":@(currentEnd)};
+}
+static STHEditorSession lifecycle;
+static BOOL prepareKeyboardLifecycle(NSString *name,int state){
+ if([name isEqualToString:UIKeyboardWillShowNotification]||[name isEqualToString:UIKeyboardDidShowNotification]){
+  STHEditorShow(&lifecycle);return YES;
+ }
+ if([name isEqualToString:UIKeyboardWillHideNotification]){STHEditorWillHide(&lifecycle);return YES;}
+ if([name isEqualToString:UIKeyboardDidHideNotification]){
+  if(!STHEditorDidHide(&lifecycle)&&state>0&&lifecycle.active)return NO;
+ }
+ return YES;
 }
 #include "KeyboardDelivery.inc"
 static void send(NSString *name,double top){
@@ -48,6 +60,15 @@ int main(void){@autoreleasepool{
  assert(callbacks==4);
  int beforeDid=preparations;phase=0;
  send(@"UIKeyboardDidHideNotification",932);assert(preparations==beforeDid+1&&!awaitingDidHide);
+ // Close/open interleaving: an old DidHide cannot normalize/clear a new show.
+ phase=1;send(@"UIKeyboardWillShowNotification",590);
+ send(@"UIKeyboardWillHideNotification",932);
+ send(@"UIKeyboardWillShowNotification",590);assert(lifecycle.active);
+ int beforeStale=preparations;
+ send(@"UIKeyboardDidHideNotification",932);
+ assert(preparations==beforeStale&&lifecycle.active);
+ send(@"UIKeyboardWillHideNotification",932);send(@"UIKeyboardDidHideNotification",932);
+ assert(!lifecycle.active&&!lifecycle.closing);
  // Inactive/fullscreen notification is forwarded untouched.
  [NSNotificationCenter.defaultCenter removeObserver:a];[NSNotificationCenter.defaultCenter removeObserver:b];
  __block double fullscreen=0;

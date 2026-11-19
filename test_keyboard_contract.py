@@ -31,7 +31,14 @@ assert delivery.index('normalizedInfo(note')<delivery.index('centerPost(center')
 assert 'installDelivery();' in coordinates
 assert 'STHSettleSample(&settling' in publisher
 assert 'STHNativeAnimatePhysicalKeyboard((' not in publisher
-assert 'initial-sync bundle=' in publisher
+assert 'initial-sync session=' in publisher
 assert 't.writerActive=NO;notify_set_state(t.commit,0)' in bus # only deactivation
 assert 'if(changed)notify_post' in bus # silent heartbeat, not repeated layout events
-print('Production scene routing, immutable delivery, paired settle and double-buffer transport verified')
+editor=(root/'EditorGuard.m').read_text()
+assert 'prepareKeyboardLifecycle(note.name,status)' in delivery.split('if(status==1||status==2)',1)[1]
+assert 'STHEditorDidHide(&editorLifecycle)' in coordinates
+assert refresh.index('updateEditorVisibility(YES)')<refresh.index('if(phase==2||!session.visible)return')
+assert 'now>deadline' not in editor and 'currentEditor()' in editor
+assert 'STHReportEditor' in editor and 'STHEditorAttachedRow' in editor
+assert 'STHReportEditor' in bus and 'editor-report bundle=' in bus
+print('Scene routing, immediate immutable delivery and independent repeat-show editor lifecycle verified')

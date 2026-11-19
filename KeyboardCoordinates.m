@@ -6,12 +6,15 @@
 #import <QuartzCore/QuartzCore.h>
 #import "KeyboardCoordinates.h"
 #import "KeyboardSession.h"
+#import "EditorSession.h"
 #import "LayoutBus.h"
 extern BOOL STHFloatingKeyboardScope(UIWindowScene *);
 extern UIWindow *STHTargetKeyboardWindow(UIWindowScene *,UIWindow *);
 extern void STHEditorVisibilityEvent(BOOL);
 static void updateEditorVisibility(BOOL showing){
- dispatch_async(dispatch_get_main_queue(),^{STHEditorVisibilityEvent(showing);});
+ // Lifecycle is immediate; only measurement is display-scheduled. A queued
+ // old hide must not restore transforms after a newer show has already run.
+ if([NSThread isMainThread])STHEditorVisibilityEvent(showing);
 }
 static NSDictionary *(*originalInfo)(id,SEL);
 static char cachedInfoKey,normalizedKey;
@@ -19,6 +22,7 @@ static __thread BOOL converting;
 static __weak UIWindow *recentKeyboard;
 static __weak UIWindowScene *sessionScene,*lastHideScene;
 static STHKeyboardSession session;
+static STHEditorSession editorLifecycle;
 static BOOL postingLayoutRefresh;
 static NSNumber *originalDuration,*originalCurve;
 static NSString *resolutionSource;
@@ -188,6 +192,30 @@ static NSDictionary *normalizedInfo(NSNotification *note,SEL selector) {
  converting=NO;return result;
 }
 
+static BOOL prepareKeyboardLifecycle(NSString *name,int phase){
+ BOOL willShow=[name isEqualToString:UIKeyboardWillShowNotification];
+ BOOL didShow=[name isEqualToString:UIKeyboardDidShowNotification];
+ BOOL willHide=[name isEqualToString:UIKeyboardWillHideNotification];
+ BOOL didHide=[name isEqualToString:UIKeyboardDidHideNotification];
+ if(willShow||didShow){
+  if(STHEditorShow(&editorLifecycle)){
+   STHSessionHide(&session);sessionScene=nil;lastHideScene=nil;lastRealMetadata=nil;
+   updateEditorVisibility(NO);
+  }
+  // Every session runs even when its frame is identical to the previous one.
+  updateEditorVisibility(YES);return YES;
+ }
+ if(willHide){STHEditorWillHide(&editorLifecycle);updateEditorVisibility(NO);return YES;}
+ if(didHide){
+  if(!STHEditorDidHide(&editorLifecycle)&&phase>0&&editorLifecycle.active){
+   STHWriteLayoutLog(@"stale DidHide ignored after newer show");return NO;
+  }
+  updateEditorVisibility(NO);return YES;
+ }
+ if(editorLifecycle.active)updateEditorVisibility(YES);
+ return YES;
+}
+
 #include "KeyboardDelivery.inc"
 
 static BOOL refreshQueued;
@@ -197,8 +225,13 @@ static void refreshHostedLayout(void) {
  if(phase==0){
   discardHeld();heldSession=NO;
   updateEditorVisibility(NO);
+  STHEditorInvalidate(&editorLifecycle);
   STHSessionHide(&session);sessionScene=nil;lastRealMetadata=nil;return;
  }
+ // A host's first committed frame is itself a scoped editing signal. Some
+ // apps consume keyboard messages before our userInfo hook, so the guard must
+ // not depend on session.visible or another frame change to become active.
+ if(phase==1)updateEditorVisibility(YES);
  if(phase==2||!session.visible)return;
  CGRect end;UIWindowScene *scene=nil;double inset=0;
  if(!resolveScene(CGRectNull,&scene,&end,&inset)){
@@ -211,6 +244,9 @@ static void refreshHostedLayout(void) {
   return;
  }
  if(sessionScene!=scene){session.hasSceneFrame=false;sessionScene=scene;}
+ // Repeated shows with the same frame still need editing protection. Do not
+ // make focus/tool-row readiness depend on a change in keyboard geometry.
+ if(editorLifecycle.active||session.visible)updateEditorVisibility(YES);
  if(!STHSessionNeedsDelivery(&session,rectValue(end)))return;
  CGRect begin=session.hasSceneFrame?cgRect(session.sceneFrame):end;
  // Commit BEFORE posting; neither idempotence nor hide depends on userInfo reads.
@@ -247,5 +283,5 @@ void STHInstallKeyboardNotifications(void) {
   if(refreshQueued)return;refreshQueued=YES;
   dispatch_async(dispatch_get_main_queue(),^{refreshQueued=NO;refreshHostedLayout();});
  });
- STHWriteLayoutLog(@"2.0.10 app adapter: synchronous Will delivery; measured editor/toolbar visibility");
+ STHWriteLayoutLog(@"2.0.11 app adapter: independent editor lifecycle, late-hide guard, persistent focused assembly");
 }
