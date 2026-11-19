@@ -4,6 +4,13 @@
 #include <assert.h>
 #include <stdio.h>
 #import "KeyboardSession.h"
+// UIKit is unavailable on the macOS host; only names are mocked, not adapter code.
+static NSString *const UIKeyboardWillShowNotification=@"UIKeyboardWillShowNotification";
+static NSString *const UIKeyboardDidShowNotification=@"UIKeyboardDidShowNotification";
+static NSString *const UIKeyboardWillChangeFrameNotification=@"UIKeyboardWillChangeFrameNotification";
+static NSString *const UIKeyboardDidChangeFrameNotification=@"UIKeyboardDidChangeFrameNotification";
+static NSString *const UIKeyboardWillHideNotification=@"UIKeyboardWillHideNotification";
+static NSString *const UIKeyboardDidHideNotification=@"UIKeyboardDidHideNotification";
 static char normalizedKey;
 static STHKeyboardSession session;
 static int phase=0,preparations=0;
