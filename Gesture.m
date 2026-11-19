@@ -82,6 +82,12 @@ int STHClassify(void *m,CGPoint p) {
  // Native scene hit-testing may query classification again during a drag.
  if (s.dragActive && s.zone==ZMove) return s.lockedHit;
  int original=STHNativeClassify(m,p);
+#if !defined(STH_ROUTING_TEST)
+ if (original==6) {
+  extern void STHKeyboardFocus(void *);
+  STHKeyboardFocus(m);
+ }
+#endif
  s=registerState(m);
  s.lockedHit=(unsigned char)original;
  s.zone=ZOriginal;

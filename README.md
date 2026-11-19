@@ -12,7 +12,9 @@ This private project reconstructs the requested portrait-gesture dispatch from t
 - Yellow bottom-center: touch and drag immediately to move; release is passed once to the original Stheno edge-middle drag-end routine with hit class 4 and its long-press latch cleared. Native flick threshold, cleanup and animation decide closing. There is no .25s hold requirement, 24pt threshold or custom close action.
 - Yellow continuous movement never changes its saved edge-middle hit class. The native close recognition code is byte-for-byte preserved, and build.py asserts this before signing.
 - Movement and corner scaling use original Stheno update paths. Docking uses the original SwiftUI spring transaction; closing uses the original native release path. Restoring a docked window and switching orientations retain their original callbacks.
-- Sileo lists `stheno` at `2.0.2`. The Debian control file retains `stheno` as its short description.
+- Sileo lists `stheno` at `2.0.3`. The Debian control file retains `stheno` as its short description.
+- Keyboard: in portrait, the recently touched floating content is enlarged toward the screen width (12pt total horizontal margin, maximum 35% temporary increase), while original keyboard avoidance controls vertical placement. Hide restores the pre-keyboard scale and model offset, unless the user changed either while typing. Repeated show notifications do not replace the original snapshot. Hardware/floating keyboards and landscape cards retain native behavior.
+- The video reference is approximated through model geometry; actual device timing and placement still require validation. Both hooks run inside the original Stheno keyboard SwiftUI spring; no UIKit duration replacement or screen-sized view transforms are applied.
 - Assumed subdivisions within the existing bottom band, left to right: green 0–15%, blue 15–35%, yellow 35–65%, blue 65–85%, green 85–100%. These are inferred from the user's drawing, not measured device pixels.
 - The original four-edge interaction switch and existing exclusion checks still apply. They are not silently enabled and no hit-zone width is expanded.
 

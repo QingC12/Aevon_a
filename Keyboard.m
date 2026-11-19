@@ -1,0 +1,115 @@
+#if defined(STH_KEYBOARD_TEST)
+#import <Foundation/Foundation.h>
+#import <CoreGraphics/CoreGraphics.h>
+#else
+#import <UIKit/UIKit.h>
+#endif
+#import <QuartzCore/QuartzCore.h>
+#import <math.h>
+#import "KeyboardGeometry.h"
+
+extern CGRect STHNativeRect(void *);
+extern NSUInteger STHNativeOrientation(void *);
+extern double STHNativeGetScale(void *);
+extern CGSize STHNativeGetOffset(void *);
+extern void STHNativeSetKeyboardGeometry(void *,const double *);
+extern void STHNativeKeyboardShow(void *);
+extern void STHNativeKeyboardHide(void);
+
+static __weak id candidate;
+static CFTimeInterval candidateAt;
+static __weak id owner;
+static double saved[3], applied[3];
+static BOOL changed;
+
+static CGRect viewport(void) {
+#if defined(STH_KEYBOARD_TEST)
+ return CGRectMake(0,0,400,850);
+#else
+ return UIScreen.mainScreen.bounds;
+#endif
+}
+
+void STHKeyboardFocus(void *model) {
+ if (![NSThread isMainThread] || !model) return;
+ candidate=(__bridge id)model;
+ candidateAt=CACurrentMediaTime();
+}
+
+static void restoreCard(void) {
+ id strongOwner=owner;
+ owner=nil;
+ if (!strongOwner || !changed) { changed=NO; return; }
+ changed=NO;
+ void *model=(__bridge void *)strongOwner;
+ double currentScale=STHNativeGetScale(model);
+ CGSize currentOffset=STHNativeGetOffset(model);
+ // Respect changes the user made while the keyboard was open.
+ double geometry[3]={currentScale,currentOffset.width,currentOffset.height};
+ if (fabs(currentScale-applied[0])<.001) geometry[0]=saved[0];
+ if (hypot(currentOffset.width-applied[1],currentOffset.height-applied[2])<.5) {
+  geometry[1]=saved[1]; geometry[2]=saved[2];
+ }
+ STHNativeSetKeyboardGeometry(model,geometry);
+}
+
+void STHKeyboardShow(void *frameBox) {
+ // Strong locals keep the weak model valid for this synchronous transaction.
+ id focus=candidate;
+ id currentOwner=owner;
+ CGRect screen=viewport();
+ id input=(__bridge id)frameBox;
+ CGRect keyboard=CGRectNull;
+ if ([input isKindOfClass:NSValue.class]) {
+#if defined(STH_KEYBOARD_TEST)
+  if ([input respondsToSelector:@selector(rectValue)]) keyboard=[input rectValue];
+#else
+  if ([input respondsToSelector:@selector(CGRectValue)]) keyboard=[input CGRectValue];
+#endif
+ }
+ BOOL eligible=[NSThread isMainThread] && focus && CACurrentMediaTime()-candidateAt<2.0
+   && !CGRectIsNull(keyboard) && !CGRectIsEmpty(keyboard)
+   && CGRectGetHeight(keyboard)>80 && CGRectGetWidth(keyboard)>.72*CGRectGetWidth(screen)
+   && CGRectGetMinY(keyboard)>CGRectGetMinY(screen)
+   && CGRectGetMinY(keyboard)<CGRectGetMaxY(screen)-40
+   && CGRectGetMaxY(keyboard)>=CGRectGetMaxY(screen)-20;
+ if (eligible && STHNativeOrientation((__bridge void *)focus)!=1) eligible=NO;
+ // Repeated show/frame changes must never overwrite the original snapshot.
+ if (currentOwner && currentOwner==focus && eligible) {
+  STHNativeKeyboardShow(frameBox);
+  return;
+ }
+ double target[3]={0,0,0}, original[3]={0,0,0};
+ BOOL enlarge=NO;
+ if (eligible) {
+  void *model=(__bridge void *)focus;
+  CGRect card=STHNativeRect(model);
+  double scale=STHNativeGetScale(model);
+  CGSize position=STHNativeGetOffset(model);
+  if (CGRectGetWidth(card)>80 && CGRectGetHeight(card)>80 && isfinite(scale)) {
+   double factor=STHKeyboardScaleFactor(scale,CGRectGetWidth(card),CGRectGetWidth(screen));
+   original[0]=scale;original[1]=position.width;original[2]=position.height;
+   target[0]=scale*factor;
+   // Native keyboard avoidance is retained for vertical placement.
+   double newWidth=CGRectGetWidth(card)*factor;
+   double center=CGRectGetMidX(card);
+   double clamped=fmin(CGRectGetMaxX(screen)-newWidth*.5,
+                       fmax(CGRectGetMinX(screen)+newWidth*.5,center));
+   target[1]=position.width+clamped-center;
+   target[2]=position.height;
+   enlarge=factor>1.01;
+  }
+ }
+ STHNativeKeyboardShow(frameBox); // Original frame publication and avoidance.
+ if (currentOwner && currentOwner!=focus) restoreCard();
+ if (enlarge) {
+  for (int i=0;i<3;i++) { applied[i]=target[i]; saved[i]=original[i]; }
+  owner=focus;changed=YES;
+  STHNativeSetKeyboardGeometry((__bridge void *)focus,target);
+ }
+}
+
+void STHKeyboardHide(void) {
+ STHNativeKeyboardHide(); // Both restore operations stay in the original spring.
+ if ([NSThread isMainThread]) restoreCard();
+}

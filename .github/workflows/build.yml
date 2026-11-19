@@ -15,6 +15,12 @@ jobs:
         run: |
           xcrun --sdk macosx clang -fobjc-arc -Wall -Wextra -Wno-unused-parameter test_gesture_routing.m -framework Foundation -framework CoreGraphics -framework QuartzCore -o /tmp/stheno-gesture-routing
           /tmp/stheno-gesture-routing
+      - name: Test keyboard geometry and production lifecycle
+        run: |
+          xcrun --sdk macosx clang -std=c11 -Wall -Wextra test_keyboard_geometry.c -o /tmp/stheno-keyboard-geometry
+          /tmp/stheno-keyboard-geometry
+          xcrun --sdk macosx clang -fobjc-arc -Wall -Wextra -Wno-unused-parameter test_keyboard_routing.m -framework Foundation -framework CoreGraphics -framework QuartzCore -o /tmp/stheno-keyboard-routing
+          /tmp/stheno-keyboard-routing
       - name: Verify private Orion ABI and isolation
         run: python3 test_embed_orion.py
       - name: Build and verify arm64e binaries and Debian archive

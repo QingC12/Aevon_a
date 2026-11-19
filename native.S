@@ -191,3 +191,43 @@ begin STHNativeTap
  mov x0, x1
  target 0xd9340
  finish
+
+// Keyboard callbacks use normal arguments plus the Swift error/context register.
+begin STHNativeKeyboardShow
+ mov x21,#0
+ target 0xd9400
+ finish
+begin STHNativeKeyboardHide
+ mov x21,#0
+ target 0xd9410
+ finish
+begin STHNativeGetScale
+ mov x20,x0
+ target 0x9cadc
+ finish
+begin STHNativeGetOffset
+ mov x20,x0
+ target 0x3f5e0
+ finish
+
+// Apply absolute model geometry inside the caller's existing keyboard spring.
+// C: (model, [scale, offset.x, offset.y]); no raw UIView transforms.
+.globl _STHNativeSetKeyboardGeometry
+_STHNativeSetKeyboardGeometry:
+ pacibsp
+ sub sp,sp,#64
+ stp x29,x30,[sp,#48]
+ add x29,sp,#48
+ stp x19,x20,[sp,#16]
+ stp x21,x22,[sp,#32]
+ mov x20,x0
+ mov x19,x1
+ ldr d0,[x19]
+ target 0x9e3b0
+ ldp d0,d1,[x19,#8]
+ target 0x3f350
+ ldp x19,x20,[sp,#16]
+ ldp x21,x22,[sp,#32]
+ ldp x29,x30,[sp,#48]
+ add sp,sp,#64
+ retab

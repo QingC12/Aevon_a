@@ -88,3 +88,22 @@ _orig_long:
 _orig_tap:
  pacibsp
  b _original_tap_plus4
+
+// Original keyboard closures run inside Stheno's existing SwiftUI spring.
+.org 0x380
+_keyboard_show:
+ adr x16,Lkeyboard_show
+ b _resolve
+Lkeyboard_show: .asciz "STHKeyboardShow"
+.org 0x3c0
+_keyboard_hide:
+ adr x16,Lkeyboard_hide
+ b _resolve
+Lkeyboard_hide: .asciz "STHKeyboardHide"
+.org 0x400
+_orig_keyboard_show:
+ pacibsp
+ b _original_keyboard_show_plus4
+.org 0x410
+_orig_keyboard_hide:
+ b _original_keyboard_hide_target
