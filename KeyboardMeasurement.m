@@ -17,7 +17,9 @@ static void hosts(UIView *v,UIScreen *screen,CGRect physical,int depth,int *budg
 static void rows(UIView *v,UIScreen *screen,CGRect physical,int depth,int *budget,CGRect *out){
  if(!v||v.hidden||v.alpha<.01||depth>18||--*budget<0)return;
  NSString *n=NSStringFromClass(v.class).lowercaseString;
- if([n containsString:@"accessory"]||[n containsString:@"assistant"]||[n containsString:@"candidate"]||[n containsString:@"prediction"]||[n containsString:@"toolbar"]){
+ NSString *owner=[NSBundle bundleForClass:v.class].bundleIdentifier;
+ BOOL systemOwned=[owner hasPrefix:@"com.apple."];
+ if(systemOwned&&([n containsString:@"accessory"]||[n containsString:@"assistant"]||[n containsString:@"candidate"]||[n containsString:@"prediction"]||[n containsString:@"toolbar"])) {
   CGRect r=[v convertRect:v.bounds toCoordinateSpace:screen.fixedCoordinateSpace];
   if(r.size.width>=physical.size.width*.7&&r.size.height>=8&&r.size.height<=160&&r.origin.y>=0&&
     r.origin.y<=out->origin.y&&fabs(CGRectGetMaxY(r)-out->origin.y)<=5)*out=CGRectUnion(*out,r);
