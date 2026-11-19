@@ -5,6 +5,7 @@
 #import <mach-o/dyld.h>
 #import <dlfcn.h>
 #import "KeyboardInsetMath.h"
+#import "LayoutBus.h"
 extern BOOL STHResolveKeyboard(UIWindowScene *,UIWindow *,CGRect,BOOL,CGRect *,double *,UIWindow **);
 extern void STHInstallKeyboardNotifications(void);
 static CGFloat (*previousInset)(id,SEL,UIWindowScene *,BOOL *,BOOL);
@@ -12,7 +13,12 @@ static __unsafe_unretained id *frontmostSlot,*bundleSlot,*sceneSlot;
 static unsigned char *injectedSlot;
 
 BOOL STHFloatingKeyboardScope(UIWindowScene *scene) {
- if(![NSThread isMainThread]||!scene||!injectedSlot||!*injectedSlot||!frontmostSlot||!bundleSlot)return NO;
+ if(![NSThread isMainThread]||!scene||!UIInterfaceOrientationIsPortrait(scene.interfaceOrientation))return NO;
+ // A fresh per-bundle host snapshot is a stronger scope check than the legacy
+ // cached frontmost value (which may still identify the floated app itself).
+ double overlap=0;
+ if(STHReadLayout(NSBundle.mainBundle.bundleIdentifier,scene.coordinateSpace.bounds,NULL,&overlap))return YES;
+ if(!injectedSlot||!*injectedSlot||!frontmostSlot||!bundleSlot)return NO;
  id front=*frontmostSlot,bundle=*bundleSlot;
  if(![front isKindOfClass:NSString.class]||![bundle isKindOfClass:NSString.class]||
     [front length]==0||[bundle length]==0||[front isEqualToString:bundle])return NO;
@@ -59,6 +65,7 @@ static void installInset(void) {
  bundleSlot=(__unsafe_unretained id *)dlsym(handle,"bundleId");
  sceneSlot=(__unsafe_unretained id *)dlsym(handle,"appScene");
  injectedSlot=dlsym(handle,"injectApp");
+ STHInstallKeyboardNotifications();
  Class cls=NSClassFromString(@"_UIRemoteKeyboards");
  SEL selector=NSSelectorFromString(@"intersectionHeightForWindowScene:isLocalMinimumHeightOut:ignoreHorizontalOffset:");
  Method method=class_getInstanceMethod(cls,selector);
@@ -66,7 +73,7 @@ static void installInset(void) {
  previousInset=(void *)method_getImplementation(method);
  if(previousInset==(void *)correctedInset)return;
  method_setImplementation(method,(IMP)correctedInset);
- STHInstallKeyboardNotifications();
+ STHWriteLayoutLog(@"app-adapter initialized; hosted-layout channel ready");
 }
 __attribute__((constructor)) static void startInset(void) {
  // Run after the original dylib has installed its hooks and initialized state.

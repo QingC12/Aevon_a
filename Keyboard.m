@@ -7,6 +7,11 @@
 #import <QuartzCore/QuartzCore.h>
 #import <math.h>
 #import "KeyboardGeometry.h"
+#if !defined(STH_KEYBOARD_TEST)
+extern void STHStartLayout(void *,CGRect);
+extern void STHUpdateLayout(void);
+extern void STHStopLayout(void);
+#endif
 
 extern CGRect STHNativeRect(void *);
 extern NSUInteger STHNativeOrientation(void *);
@@ -67,7 +72,8 @@ void STHKeyboardShow(void *frameBox) {
   if ([input respondsToSelector:@selector(CGRectValue)]) keyboard=[input CGRectValue];
 #endif
  }
- BOOL eligible=[NSThread isMainThread] && focus && CACurrentMediaTime()-candidateAt<2.0
+ BOOL eligible=[NSThread isMainThread] && focus &&
+   ((currentOwner&&currentOwner==focus)||CACurrentMediaTime()-candidateAt<2.0)
    && !CGRectIsNull(keyboard) && !CGRectIsEmpty(keyboard)
    && CGRectGetHeight(keyboard)>80 && CGRectGetWidth(keyboard)>.72*CGRectGetWidth(screen)
    && CGRectGetMinY(keyboard)>CGRectGetMinY(screen)
@@ -77,6 +83,9 @@ void STHKeyboardShow(void *frameBox) {
  // Repeated show/frame changes must never overwrite the original snapshot.
  if (currentOwner && currentOwner==focus && eligible) {
   STHNativeKeyboardShow(frameBox);
+#if !defined(STH_KEYBOARD_TEST)
+  STHStartLayout((__bridge void *)focus,keyboard);
+#endif
   return;
  }
  double target[3]={0,0,0}, original[3]={0,0,0};
@@ -92,10 +101,15 @@ void STHKeyboardShow(void *frameBox) {
    target[0]=scale*factor;
    // Full-width card must be centered, even if the old floating card was offset.
    target[1]=position.width+CGRectGetMidX(screen)-CGRectGetMidX(card);
-   target[2]=position.height;
-   enlarge=fabs(factor-1.0)>.00001 || fabs(target[1]-position.width)>.01;
+   target[2]=position.height+STHKeyboardVisibleDelta(CGRectGetMinY(card),CGRectGetHeight(card),factor,
+       CGRectGetMinY(screen),CGRectGetMinY(keyboard));
+   enlarge=fabs(factor-1.0)>.00001 || fabs(target[1]-position.width)>.01 || fabs(target[2]-position.height)>.01;
   }
  }
+#if !defined(STH_KEYBOARD_TEST)
+ if(eligible)STHStartLayout((__bridge void *)focus,keyboard);
+ else STHStopLayout();
+#endif
  STHNativeKeyboardShow(frameBox); // Original frame publication and avoidance.
  if (currentOwner && currentOwner!=focus) restoreCard();
  if (enlarge) {
@@ -103,9 +117,15 @@ void STHKeyboardShow(void *frameBox) {
   owner=focus;changed=YES;
   STHNativeSetKeyboardGeometry((__bridge void *)focus,target);
  }
+#if !defined(STH_KEYBOARD_TEST)
+ STHUpdateLayout();
+#endif
 }
 
 void STHKeyboardHide(void) {
+#if !defined(STH_KEYBOARD_TEST)
+ STHStopLayout();
+#endif
  STHNativeKeyboardHide(); // Both restore operations stay in the original spring.
  if ([NSThread isMainThread]) restoreCard();
 }

@@ -231,3 +231,13 @@ _STHNativeSetKeyboardGeometry:
  ldp x29,x30,[sp,#48]
  add sp,sp,#64
  retab
+
+// ReflectManager.id is a Swift String at +0x30; Foundation returns retained NSString.
+begin STHNativeCopyBundleID
+ ldp x0,x1,[x0,#0x30]
+ target 0xafccc
+ finish
+begin STHNativeRefreshGeometry
+ mov x20,x0
+ target 0x9c67c
+ finish

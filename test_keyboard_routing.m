@@ -59,6 +59,14 @@ int main(void) {
   assert(fabs(displayedLeft)<.00001); // no left/right margin
   STHKeyboardHide();assert(fabs(offcenter.offset.width-30)<.00001);
 
+  Model *low=make();low.card=CGRectMake(40,700,320,120);low.offset=CGSizeMake(0,300);
+  show(low,frame);
+  assert(low.offset.height<300);
+  double newHeight=low.card.size.height*(low.scale/.8);
+  double newTop=CGRectGetMidY(low.card)-newHeight*.5+low.offset.height-300;
+  assert(newTop<=550-fmin(120,newHeight*.25)+.001);
+  STHKeyboardHide();assert(fabs(low.offset.height-300)<.001&&fabs(low.scale-.8)<.001);
+
   int before=writes;
   NSValue *hardware=[NSValue valueWithRect:NSMakeRect(0,840,400,10)];
   show(b,hardware);assert(writes==before);
