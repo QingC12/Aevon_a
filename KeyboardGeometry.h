@@ -8,10 +8,8 @@ static inline double STHKeyboardScaleFactor(double currentScale, double cardWidt
     if (!isfinite(currentScale) || !isfinite(cardWidth) ||
         !isfinite(viewportWidth) || currentScale <= 0 || cardWidth <= 1 ||
         viewportWidth <= 1) return 1.0;
-    double target = viewportWidth - 12.0;
-    double factor = target / cardWidth;
-    if (factor <= 1.01) return 1.0;
-    return fmin(1.35, factor);
+    // Full screen width, without the old 12pt margin or 35% enlargement cap.
+    return viewportWidth / cardWidth;
 }
 
 static inline double STHKeyboardCenterDelta(double cardLeft, double cardWidth,

@@ -90,14 +90,10 @@ void STHKeyboardShow(void *frameBox) {
    double factor=STHKeyboardScaleFactor(scale,CGRectGetWidth(card),CGRectGetWidth(screen));
    original[0]=scale;original[1]=position.width;original[2]=position.height;
    target[0]=scale*factor;
-   // Native keyboard avoidance is retained for vertical placement.
-   double newWidth=CGRectGetWidth(card)*factor;
-   double center=CGRectGetMidX(card);
-   double clamped=fmin(CGRectGetMaxX(screen)-newWidth*.5,
-                       fmax(CGRectGetMinX(screen)+newWidth*.5,center));
-   target[1]=position.width+clamped-center;
+   // Full-width card must be centered, even if the old floating card was offset.
+   target[1]=position.width+CGRectGetMidX(screen)-CGRectGetMidX(card);
    target[2]=position.height;
-   enlarge=factor>1.01;
+   enlarge=fabs(factor-1.0)>.00001 || fabs(target[1]-position.width)>.01;
   }
  }
  STHNativeKeyboardShow(frameBox); // Original frame publication and avoidance.

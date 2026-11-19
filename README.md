@@ -12,8 +12,9 @@ This private project reconstructs the requested portrait-gesture dispatch from t
 - Yellow bottom-center: touch and drag immediately to move; release is passed once to the original Stheno edge-middle drag-end routine with hit class 4 and its long-press latch cleared. Native flick threshold, cleanup and animation decide closing. There is no .25s hold requirement, 24pt threshold or custom close action.
 - Yellow continuous movement never changes its saved edge-middle hit class. The native close recognition code is byte-for-byte preserved, and build.py asserts this before signing.
 - Movement and corner scaling use original Stheno update paths. Docking uses the original SwiftUI spring transaction; closing uses the original native release path. Restoring a docked window and switching orientations retain their original callbacks.
-- Sileo lists `stheno` at `2.0.3`. The Debian control file retains `stheno` as its short description.
-- Keyboard: in portrait, the recently touched floating content is enlarged toward the screen width (12pt total horizontal margin, maximum 35% temporary increase), while original keyboard avoidance controls vertical placement. Hide restores the pre-keyboard scale and model offset, unless the user changed either while typing. Repeated show notifications do not replace the original snapshot. Hardware/floating keyboards and landscape cards retain native behavior.
+- Sileo lists `stheno` at `2.0.4`. The Debian control file retains `stheno` as its short description.
+- Keyboard: the touched portrait floating card is sized to the full screen width and horizontally centered, without the old 12pt margin or 35% cap. Hide restores the snapshot, unless the user changed it while typing. Hardware/floating keyboards and landscape retain native behavior.
+- A private `SthenoKeyboardInset.dylib`, loaded only by the existing app-side SthenoKeyboard library, reduces an inflated legacy intersection height using the actual keyboard-window rectangle converted to the app window's coordinates. It acts only on injected non-frontmost portrait apps and only if the computed overlap is smaller than the existing inset. Invalid/unsupported conversion falls back to the prior result. This is a targeted device-test correction, not a guarantee for unobserved app layouts.
 - The video reference is approximated through model geometry; actual device timing and placement still require validation. Both hooks run inside the original Stheno keyboard SwiftUI spring; no UIKit duration replacement or screen-sized view transforms are applied.
 - Assumed subdivisions within the existing bottom band, left to right: green 0–15%, blue 15–35%, yellow 35–65%, blue 65–85%, green 85–100%. These are inferred from the user's drawing, not measured device pixels.
 - The original four-edge interaction switch and existing exclusion checks still apply. They are not silently enabled and no hit-zone width is expanded.
@@ -24,7 +25,7 @@ This private project reconstructs the requested portrait-gesture dispatch from t
 
 The script verifies the input DEB and exact arm64e main-image SHA-256, assembles PAC-preserving entry stubs and original-entry trampolines, compiles `Gesture.m` and `native.S`, signs both changed Mach-O files, verifies signatures, packs a Debian archive and reads every archive member back. Eight original components and the gesture helper remain arm64e-only; the bundled Orion runtime is arm64e-only as well.
 
-Only gesture entry code and the main library's Orion load path are patched. Media, keyboard, and package-maintenance logic is retained. Source model offsets are specific to the supplied sample, so the script rejects other binaries.
+Only gesture entry code, the private Orion load path, and an added app-side keyboard-inset helper load command are patched. Media and package-maintenance logic are retained. The original app-side keyboard code is preserved; the helper wraps its result after the original hooks initialize. Source model offsets are specific to the supplied sample, so the script rejects other binaries.
 
 ## Orion is bundled privately
 

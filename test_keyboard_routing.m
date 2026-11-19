@@ -37,7 +37,8 @@ int main(void) {
   inOriginalTransaction=YES;
   NSValue *frame=[NSValue valueWithRect:NSMakeRect(0,550,400,300)];
   Model *a=make();show(a,frame);
-  assert(a.scale>.8&&a.scale<=1.08&&owner==a&&writes==1);
+  assert(fabs(a.scale-1.0)<.00001&&owner==a&&writes==1);
+  assert(fabs(a.card.size.width*(a.scale/.8)-400.0)<.00001);
   double enlarged=a.scale;
   STHKeyboardShow((__bridge void *)frame);
   assert(fabs(a.scale-enlarged)<.00001&&writes==1&&showCalls==2);
@@ -50,6 +51,13 @@ int main(void) {
   Model *b=make();a=make();show(a,frame);show(b,frame);
   assert(fabs(a.scale-.8)<.001&&b.scale>.8&&owner==b);
   STHKeyboardHide();assert(fabs(b.scale-.8)<.001);
+
+  Model *offcenter=make();offcenter.card=CGRectMake(70,150,320,500);
+  offcenter.offset=CGSizeMake(30,20);show(offcenter,frame);
+  assert(fabs(offcenter.offset.width)<.00001);
+  double displayedLeft=CGRectGetMidX(offcenter.card)+(offcenter.offset.width-30)-200;
+  assert(fabs(displayedLeft)<.00001); // no left/right margin
+  STHKeyboardHide();assert(fabs(offcenter.offset.width-30)<.00001);
 
   int before=writes;
   NSValue *hardware=[NSValue valueWithRect:NSMakeRect(0,840,400,10)];
