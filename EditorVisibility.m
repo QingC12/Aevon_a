@@ -81,7 +81,12 @@ static CGRect assemblyFrame(UIView *root,id<UICoordinateSpace> scene){
   CGRect r=assemblyFrame(candidate,scene.coordinateSpace);
   double baselineTop=r.origin.y-appliedSceneY,baselineBottom=CGRectGetMaxY(r)-appliedSceneY;
   double lift=STHComposerLift(baselineTop,baselineBottom,mapped.origin.y,scene.coordinateSpace.bounds.size.height);
-  if(fabs(-lift-appliedSceneY)<.75)continue;
+  if(fabs(-lift-appliedSceneY)<.75){
+   if(CACurrentMediaTime()-lastLog>.4){lastLog=CACurrentMediaTime();
+    STHWriteLayoutLog([NSString stringWithFormat:@"editor-check class=%@ measuredBottom=%.3f keysTop=%.3f appliedLift=%.3f rows=%lu",NSStringFromClass(candidate.class),CGRectGetMaxY(r),mapped.origin.y,-appliedSceneY,(unsigned long)attachedRows.count]);
+   }
+   return;
+  }
   if(!haveTransform){originalTransform=candidate.transform;haveTransform=YES;}
   CGPoint zero=[candidate.superview convertPoint:CGPointZero fromCoordinateSpace:scene.coordinateSpace];
   CGPoint shifted=[candidate.superview convertPoint:CGPointMake(0,-lift) fromCoordinateSpace:scene.coordinateSpace];
@@ -102,7 +107,8 @@ static CGRect assemblyFrame(UIView *root,id<UICoordinateSpace> scene){
    [rowApplied setObject:[NSValue valueWithCGAffineTransform:rt] forKey:row];
   }
   if(CACurrentMediaTime()-lastLog>.2){lastLog=CACurrentMediaTime();
-   STHWriteLayoutLog([NSString stringWithFormat:@"editor-visibility class=%@ baseline={%.3f,%.3f} keysTop=%.3f lift=%.3f includes-app-rows=1",NSStringFromClass(candidate.class),baselineTop,baselineBottom,mapped.origin.y,lift]);
+   CGRect measured=assemblyFrame(candidate,scene.coordinateSpace);
+   STHWriteLayoutLog([NSString stringWithFormat:@"editor-visibility class=%@ baseline={%.3f,%.3f} keysTop=%.3f lift=%.3f resultBottom=%.3f includedRows=%lu",NSStringFromClass(candidate.class),baselineTop,baselineBottom,mapped.origin.y,lift,CGRectGetMaxY(measured),(unsigned long)attachedRows.count]);
   }
   return;
  }
