@@ -1,15 +1,18 @@
+#if defined(STH_ROUTING_TEST)
+#import <Foundation/Foundation.h>
+#import <CoreGraphics/CoreGraphics.h>
+#else
 #import <UIKit/UIKit.h>
+#endif
 #import <QuartzCore/QuartzCore.h>
 #import <mach-o/dyld.h>
 #import <dlfcn.h>
 #import <math.h>
-#include "GestureRules.h"
 
 uintptr_t sth_core_base=0;
 extern CGRect STHNativeRect(void *);
 extern void STHNativeReset(void *);
 extern void STHNativeDock(void *);
-extern void STHNativeClose(void *);
 extern NSUInteger STHNativeOrientation(void *);
 extern void STHNativeSetup(void *,void *);
 extern void STHNativeUpdate(void *,void *);
@@ -25,14 +28,13 @@ typedef NS_ENUM(int, Zone) { ZOriginal, ZSide, ZCorner, ZRotate, ZReset, ZMove, 
 @property Zone zone;
 @property CGPoint start;
 @property double began;
-@property STHYellowMode yellowMode;
-@property CGSize lastYellowTranslation;
-@property CGSize closeOrigin;
 @property CGSize moveOrigin;
 @property BOOL moveOriginSet;
 @property BOOL moving;
 @property BOOL acted;
 @property BOOL active;
+@property BOOL dragActive;
+@property unsigned char lockedHit;
 @property BOOL holdArmed;
 @property NSUInteger generation;
 @property double lastTapAt;
@@ -48,14 +50,24 @@ static void ensureBase(void) {
   if(n&&[[[NSString stringWithUTF8String:n] lastPathComponent] isEqualToString:@"Stheno.dylib"]){sth_core_base=(uintptr_t)_dyld_get_image_header(i);break;}
  }
 }
-static NSUInteger offset(uintptr_t address) { ensureBase(); return *(NSUInteger *)(sth_core_base+address); }
+static NSUInteger offset(uintptr_t address) {
+#if defined(STH_ROUTING_TEST)
+ extern NSUInteger STHTestOffset(uintptr_t);
+ return STHTestOffset(address);
+#else
+ ensureBase();
+ return *(NSUInteger *)(sth_core_base+address);
+#endif
+}
 static unsigned char *hit(void *m) { return (unsigned char *)m+offset(0xf7920); }
 static unsigned char *latch(void *m) { return (unsigned char *)m+offset(0xf7928); }
 static unsigned char *phase(void *m) { return (unsigned char *)m+offset(0xf7930); }
 static STHGestureState *state(void *m) { return [states objectForKey:(__bridge id)m]; }
 static BOOL portrait(void) {
+#if !defined(STH_ROUTING_TEST)
  for (UIScene *s in UIApplication.sharedApplication.connectedScenes)
   if ([s isKindOfClass:UIWindowScene.class]) return UIInterfaceOrientationIsPortrait(((UIWindowScene *)s).interfaceOrientation);
+#endif
  return YES;
 }
 static STHGestureState *registerState(void *m) {
@@ -66,8 +78,12 @@ static STHGestureState *registerState(void *m) {
 // Preserve membership in the ORIGINAL hit region. Subdivide it along its length only.
 int STHClassify(void *m,CGPoint p) {
  ensureBase();
+ STHGestureState *s=state(m);
+ // Native scene hit-testing may query classification again during a drag.
+ if (s.dragActive && s.zone==ZMove) return s.lockedHit;
  int original=STHNativeClassify(m,p);
- STHGestureState *s=registerState(m);
+ s=registerState(m);
+ s.lockedHit=(unsigned char)original;
  s.zone=ZOriginal;
  s.start=p;
  s.began=CACurrentMediaTime();
@@ -75,9 +91,6 @@ int STHClassify(void *m,CGPoint p) {
  s.acted=NO;
  s.active=YES;
  s.holdArmed=NO;
- s.yellowMode=STHYellowPending;
- s.lastYellowTranslation=CGSizeZero;
- s.closeOrigin=CGSizeZero;
  s.moveOriginSet=NO;
  s.moveOrigin=CGSizeZero;
  s.generation++;
@@ -101,13 +114,16 @@ int STHClassify(void *m,CGPoint p) {
   else s.zone=ZMove;
  } else if (p.x<CGRectGetMinX(r)||p.x>CGRectGetMaxX(r)) s.zone=ZSide;
  if (s.zone==ZOriginal) return original;
- // 2 retains original corner resizing; 3 retains native movement.
- return s.zone==ZCorner?2:3;
+ // Keep the yellow strip in the ORIGINAL edge-middle class for drag end.
+ // Continuous movement is dispatched separately without changing close recognition.
+ s.lockedHit=s.zone==ZMove?4:(s.zone==ZCorner?2:3);
+ return s.lockedHit;
 }
 void STHSetup(void *drag,void *m) {
  STHGestureState *s=state(m);
+ s.dragActive=YES;
  if (!s||s.zone==ZOriginal||s.zone==ZReturnPortrait) {STHNativeSetup(drag,m);return;}
- *hit(m)=s.zone==ZCorner?2:3;*latch(m)=0;*phase(m)=2;
+ *hit(m)=s.zone==ZMove?4:(s.zone==ZCorner?2:3);*latch(m)=0;*phase(m)=2;
  STHNativeSetup(drag,m);
 }
 void STHUpdate(void *drag,void *m) {
@@ -124,17 +140,12 @@ void STHUpdate(void *drag,void *m) {
   return;
  }
  if (s.zone==ZMove) {
-  CGSize previous=s.lastYellowTranslation;
-  STHYellowMode next=STHYellowNext(s.yellowMode, CACurrentMediaTime()-s.began,
-      hypot(previous.width,previous.height), hypot(translation.width,translation.height));
-  if (next==STHYellowCloseArmed && s.yellowMode==STHYellowPending) s.closeOrigin=previous;
-  if (next==STHYellowMoving && s.yellowMode==STHYellowPending) {
-   s.moveOrigin=previous;
-   s.moveOriginSet=YES;
-  }
-  s.yellowMode=next;
-  s.lastYellowTranslation=translation;
-  if (next!=STHYellowMoving) return;
+  // No hold gate: move immediately, then leave all release recognition to Stheno.
+  *hit(m)=4;
+  *latch(m)=0;
+  s.moving=s.moving||displaced;
+  STHNativeMove(m,translation);
+  return;
  }
  if (s.zone==ZSide && !s.holdArmed) return;
  if (!displaced && !s.moving) return;
@@ -152,25 +163,22 @@ void STHUpdate(void *drag,void *m) {
 }
 void STHEnd(void *drag,void *m) {
  ensureBase();
- STHGestureState *s=state(m);s.active=NO;
+ STHGestureState *s=state(m);s.active=NO;s.dragActive=NO;
  if (!s||s.zone==ZOriginal||s.zone==ZReturnPortrait){if(!*latch(m)&&!s.acted)STHNativeEnd(drag,m);return;}
  CGSize t=STHNativeTranslation(drag);
  BOOL click=s.zone==ZSide&&!s.holdArmed&&!s.moving&&!s.acted&&hypot(t.width,t.height)<=10.0;
- BOOL close=NO;
- if (s.zone==ZMove && !s.acted) {
-  CGSize previous=s.lastYellowTranslation;
-  STHYellowMode next=STHYellowNext(s.yellowMode, CACurrentMediaTime()-s.began,
-      hypot(previous.width,previous.height), hypot(t.width,t.height));
-  if (next==STHYellowCloseArmed && s.yellowMode==STHYellowPending) s.closeOrigin=previous;
-  close=STHYellowCloses(next, t.width-s.closeOrigin.width, t.height-s.closeOrigin.height);
+ if (s.zone==ZMove) {
+  // Native end includes its original flick threshold, cleanup and close animation.
+  // Never pre-clean the gesture as a movement-class gesture before this call.
+  *hit(m)=4;
+  *latch(m)=0;
+  STHNativeEnd(drag,m);
+  return;
  }
  *hit(m)=s.zone==ZCorner?2:3;
  *latch(m)=0;
  STHNativeEnd(drag,m);
- if (close) {
-  s.acted=YES;
-  STHNativeClose(m);
- } else if (click) {
+ if (click) {
   s.acted=YES;
   STHNativeDock(m);
  }
@@ -189,10 +197,8 @@ void STHLong(void *m) {
  if (s.acted)return;
  if(s.zone==ZSide){s.holdArmed=YES;*latch(m)=0;return;}
  if (s.zone==ZMove) {
-  if (s.active && s.yellowMode==STHYellowPending) {
-   s.yellowMode=STHYellowCloseArmed;
-   s.closeOrigin=s.lastYellowTranslation;
-  }
+  // Yellow does not arm a long-press mode and must not suppress drag-end.
+  *hit(m)=4;
   *latch(m)=0;
   return;
  }

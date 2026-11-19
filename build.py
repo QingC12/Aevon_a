@@ -96,6 +96,11 @@ lc=struct.pack('<6I',0xc,sz,24,2,0x10000,0x10000)+name;lc+=bytes(sz-len(lc))
 n,nbytes=struct.unpack_from('<II',img,16);at=32+nbytes
 assert at+sz<0x4000 and img[at:at+sz]==bytes(sz)
 img[at:at+sz]=lc;struct.pack_into('<II',img,16,n+1,nbytes+sz)
+# Preserve the COMPLETE native close/update recognition and animation routines.
+# Only their entry instructions above are hooked; the body and release predicate remain original.
+for start,stop in [(0x4c368,0x4c8a8),(0x507bc,0x50a58),(0x4473c,0x449dc),
+                   (0x4994c,0x4ad44),(0x4ad48,0x4b82c)]:
+ assert img[start:stop]==rows[mi][1][start:stop],(hex(start),hex(stop))
 core=OUT/'Stheno.dylib';core.write_bytes(img)
 # Compile recovered dispatch source, not the proprietary original project.
 run('xcrun','clang','-target','arm64e-apple-ios16.1','-isysroot',run('xcrun','--sdk','iphoneos','--show-sdk-path').decode().strip(),'-fobjc-arc','-O2','-dynamiclib','Gesture.m','native.S','-framework','UIKit','-framework','Foundation','-framework','QuartzCore','-framework','CoreGraphics','-install_name','@loader_path/SthenoGesture.dylib','-o',OUT/'SthenoGesture.dylib')
@@ -106,7 +111,7 @@ for p in [core,OUT/'SthenoGesture.dylib']:
 helper=copy.copy(rows[mi][0]);helper.name='./Library/MobileSubstrate/DynamicLibraries/SthenoGesture.dylib';rows.append((helper,(OUT/'SthenoGesture.dylib').read_bytes()))
 for i,(m,b) in enumerate(controls):
  if Path(m.name).name=='control':
-  fields={'Name':'stheno','Version':'2.0.1+fix1','Description':'stheno','Architecture':'iphoneos-arm64e',
+  fields={'Name':'stheno','Version':'2.0.1+fix2','Description':'stheno','Architecture':'iphoneos-arm64e',
           'Installed-Size':str((sum(len(x) for _,x in rows)+1023)//1024)}
   lines=[];skip=False
   for line in b.decode().splitlines():
@@ -117,7 +122,7 @@ for i,(m,b) in enumerate(controls):
    lines.append(f'{field}: {fields[field]}' if field in fields else line)
   controls[i]=(m,('\n'.join(lines)+'\n').encode())
 for n,b in [('debian-binary',b'2.0\n'),('control.tar.xz',tarwrite(controls)),('data.tar.xz',tarwrite(rows))]:(OUT/n).write_bytes(b)
-result=OUT/'stheno_2.0.1+fix1_iphoneos-arm64e.deb'
+result=OUT/'stheno_2.0.1+fix2_iphoneos-arm64e.deb'
 result.write_bytes(arwrite([(n,(OUT/n).read_bytes()) for n in ('debian-binary','control.tar.xz','data.tar.xz')]))
 verify=tarread(arread(result.read_bytes())['data.tar.xz']);assert len(verify)==len(rows)
 for (a,b),(c,d) in zip(rows,verify):assert a.name==c.name and b==d

@@ -11,10 +11,10 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
-      - name: Test yellow-zone gesture transitions
+      - name: Test production yellow-zone routing
         run: |
-          xcrun --sdk macosx clang -std=c11 -Wall -Wextra -Werror test_gesture_rules.c -o /tmp/stheno-gesture-rules
-          /tmp/stheno-gesture-rules
+          xcrun --sdk macosx clang -fobjc-arc -Wall -Wextra -Wno-unused-parameter test_gesture_routing.m -framework Foundation -framework CoreGraphics -framework QuartzCore -o /tmp/stheno-gesture-routing
+          /tmp/stheno-gesture-routing
       - name: Build and verify arm64e binaries and Debian archive
         run: python3 build.py
       - uses: actions/upload-artifact@v4

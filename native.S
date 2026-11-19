@@ -137,14 +137,6 @@ begin STHNativeDock
  add sp, sp, #16
  finish
 
-begin STHNativeClose
- mov x20, x0
- cachedAnimation 0x510, 0x4ff50, 0x960
- mov x2, x20
- closureAt 0x4f124
- animate
- finish
-
 // ReflectManager's orientation getter, using the same key paths as native long press.
 .globl _STHNativeOrientation
 _STHNativeOrientation:

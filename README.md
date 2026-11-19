@@ -9,9 +9,10 @@ This private project reconstructs the requested portrait-gesture dispatch from t
 - Green bottom corners: reuse native corner scaling.
 - Blue bottom-left: hold for .25s to switch from portrait to landscape. In landscape, hold the middle of either original side edge or the lower-left blue segment for .25s to return to portrait.
 - Blue bottom-right: hold for .25s to restore the model initializer's four scale values (.8,1,1,.8) and clear native aspect trim.
-- Yellow bottom-center: touch and drag to move. Hold still for .25s, then slide upward at least 24 pt and release to close. Once a touch starts moving the window, that touch stays in move mode.
-- Movement and corner scaling use original Stheno update paths. Docking and closing use the original SwiftUI spring transactions and action closures. Restoring a docked window and switching orientations use the original callbacks.
-- Sileo lists `stheno` at `2.0.1+fix1`. The Debian control file retains `stheno` as its short description.
+- Yellow bottom-center: touch and drag immediately to move; release is passed once to the original Stheno edge-middle drag-end routine with hit class 4 and its long-press latch cleared. Native flick threshold, cleanup and animation decide closing. There is no .25s hold requirement, 24pt threshold or custom close action.
+- Yellow continuous movement never changes its saved edge-middle hit class. The native close recognition code is byte-for-byte preserved, and build.py asserts this before signing.
+- Movement and corner scaling use original Stheno update paths. Docking uses the original SwiftUI spring transaction; closing uses the original native release path. Restoring a docked window and switching orientations retain their original callbacks.
+- Sileo lists `stheno` at `2.0.1+fix2`. The Debian control file retains `stheno` as its short description.
 - Assumed subdivisions within the existing bottom band, left to right: green 0–15%, blue 15–35%, yellow 35–65%, blue 65–85%, green 85–100%. These are inferred from the user's drawing, not measured device pixels.
 - The original four-edge interaction switch and existing exclusion checks still apply. They are not silently enabled and no hit-zone width is expanded.
 
