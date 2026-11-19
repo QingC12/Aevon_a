@@ -50,19 +50,31 @@ secs,cmds=sections(img)
 assert img[0xd9000:0xdc000]==bytes(0x3000)
 # Assemble and link a position-fixed, self-contained dispatcher into existing executable padding.
 run('xcrun','clang','-target','arm64e-apple-ios16.1','-c','dispatch.S','-o',OUT/'dispatch.o')
-link=['xcrun','ld','-arch','arm64e','-dylib','-platform_version','ios','16.1','17.0','-no_fixup_chains','-no_adhoc_codesign','-segaddr','__TEXT','0xd5000','-o',OUT/'dispatch.dylib',OUT/'dispatch.o']
-for name,value in {'_dlsym':0xb03bc,'_original_setup_plus4':0x4994c,'_original_update_plus4':0x4ad48,'_original_end_plus4':0x4c368,'_original_long_plus4':0x3e420,'_original_tap_plus4':0x3e77c}.items():
- link+=['-alias',f'{name}_unused',f'{name}_unused'] if False else ['-defsym',f'{name}={hex(value)}']
-# Apple's ld has no --defsym. Use an absolute-symbol object instead.
-absolute='\n'.join(f'.globl {k}\n{k} = {hex(v)}' for k,v in {'_dlsym':0xb03bc,'_original_setup_plus4':0x4994c,'_original_update_plus4':0x4ad48,'_original_end_plus4':0x4c368,'_original_long_plus4':0x3e420,'_original_tap_plus4':0x3e77c}.items())+'\n'
-(OUT/'absolute.S').write_text(absolute)
-run('xcrun','clang','-target','arm64e-apple-ios16.1','-c',OUT/'absolute.S','-o',OUT/'absolute.o')
-link=link[:link.index('-defsym')]+[OUT/'absolute.o']
-run(*link)
-temp=(OUT/'dispatch.dylib').read_bytes();sec,_=sections(temp);address,size,offset=sec['__text']
-assert address==0xd9000,hex(address)
+temp=(OUT/'dispatch.o').read_bytes();sec,cmds_o=sections(temp);_,size,off=sec['__text'];code=bytearray(temp[off:off+size]);address=0xd9000
+symbols=[];rel=None
+for cmd,p,sz in cmds_o:
+ if cmd==2:
+  so,nn,st,ss=struct.unpack_from('<4I',temp,p+8)
+  for j in range(nn):
+   si,typ,se,desc,val=struct.unpack_from('<IBBHQ',temp,so+j*16);name=temp[st+si:st+ss].split(b'\0')[0].decode();symbols.append((name,typ,se,val))
+ if cmd==0x19:
+  ns=struct.unpack_from('<I',temp,p+64)[0]
+  for j in range(ns):
+   q=p+72+j*80
+   if temp[q:q+16].split(b'\0')[0]==b'__text':rel=struct.unpack_from('<II',temp,q+56)
+absolute={'_dlsym':0xb03bc,'_original_setup_plus4':0x4994c,'_original_update_plus4':0x4ad48,'_original_end_plus4':0x4c368,'_original_long_plus4':0x3e420,'_original_tap_plus4':0x3e77c}
+assert rel is not None
+for j in range(rel[1]):
+ r,info=struct.unpack_from('<II',temp,rel[0]+8*j);ix=info&0xffffff;typ=info>>28;external=(info>>27)&1
+ assert typ==2 and external==1,(hex(r),hex(info))
+ name,symtype,sect,value=symbols[ix];target=absolute.get(name)
+ if target is None:
+  assert sect==1,(name,sect);target=address+value
+ inst=struct.unpack_from('<I',code,r)[0];delta=target-(address+r)
+ assert delta%4==0 and -(1<<27)<=delta<(1<<27)
+ struct.pack_into('<I',code,r,(inst&0xfc000000)|((delta//4)&0x3ffffff))
 assert size<0x1000
-img[address:address+size]=temp[offset:offset+size]
+img[address:address+size]=code
 # Entry hooks are all PAC prologues, except the known classifier tail branch.
 changes={0x3dff0:(bytes.fromhex('64660214'),0xd9100),0x49948:(bytes.fromhex('7f2303d5'),0xd9140),0x4ad44:(bytes.fromhex('7f2303d5'),0xd9180),0x4c364:(bytes.fromhex('7f2303d5'),0xd91c0),0x3e41c:(bytes.fromhex('7f2303d5'),0xd9200),0x3e778:(bytes.fromhex('7f2303d5'),0xd9240)}
 for a,(old,target) in changes.items():
