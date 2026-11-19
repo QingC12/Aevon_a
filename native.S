@@ -30,6 +30,10 @@ begin STHNativeTranslation
  mov x20, x0
  target 0xaf02c
  finish
+begin STHNativeMove
+ mov x20,x0
+ target 0x9d450
+ finish
 begin STHNativeRect
  mov x20, x0
  target 0x3dde4

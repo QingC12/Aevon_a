@@ -18,6 +18,7 @@ extern void STHNativeLong(void *);
 extern void STHNativeTap(void *,NSUInteger);
 extern int STHNativeClassify(void *,CGPoint);
 extern CGSize STHNativeTranslation(void *);
+extern void STHNativeMove(void *,CGSize);
 
 typedef NS_ENUM(int, Zone) { ZOriginal, ZSide, ZCorner, ZRotate, ZReset, ZMove };
 @interface STHGestureState : NSObject
@@ -96,7 +97,8 @@ void STHUpdate(void *drag,void *m) {
  if (s.zone==ZSide&&!s.holdArmed) return;
  if(!displaced)return;
  s.moving=YES;*hit(m)=s.zone==ZCorner?2:3;*latch(m)=0;
- STHNativeUpdate(drag,m);
+ if(s.zone==ZSide||s.zone==ZMove)STHNativeMove(m,translation);
+ else STHNativeUpdate(drag,m);
 }
 void STHEnd(void *drag,void *m) {
  ensureBase();
