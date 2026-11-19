@@ -69,7 +69,8 @@ static void installNeutralLayout(UIView *root){
    }
    @try{native(view,selector);}@finally{
     for(UIView *part in live){
-     STHCompositeTransform *state=restore[[NSValue valueWithNonretainedObject:part]];if(!state)continue;
+     STHCompositeTransform *state=restore[[NSValue valueWithNonretainedObject:part]];
+     if(!state||!active||[adjustments objectForKey:part]!=state||![layoutAncestors containsObject:view])continue;
      if(CGAffineTransformEqualToTransform(part.transform,state.original))
       [UIView performWithoutAnimation:^{part.transform=state.applied;}];
      else [adjustments removeObjectForKey:part]; // independent app transform wins

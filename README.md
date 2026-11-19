@@ -2,7 +2,25 @@
 
 This private project reconstructs the requested portrait-gesture dispatch from the supplied Stheno binary. It is a replacement gesture module with ABI bridges, **not a recovery of the original full Swift source tree**.
 
-## 2.0.12 focused refinements
+## 2.0.13 complete composer ownership
+
+WeChat joins QQ and Minis on a preserved route: its2.0.12 refined source is hash-checked after removing ONLY a constructor routing guard, and its previous keyboard measurement source is unchanged. Only Coolapk, WeiFeng and Douyin enter `EditorCompositeGuard.m`. Existing original native gesture/keyboard/default-size entrypoints and Orion payload remain unchanged.
+
+The new device log shows20pt Douyin text leaves with zero attached rows, an82.625pt WeiFeng text region omitting its lower controls, and Coolapk shifts growing17,34,51… while measured control positions stay fixed. The new selector rejects leaf-only composers, chooses a bounded common owner when it contains peer controls below the field, and searches nearby branches for connected multi-control rows. This supports reply toolbars, second emoji strips and messaging input bars without assuming a fixed app-specific height. Huge comment/message pages remain excluded. Private hierarchies are still heuristic without a device view-tree capture.
+
+A narrowly gated layout shield lets ONLY selected instances of those apps run native `layoutSubviews` while their temporary child transforms are neutral. The same adjustments are reapplied after native layout, unless the app changed the transform itself or the editing session ended. This prevents app layout from measuring a shifted frame and feeding it back into another shift. Method wrappers immediately call the prior implementation for other instances; only composer/nearby ancestor classes are instrumented in these three apps. A residual-history guard also refuses unbounded repeated counter-corrections. This is tested with a host view model running the production include; it is not a real iPhone layout test.
+
+The new three-app keyboard measurement prefers an actual UIKit key-layout/keyplane over a broad input-host wrapper, then adds specific keyboard candidate/assistant rows. A generic `InputAccessoryView` name is no longer treated as proof of keyboard ownership. The prior WeChat/QQ/Minis measurement remains separate. No fixed17/27/57/61-point key-top correction is introduced.
+
+The previous transparent-tail DOWNWARD rule is not applied by the new composite route: a reply field can be above a toolbar, so an apparently empty text wrapper alone is not evidence to move it down. Existing transforms still restore on hide and active-window exit. Input lifecycle and immediate notification delivery are retained.
+
+### Intermittent notification sound inspection
+
+The original arm64e notification-server hook tests the `ForegroundNotify` option (SettingMask bit27) before overriding foreground classification for matching floated apps; it otherwise calls its stored original IMP. The corresponding localized option is `前台通知::仅对浮窗生效。`. The supplied layout log does not include the user's saved value or notification/audio data, so it does not establish a universal mute defect. The template's default is not the user's current setting.
+
+`NotificationPolicy.m` adds read-only SpringBoard diagnostics of that option (`notification-policy v2.0.13 foreground-notify-option=0/1`) and nothing else. No ringer/silent/Focus mode, notification authorization, per-app sound preference, server hook or sound playback is changed. If the issue is limited to messages for a visibly floated app, check the plugin's own 前台通知 option. Cases while fully background/locked need separate app/state evidence. No notification contents are collected.
+
+## 2.0.12 focused refinements (previous release)
 
 The user reports QQ/Minis are now aligned; those bundles and all non-selected bundles keep the2.0.11 algorithm through an isolated compatibility route. A hash check reconstructs the previous `EditorGuard.m` except entry naming/route guard and verifies its exact2.0.11 hash; the original `KeyboardMeasurement.m` is unchanged. Only WeChat, Coolapk, Douyin and WeiFeng use the refinement module. App profiles select measurement policy, not fixed per-app pixel offsets.
 
@@ -26,7 +44,7 @@ Existing native keyboard spring, full-width/restore, first-open default size, ge
 - Yellow bottom-center: touch and drag immediately to move; release is passed once to the original Stheno edge-middle drag-end routine with hit class 4 and its long-press latch cleared. Native flick threshold, cleanup and animation decide closing. There is no .25s hold requirement, 24pt threshold or custom close action.
 - Yellow continuous movement never changes its saved edge-middle hit class. The native close recognition code is byte-for-byte preserved, and build.py asserts this before signing.
 - Movement and corner scaling use original Stheno update paths. Docking uses the original SwiftUI spring transaction; closing uses the original native release path. Restoring a docked window and switching orientations retain their original callbacks.
-- Sileo lists `stheno` at `2.0.12`. The Debian control file retains `stheno` as its short description.
+- Sileo lists `stheno` at `2.0.13`. The Debian control file retains `stheno` as its short description.
 - Keyboard: the touched portrait floating card is sized to the full screen width and horizontally centered, without the old 12pt margin or 35% cap. Hide restores the snapshot, unless the user changed it while typing. Hardware/floating keyboards and landscape retain native behavior.
 - Keyboard coordinates now prefer a fresh, per-bundle snapshot published by SpringBoard: the native final card rectangle (which already includes final scale) and docked physical keyboard rectangle. Application notifications and UIKit insets map the keyboard using BOTH the card origin and its screen-to-app scale. Top-positioned cards can have zero obstruction; lower cards get the correct larger local obstruction. Native InputSetHost/physical-screen conversion remains a fallback if the host snapshot is absent. The native card's `finalFrame` is already computed as base frame times final scale at `0x9c73c–0x9c758`; it is not multiplied by scale a second time.
 - In2.0.10 the FIRST keyboard target is synchronous: focus pre-announces the predicted full-width card, a validated physical WillShow frame maps immediately, and the actual target is committed after Keyboard.m sets native geometry. No keyboard notices are queued or replayed. Pending UIKit queries retain native values instead of forcing zero. Later corrections retain the pairwise stability filter and double-buffer transport; sustained changes remain possible. This replaces2.0.9's160–250ms startup hold, which the new log confirms delayed application acknowledgments by172–365ms.

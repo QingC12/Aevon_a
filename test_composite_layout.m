@@ -54,6 +54,7 @@
 @end
 @implementation STHCompositeTransform @end
 static NSMapTable<UIView *,STHCompositeTransform *> *adjustments;
+static BOOL active=YES;
 static BOOL shown(UIView *v){return v&&!v.hidden&&v.alpha>.01&&v.window;}
 static BOOL editing(UIView *v){return v.editor;}
 static STHRect rr(CGRect r){return(STHRect){r.origin.x,r.origin.y,r.size.width,r.size.height};}
@@ -63,12 +64,14 @@ static CGRect baseline(UIView *v,id scene){return v.rect;}
 @property(nonatomic,weak) UIView *target;
 @property(nonatomic) BOOL sawOriginal;
 @property(nonatomic) BOOL independentChange;
+@property(nonatomic) BOOL closeDuringLayout;
 @property(nonatomic) int calls;
 @end
 @implementation NativeParent
 -(void)layoutSubviews{
  self.calls++;self.sawOriginal=CGAffineTransformIsIdentity(self.target.transform);
  if(self.independentChange)self.target.transform=CGAffineTransformMakeScale(1.2,1.2);
+ if(self.closeDuringLayout){active=NO;[adjustments removeAllObjects];[layoutAncestors removeAllObjects];}
  [super layoutSubviews];
 }
 @end
@@ -97,5 +100,9 @@ int main(void){@autoreleasepool{
  parent.independentChange=YES;[parent layoutSubviews];
  assert([adjustments objectForKey:owner]==nil&&owner.transform.a==1.2);
  assert(neutralLayoutDepth==0);
+ parent.independentChange=NO;owner.transform=state.applied;
+ [adjustments setObject:state forKey:owner];installNeutralLayout(owner);
+ parent.closeDuringLayout=YES;[parent layoutSubviews];
+ assert(!active&&CGAffineTransformIsIdentity(owner.transform)&&[adjustments objectForKey:owner]==nil);
  puts("Production layout shield passed100 native relayouts, complete175pt owner, unrelated-instance passthrough and independent app transform wins");
 }return 0;}
