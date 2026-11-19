@@ -23,6 +23,7 @@ int main(void){
  STHRect input={10,410,400,50},toolbar={10,460,400,40},emoji={10,500,400,70};
  assert(STHEditorAttachedRow(input,toolbar,731,true));
  STHRect joined={10,410,400,90};assert(STHEditorAttachedRow(joined,emoji,731,true));
+ assert(STHEditorAttachedRow(joined,(STHRect){10,500,400,200},731,true)); // bounded emoji collection
  assert(!STHEditorAttachedRow(input,emoji,731,true)); // not contiguous until toolbar joins
  assert(!STHEditorAttachedRow(input,(STHRect){10,50,400,50},731,true));
  assert(!STHEditorAttachedRow(input,(STHRect){10,460,400,400},731,true));

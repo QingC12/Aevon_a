@@ -82,7 +82,10 @@ static BOOL rowEvidence(UIView *v,int depth,int *budget){
 }
 static void collectRows(UIView *v,UIView *root,int depth,int *budget,NSMutableArray *possible){
  if(!shown(v)||depth>3||--*budget<0||v==root||[v isDescendantOfView:root])return;
- if(![root isDescendantOfView:v]&&![v isKindOfClass:UIScrollView.class]){
+ if(![root isDescendantOfView:v]){
+  // An app emoji strip can itself be a collection/scroll view. Allow it as
+  // an ATTACHED ROW, but the strict height/adjacency test below still excludes
+  // the main conversation/comment scroll page and unrelated siblings.
   int b=150;if(rowEvidence(v,0,&b))[possible addObject:v];
  }
  for(UIView *c in v.subviews){if(*budget<=0)break;collectRows(c,root,depth+1,budget,possible);}
