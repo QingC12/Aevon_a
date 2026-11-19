@@ -15,6 +15,8 @@ jobs:
         run: |
           xcrun --sdk macosx clang -fobjc-arc -Wall -Wextra -Wno-unused-parameter test_gesture_routing.m -framework Foundation -framework CoreGraphics -framework QuartzCore -o /tmp/stheno-gesture-routing
           /tmp/stheno-gesture-routing
+      - name: Verify private Orion ABI and isolation
+        run: python3 test_embed_orion.py
       - name: Build and verify arm64e binaries and Debian archive
         run: python3 build.py
       - uses: actions/upload-artifact@v4

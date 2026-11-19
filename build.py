@@ -1,5 +1,6 @@
 from pathlib import Path
-import hashlib,struct,subprocess,json,sys,tarfile,io,shutil,copy,os
+import hashlib,struct,subprocess,json,sys,tarfile,io,shutil,copy,os,re
+from embed_orion import prepare
 ROOT=Path(__file__).resolve().parent
 os.chdir(ROOT)
 OUT=ROOT/'build';OUT.mkdir(exist_ok=True)
@@ -101,17 +102,26 @@ img[at:at+sz]=lc;struct.pack_into('<II',img,16,n+1,nbytes+sz)
 for start,stop in [(0x4c368,0x4c8a8),(0x507bc,0x50a58),(0x4473c,0x449dc),
                    (0x4994c,0x4ad44),(0x4ad48,0x4b82c)]:
  assert img[start:stop]==rows[mi][1][start:stop],(hex(start),hex(stop))
+img,orion_image,orion_manifest=prepare(img,(ROOT/'inputs/Orion.arm64e').read_bytes())
 core=OUT/'Stheno.dylib';core.write_bytes(img)
+orion=OUT/'Orion';orion.write_bytes(orion_image)
 # Compile recovered dispatch source, not the proprietary original project.
 run('xcrun','clang','-target','arm64e-apple-ios16.1','-isysroot',run('xcrun','--sdk','iphoneos','--show-sdk-path').decode().strip(),'-fobjc-arc','-O2','-dynamiclib','Gesture.m','native.S','-framework','UIKit','-framework','Foundation','-framework','QuartzCore','-framework','CoreGraphics','-install_name','@loader_path/SthenoGesture.dylib','-o',OUT/'SthenoGesture.dylib')
-for p in [core,OUT/'SthenoGesture.dylib']:
+for p in [core,OUT/'SthenoGesture.dylib',orion]:
  run('codesign','--force','--sign','-','--timestamp=none',p,stderr=subprocess.STDOUT)
  run('codesign','--verify','--strict',p,stderr=subprocess.STDOUT)
  rows[mi]=(rows[mi][0],core.read_bytes())
 helper=copy.copy(rows[mi][0]);helper.name='./Library/MobileSubstrate/DynamicLibraries/SthenoGesture.dylib';rows.append((helper,(OUT/'SthenoGesture.dylib').read_bytes()))
+private_dir='./Library/MobileSubstrate/DynamicLibraries/.stheno'
+directory=copy.copy(next(m for m,b in rows if m.isdir()));directory.name=private_dir;directory.mode=0o755;rows.append((directory,b''))
+runtime_entry=copy.copy(helper);runtime_entry.name=private_dir+'/Orion';runtime_entry.mode=0o755;rows.append((runtime_entry,orion.read_bytes()))
+license_entry=copy.copy(helper);license_entry.name=private_dir+'/Orion-LICENSE.txt';license_entry.mode=0o644
+license_bytes=(ROOT/'inputs/Orion-LICENSE.txt').read_bytes()
+assert hashlib.sha256(license_bytes).hexdigest()=='5afa9b37c934d452ecd7d3c184367657f279149add82a6d62b0ca23490b116a4'
+rows.append((license_entry,license_bytes))
 for i,(m,b) in enumerate(controls):
  if Path(m.name).name=='control':
-  fields={'Name':'stheno','Version':'2.0.1+fix2','Description':'stheno','Architecture':'iphoneos-arm64e',
+  fields={'Name':'stheno','Version':'2.0.2','Description':'stheno','Architecture':'iphoneos-arm64e',
           'Installed-Size':str((sum(len(x) for _,x in rows)+1023)//1024)}
   lines=[];skip=False
   for line in b.decode().splitlines():
@@ -119,12 +129,18 @@ for i,(m,b) in enumerate(controls):
     if not skip:lines.append(line)
     continue
    field=line.partition(':')[0];skip=field=='Description'
-   lines.append(f'{field}: {fields[field]}' if field in fields else line)
+   if field=='Depends':
+    dependencies=re.split(r',\s*',line.partition(':')[2].strip())
+    dependencies=[dep for dep in dependencies if not re.match(r'^dev\.theos\.orion(?:\d+)?(?:\s|$)',dep)]
+    assert dependencies
+    lines.append('Depends: '+', '.join(dependencies))
+   else:
+    lines.append(f'{field}: {fields[field]}' if field in fields else line)
   controls[i]=(m,('\n'.join(lines)+'\n').encode())
 for n,b in [('debian-binary',b'2.0\n'),('control.tar.xz',tarwrite(controls)),('data.tar.xz',tarwrite(rows))]:(OUT/n).write_bytes(b)
-result=OUT/'stheno_2.0.1+fix2_iphoneos-arm64e.deb'
+result=OUT/'stheno_2.0.2_iphoneos-arm64e.deb'
 result.write_bytes(arwrite([(n,(OUT/n).read_bytes()) for n in ('debian-binary','control.tar.xz','data.tar.xz')]))
 verify=tarread(arread(result.read_bytes())['data.tar.xz']);assert len(verify)==len(rows)
 for (a,b),(c,d) in zip(rows,verify):assert a.name==c.name and b==d
-manifest={'artifact':result.name,'sha256':hashlib.sha256(result.read_bytes()).hexdigest(),'size':result.stat().st_size,'patch_entries':{hex(a):hex(t) for a,(_,t) in changes.items()},'device_tested':False}
+manifest={'artifact':result.name,'sha256':hashlib.sha256(result.read_bytes()).hexdigest(),'size':result.stat().st_size,'patch_entries':{hex(a):hex(t) for a,(_,t) in changes.items()},'device_tested':False,'bundled_orion':orion_manifest}
 (OUT/'build-manifest.json').write_text(json.dumps(manifest,indent=2));print(json.dumps(manifest))
