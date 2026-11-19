@@ -13,7 +13,7 @@ static NSDictionary *(*originalInfo)(id,SEL);
 static char cachedInfoKey,normalizedKey;
 static __thread BOOL converting;
 static __weak UIWindow *recentKeyboard;
-static __weak UIWindowScene *sessionScene;
+static __weak UIWindowScene *sessionScene,*lastHideScene;
 static STHKeyboardSession session;
 static BOOL postingLayoutRefresh;
 static NSNumber *originalDuration,*originalCurve;
@@ -61,6 +61,7 @@ static BOOL physicalFrame(CGRect raw,UIScreen *screen) {
 // to redefine the scene's height or add its origin to a scene-level API.
 BOOL STHResolveKeyboardScene(UIWindowScene *scene,UIWindow *keyboard,CGRect physical,BOOL ignoreX,CGRect *frame,double *inset) {
  if(!STHFloatingKeyboardScope(scene))return NO;
+ if(STHLayoutStatus(NSBundle.mainBundle.bundleIdentifier)!=1)return NO;
  CGRect bounds=scene.coordinateSpace.bounds,raw=CGRectNull;
  double ignored=0;
  if(STHReadLayout(NSBundle.mainBundle.bundleIdentifier,bounds,&raw,&ignored)){
@@ -134,8 +135,9 @@ static NSDictionary *normalizedInfo(NSNotification *note,SEL selector) {
   CGRect incoming=[v CGRectValue],end=CGRectNull;
   UIWindowScene *scene=nil;double inset=0;
   if(hide){
-   scene=sessionScene;
-   if(scene&&session.hasSceneFrame){
+   scene=sessionScene?:lastHideScene;
+   if(scene){
+    lastHideScene=scene;
     CGRect b=scene.coordinateSpace.bounds;
     end=CGRectMake(b.origin.x,CGRectGetMaxY(b),b.size.width,0);
    }
@@ -148,7 +150,7 @@ static NSDictionary *normalizedInfo(NSNotification *note,SEL selector) {
    if(!session.hasSceneFrame&&!hide)begin.origin.y=CGRectGetMaxY(scene.coordinateSpace.bounds);
    if(!hide){
     STHSessionPhysical(&session,rectValue(incoming),CACurrentMediaTime(),false,physicalFrame(incoming,scene.screen));
-    session.visible=YES;lastRealMetadata=raw;sessionScene=scene;
+    session.visible=YES;lastRealMetadata=raw;sessionScene=scene;lastHideScene=nil;
    }
    STHSessionCommit(&session,rectValue(end));
    result=frameInfo(raw,begin,end);
@@ -160,9 +162,18 @@ static NSDictionary *normalizedInfo(NSNotification *note,SEL selector) {
  converting=NO;return result;
 }
 
+#include "KeyboardDelivery.inc"
+
 static BOOL refreshQueued;
 static void refreshHostedLayout(void) {
- if(postingLayoutRefresh||![NSThread isMainThread]||!session.visible)return;
+ if(postingLayoutRefresh||![NSThread isMainThread])return;
+ int phase=STHLayoutStatus(NSBundle.mainBundle.bundleIdentifier);
+ if(phase==1&&heldNotes.count)flushHeld(YES);
+ if(phase==0){
+  discardHeld();heldSession=NO;
+  STHSessionHide(&session);sessionScene=nil;lastRealMetadata=nil;return;
+ }
+ if(phase==2||!session.visible)return;
  CGRect end;UIWindowScene *scene=nil;double inset=0;
  if(!resolveScene(CGRectNull,&scene,&end,&inset)){
   // Host has invalidated or stopped. Do not reuse its old app/physical snapshots.
@@ -202,9 +213,10 @@ void STHInstallKeyboardNotifications(void) {
  Method m=class_getInstanceMethod(concrete,@selector(userInfo));if(!m)return;
  IMP old=method_getImplementation(m);if(old==(IMP)normalizedInfo)return;
  originalInfo=(void *)old;method_setImplementation(m,(IMP)normalizedInfo);
+ installDelivery();
  STHObserveLayout(NSBundle.mainBundle.bundleIdentifier,^{
   if(refreshQueued)return;refreshQueued=YES;
   dispatch_async(dispatch_get_main_queue(),^{refreshQueued=NO;refreshHostedLayout();});
  });
- STHWriteLayoutLog(@"2.0.8 app adapter: canonical SCENE inset, isolated physical/synthetic frames");
+ STHWriteLayoutLog(@"2.0.9 app adapter: delivery-frozen scene frame; deferred unstable start");
 }

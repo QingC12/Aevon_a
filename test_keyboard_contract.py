@@ -18,4 +18,14 @@ assert 'objc_setAssociatedObject(note,&normalizedKey,@YES' in refresh
 assert 'UIKeyboardDidChangeFrameNotification' in refresh
 assert 'latestScreenFrame' not in coordinates
 assert 'STHSessionPhysical(&session' in coordinates
-print('Production scene-only routing, synthetic isolation and keyboard process exclusion verified')
+delivery=(root/'KeyboardDelivery.inc').read_text()
+publisher=(root/'LayoutPublisher.m').read_text()
+bus=(root/'LayoutBus.m').read_text()
+assert 'if(status==2){queueHeld(note);return YES;}' in delivery
+assert delivery.index('normalizedInfo(note')<delivery.index('centerPost(center')
+assert 'installDelivery();' in coordinates
+assert 'STHSettleSample(&settling' in publisher
+assert 'STHNativeAnimatePhysicalKeyboard' in publisher
+assert 't.writerActive=NO;notify_set_state(t.commit,0)' in bus # only deactivation
+assert 'if(changed)notify_post' in bus # silent heartbeat, not repeated layout events
+print('Production scene routing, immutable delivery, paired settle and double-buffer transport verified')

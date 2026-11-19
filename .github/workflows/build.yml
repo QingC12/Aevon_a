@@ -32,6 +32,12 @@ jobs:
           python3 test_keyboard_contract.py
           xcrun --sdk macosx clang -std=c11 -Wall -Wextra -Werror test_keyboard_session.c -o /tmp/stheno-keyboard-session
           /tmp/stheno-keyboard-session
+      - name: Replay rapid keyboard cycles and immutable observer delivery
+        run: |
+          xcrun --sdk macosx clang -std=c11 -Wall -Wextra -Werror test_layout_settle.c -o /tmp/stheno-layout-settle
+          /tmp/stheno-layout-settle
+          xcrun --sdk macosx clang -fobjc-arc -Wall -Wextra -Wno-unused-parameter test_keyboard_delivery.m -framework Foundation -o /tmp/stheno-keyboard-delivery
+          /tmp/stheno-keyboard-delivery
       - name: Test physical card mapping and cross-process geometry transport
         run: |
           xcrun --sdk macosx clang -std=c11 -Wall -Wextra -Werror test_layout_math.c -o /tmp/stheno-layout-math

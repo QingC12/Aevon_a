@@ -9,6 +9,7 @@
 #import "KeyboardGeometry.h"
 #if !defined(STH_KEYBOARD_TEST)
 extern void STHStartLayout(void *,CGRect);
+extern void STHPrepareLayoutFocus(void *);
 extern void STHUpdateLayout(void);
 extern void STHStopLayout(void);
 #endif
@@ -39,6 +40,9 @@ void STHKeyboardFocus(void *model) {
  if (![NSThread isMainThread] || !model) return;
  candidate=(__bridge id)model;
  candidateAt=CACurrentMediaTime();
+#if !defined(STH_KEYBOARD_TEST)
+ STHPrepareLayoutFocus(model);
+#endif
 }
 
 static void restoreCard(void) {

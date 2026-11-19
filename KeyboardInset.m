@@ -23,8 +23,7 @@ BOOL STHFloatingKeyboardScope(UIWindowScene *scene) {
  if(![NSThread isMainThread]||!scene||!UIInterfaceOrientationIsPortrait(scene.interfaceOrientation))return NO;
  // Correct only while the host confirms this specific app is floated and its
  // keyboard is active. A stale cached frontmost flag cannot keep it enabled.
- double overlap=0;
- return STHReadLayout(NSBundle.mainBundle.bundleIdentifier,scene.coordinateSpace.bounds,NULL,&overlap);
+ return STHLayoutStatus(NSBundle.mainBundle.bundleIdentifier)>0;
 }
 
 UIWindow *STHTargetKeyboardWindow(UIWindowScene *scene,UIWindow *keyboard) {
@@ -41,6 +40,7 @@ UIWindow *STHTargetKeyboardWindow(UIWindowScene *scene,UIWindow *keyboard) {
 static CGFloat correctedInset(id receiver,SEL selector,UIWindowScene *scene,BOOL *minimum,BOOL ignoreX) {
  CGFloat old=previousInset(receiver,selector,scene,minimum,ignoreX);
  if(!STHFloatingKeyboardScope(scene))return old;
+ if(STHLayoutStatus(NSBundle.mainBundle.bundleIdentifier)==2)return 0;
  SEL ks=NSSelectorFromString(@"keyboardWindow");
  UIWindow *keyboard=nil;
  if([receiver respondsToSelector:ks])keyboard=((id(*)(id,SEL))objc_msgSend)(receiver,ks);

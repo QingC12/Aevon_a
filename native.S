@@ -251,3 +251,36 @@ begin STHNativeInitialSize
  bl LresetSize
  target 0x9c67c
  finish
+
+// Reconcile the settled physical keyboard height through the original
+// keyboard spring (0x87ae4-0x87b54), without re-entering our show dispatcher.
+begin STHNativeAnimatePhysicalKeyboard
+ sub sp,sp,#48
+ str x0,[sp,#16]
+ target 0x51454
+ fmov d1,#0.25
+ fdiv d0,d1,d0
+ str d0,[sp,#32]
+ target 0x51454
+ fmov d1,d0
+ ldr d0,[sp,#32]
+ fmov d2,xzr
+ target 0xafb5c
+ str x0,[sp,#40]
+ mov x2,sp
+ adr x16,LstablePhysicalKeyboard
+ animate
+ ldr x0,[sp,#40]
+ target 0xb0a0c
+ add sp,sp,#48
+ finish
+LstablePhysicalKeyboard:
+ pacibsp
+ stp x20,x21,[sp,#-32]!
+ stp x29,x30,[sp,#16]
+ add x29,sp,#16
+ ldr x0,[x20,#16]
+ target 0xd9400
+ ldp x29,x30,[sp,#16]
+ ldp x20,x21,[sp],#32
+ retab
