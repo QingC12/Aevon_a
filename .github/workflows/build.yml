@@ -25,6 +25,8 @@ jobs:
         run: |
           xcrun --sdk macosx clang -std=c11 -Wall -Wextra -Werror test_keyboard_inset.c -o /tmp/stheno-keyboard-inset
           /tmp/stheno-keyboard-inset
+          xcrun --sdk macosx clang -std=c11 -Wall -Wextra -Werror test_keyboard_coordinates.c -o /tmp/stheno-keyboard-coordinates
+          /tmp/stheno-keyboard-coordinates
       - name: Verify private Orion ABI and isolation
         run: python3 test_embed_orion.py
       - name: Build and verify arm64e binaries and Debian archive

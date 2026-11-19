@@ -5,37 +5,46 @@
 #import <mach-o/dyld.h>
 #import <dlfcn.h>
 #import "KeyboardInsetMath.h"
+extern BOOL STHResolveKeyboard(UIWindowScene *,UIWindow *,CGRect,BOOL,CGRect *,double *,UIWindow **);
+extern void STHInstallKeyboardNotifications(void);
 static CGFloat (*previousInset)(id,SEL,UIWindowScene *,BOOL *,BOOL);
 static __unsafe_unretained id *frontmostSlot,*bundleSlot,*sceneSlot;
 static unsigned char *injectedSlot;
 
-static CGFloat correctedInset(id receiver,SEL selector,UIWindowScene *scene,BOOL *minimum,BOOL ignoreX) {
- CGFloat old=previousInset(receiver,selector,scene,minimum,ignoreX);
- if (![NSThread isMainThread]||!scene||!injectedSlot||!*injectedSlot||
-     !frontmostSlot||!bundleSlot) return old;
- id front=*frontmostSlot, bundle=*bundleSlot;
- if (![front isKindOfClass:NSString.class]||![bundle isKindOfClass:NSString.class]||
-     [front length]==0||[bundle length]==0||[front isEqualToString:bundle])return old;
- if (sceneSlot&&*sceneSlot&&*sceneSlot!=scene)return old;
- if (!UIInterfaceOrientationIsPortrait(scene.interfaceOrientation))return old;
- SEL ks=NSSelectorFromString(@"keyboardWindow");
- if (![receiver respondsToSelector:ks])return old;
- UIWindow *keyboard=((id(*)(id,SEL))objc_msgSend)(receiver,ks);
- if (![keyboard isKindOfClass:UIWindow.class]||keyboard.hidden||keyboard.alpha<.01)return old;
+BOOL STHFloatingKeyboardScope(UIWindowScene *scene) {
+ if(![NSThread isMainThread]||!scene||!injectedSlot||!*injectedSlot||!frontmostSlot||!bundleSlot)return NO;
+ id front=*frontmostSlot,bundle=*bundleSlot;
+ if(![front isKindOfClass:NSString.class]||![bundle isKindOfClass:NSString.class]||
+    [front length]==0||[bundle length]==0||[front isEqualToString:bundle])return NO;
+ if(sceneSlot&&*sceneSlot&&*sceneSlot!=scene)return NO;
+ return UIInterfaceOrientationIsPortrait(scene.interfaceOrientation);
+}
+
+UIWindow *STHTargetKeyboardWindow(UIWindowScene *scene,UIWindow *keyboard) {
  UIWindow *target=nil;
- for(UIWindow *w in scene.windows) {
+ for(UIWindow *w in scene.windows){
   if(w==keyboard||w.hidden||w.alpha<.01)continue;
   if([NSStringFromClass(w.class) containsString:@"Keyboard"])continue;
-  if(w.isKeyWindow){target=w;break;}
+  if(w.isKeyWindow)return w;
   if(!target&&w.windowLevel==UIWindowLevelNormal)target=w;
  }
- if(!target||target.screen!=keyboard.screen)return old;
- // UIKit conversion accounts for window origins/transforms. Do not add the
- // legacy world-height/scene-height correction a second time.
- CGRect bounds=target.bounds;
- CGRect converted=[keyboard convertRect:keyboard.bounds toWindow:target];
- return STHReduceKeyboardInset(old,bounds.origin.x,bounds.origin.y,bounds.size.width,bounds.size.height,
-    converted.origin.x,converted.origin.y,converted.size.width,converted.size.height,ignoreX);
+ return target;
+}
+
+static CGFloat correctedInset(id receiver,SEL selector,UIWindowScene *scene,BOOL *minimum,BOOL ignoreX) {
+ CGFloat old=previousInset(receiver,selector,scene,minimum,ignoreX);
+ if(!STHFloatingKeyboardScope(scene))return old;
+ SEL ks=NSSelectorFromString(@"keyboardWindow");
+ UIWindow *keyboard=nil;
+ if([receiver respondsToSelector:ks])keyboard=((id(*)(id,SEL))objc_msgSend)(receiver,ks);
+ if(![keyboard isKindOfClass:UIWindow.class])keyboard=nil;
+ CGRect local=CGRectNull;double overlap=0;
+ // Unlike 2.0.4, measure the actual InputSetHost/placeholder rather than using
+ // the full-screen keyboard WINDOW as though its entire bounds were keys.
+ @try{
+  if(STHResolveKeyboard(scene,keyboard,CGRectNull,ignoreX,&local,&overlap,NULL))return overlap;
+ }@catch(NSException *exception){}
+ return old;
 }
 static void installInset(void) {
  void *handle=NULL;
@@ -57,6 +66,7 @@ static void installInset(void) {
  previousInset=(void *)method_getImplementation(method);
  if(previousInset==(void *)correctedInset)return;
  method_setImplementation(method,(IMP)correctedInset);
+ STHInstallKeyboardNotifications();
 }
 __attribute__((constructor)) static void startInset(void) {
  // Run after the original dylib has installed its hooks and initialized state.

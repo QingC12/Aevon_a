@@ -123,7 +123,7 @@ keyboard_image[start:start+size]=command
 struct.pack_into('<II',keyboard_image,16,count+1,command_size+size)
 assert keyboard_image[0x4000:]==keyboard_original[0x4000:]
 keyboard_binary=OUT/'SthenoKeyboard.dylib';keyboard_binary.write_bytes(keyboard_image)
-run('xcrun','clang','-target','arm64e-apple-ios16.1','-isysroot',run('xcrun','--sdk','iphoneos','--show-sdk-path').decode().strip(),'-fobjc-arc','-O2','-dynamiclib','KeyboardInset.m','-framework','UIKit','-framework','Foundation','-framework','CoreGraphics','-install_name','@loader_path/SthenoKeyboardInset.dylib','-o',OUT/'SthenoKeyboardInset.dylib')
+run('xcrun','clang','-target','arm64e-apple-ios16.1','-isysroot',run('xcrun','--sdk','iphoneos','--show-sdk-path').decode().strip(),'-fobjc-arc','-O2','-dynamiclib','KeyboardInset.m','KeyboardCoordinates.m','-framework','UIKit','-framework','Foundation','-framework','CoreGraphics','-framework','QuartzCore','-install_name','@loader_path/SthenoKeyboardInset.dylib','-o',OUT/'SthenoKeyboardInset.dylib')
 for p in [core,OUT/'SthenoGesture.dylib',orion,keyboard_binary,OUT/'SthenoKeyboardInset.dylib']:
  run('codesign','--force','--sign','-','--timestamp=none',p,stderr=subprocess.STDOUT)
  run('codesign','--verify','--strict',p,stderr=subprocess.STDOUT)
@@ -141,7 +141,7 @@ assert hashlib.sha256(license_bytes).hexdigest()=='5afa9b37c934d452ecd7d3c184367
 rows.append((license_entry,license_bytes))
 for i,(m,b) in enumerate(controls):
  if Path(m.name).name=='control':
-  fields={'Name':'stheno','Version':'2.0.4','Description':'stheno','Architecture':'iphoneos-arm64e',
+  fields={'Name':'stheno','Version':'2.0.5','Description':'stheno','Architecture':'iphoneos-arm64e',
           'Installed-Size':str((sum(len(x) for _,x in rows)+1023)//1024)}
   lines=[];skip=False
   for line in b.decode().splitlines():
@@ -158,7 +158,7 @@ for i,(m,b) in enumerate(controls):
     lines.append(f'{field}: {fields[field]}' if field in fields else line)
   controls[i]=(m,('\n'.join(lines)+'\n').encode())
 for n,b in [('debian-binary',b'2.0\n'),('control.tar.xz',tarwrite(controls)),('data.tar.xz',tarwrite(rows))]:(OUT/n).write_bytes(b)
-result=OUT/'stheno_2.0.4_iphoneos-arm64e.deb'
+result=OUT/'stheno_2.0.5_iphoneos-arm64e.deb'
 result.write_bytes(arwrite([(n,(OUT/n).read_bytes()) for n in ('debian-binary','control.tar.xz','data.tar.xz')]))
 verify=tarread(arread(result.read_bytes())['data.tar.xz']);assert len(verify)==len(rows)
 for (a,b),(c,d) in zip(rows,verify):assert a.name==c.name and b==d
