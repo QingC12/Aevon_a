@@ -10,3 +10,5 @@ void STHObserveLayout(NSString *bundle,dispatch_block_t block);
 void STHReportLayout(NSString *bundle,double overlap,BOOL applied);
 void STHWriteLayoutLog(NSString *line);
 void STHReportNotificationFrame(NSString *bundle,CGRect scene,CGRect frame);
+BOOL STHPreviewLayout(NSString *bundle,CGRect predictedCard);
+BOOL STHReadPreview(NSString *bundle,CGRect physicalKeyboard,CGRect scene,CGRect *local,double *inset);

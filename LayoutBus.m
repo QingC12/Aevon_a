@@ -9,6 +9,7 @@
 @property int keys0;
 @property int keys1;
 @property int commit;
+@property int preview;
 @property int ack;
 @property int appScene;
 @property int appFrame;
@@ -38,6 +39,7 @@ static STHLayoutTokens *getTokens(NSString *bundle) {
  t=[STHLayoutTokens new];t.observed=-1;
  t.card0=registerState(bundle,@"card0");t.card1=registerState(bundle,@"card1");
  t.keys0=registerState(bundle,@"keys0");t.keys1=registerState(bundle,@"keys1");
+ t.preview=registerState(bundle,@"preview");
  t.commit=registerState(bundle,@"commit");t.ack=registerState(bundle,@"ack");
  t.appScene=registerState(bundle,@"appScene");t.appFrame=registerState(bundle,@"appFrame");
  t.valid=t.card0>=0&&t.card1>=0&&t.keys0>=0&&t.keys1>=0&&t.commit>=0&&t.ack>=0;
@@ -133,4 +135,24 @@ void STHReportNotificationFrame(NSString *bundle,CGRect scene,CGRect frame){
  uint64_t a=0,b=0;
  if(STHPackRect((STHRect){scene.origin.x,scene.origin.y,scene.size.width,scene.size.height},&a))notify_set_state(t.appScene,a);
  if(STHPackRect((STHRect){frame.origin.x,frame.origin.y,frame.size.width,frame.size.height},&b))notify_set_state(t.appFrame,b);
+}
+
+BOOL STHPreviewLayout(NSString *bundle,CGRect card){
+ STHLayoutTokens *t=getTokens(bundle);uint64_t bits=0;
+ if(!t.valid||t.preview<0||!STHPackRect((STHRect){card.origin.x,card.origin.y,card.size.width,card.size.height},&bits))return NO;
+ if(notify_set_state(t.preview,bits)!=0)return NO;
+ return STHBeginLayout(bundle);
+}
+BOOL STHReadPreview(NSString *bundle,CGRect keys,CGRect scene,CGRect *local,double *inset){
+ STHLayoutTokens *t=getTokens(bundle);uint64_t a=0,b=0,card=0;
+ if(!t.valid||notify_get_state(t.commit,&a)!=0||!recent(a)||!(a&(1ULL<<61)))return NO;
+ if(notify_get_state(t.preview,&card)!=0||notify_get_state(t.commit,&b)!=0||a!=b)return NO;
+ STHRect c=STHUnpackRect(card),out;
+ // Match low-card visibility protection used by Keyboard.m, now that keyboard
+ // target is known. No text or arbitrary toolbar height is assumed.
+ double room=fmin(120.0,c.h*.25),limit=fmax(0,keys.origin.y-room);
+ if(c.y>limit)c.y=limit;
+ if(!STHMapHostedKeyboard(c,(STHRect){keys.origin.x,keys.origin.y,keys.size.width,keys.size.height},
+  (STHRect){scene.origin.x,scene.origin.y,scene.size.width,scene.size.height},&out,inset))return NO;
+ if(local)*local=CGRectMake(out.x,out.y,out.w,out.h);return YES;
 }

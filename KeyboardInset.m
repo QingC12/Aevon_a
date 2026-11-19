@@ -26,21 +26,28 @@ BOOL STHFloatingKeyboardScope(UIWindowScene *scene) {
  return STHLayoutStatus(NSBundle.mainBundle.bundleIdentifier)>0;
 }
 
+static BOOL containsEditorFocus(UIView *view,int depth,int *budget){
+ if(!view||view.hidden||view.alpha<.01||depth>18||--*budget<0)return NO;
+ if(view.isFirstResponder)return YES;
+ for(UIView *child in view.subviews)if(containsEditorFocus(child,depth+1,budget))return YES;
+ return NO;
+}
 UIWindow *STHTargetKeyboardWindow(UIWindowScene *scene,UIWindow *keyboard) {
- UIWindow *target=nil;
+ UIWindow *target=nil,*key=nil;
  for(UIWindow *w in scene.windows){
   if(w==keyboard||w.hidden||w.alpha<.01)continue;
   if([NSStringFromClass(w.class) containsString:@"Keyboard"])continue;
-  if(w.isKeyWindow)return w;
+  int budget=1200;if(containsEditorFocus(w,0,&budget))return w;
+  if(w.isKeyWindow)key=w;
   if(!target&&w.windowLevel==UIWindowLevelNormal)target=w;
  }
- return target;
+ return key?:target;
 }
 
 static CGFloat correctedInset(id receiver,SEL selector,UIWindowScene *scene,BOOL *minimum,BOOL ignoreX) {
  CGFloat old=previousInset(receiver,selector,scene,minimum,ignoreX);
  if(!STHFloatingKeyboardScope(scene))return old;
- if(STHLayoutStatus(NSBundle.mainBundle.bundleIdentifier)==2)return 0;
+ if(STHLayoutStatus(NSBundle.mainBundle.bundleIdentifier)==2)return old;
  SEL ks=NSSelectorFromString(@"keyboardWindow");
  UIWindow *keyboard=nil;
  if([receiver respondsToSelector:ks])keyboard=((id(*)(id,SEL))objc_msgSend)(receiver,ks);
@@ -51,7 +58,10 @@ static CGFloat correctedInset(id receiver,SEL selector,UIWindowScene *scene,BOOL
  @try{
   // This API is explicitly FOR A WINDOW SCENE, not for its key/popup window.
   // Returning an extra window-origin delta here causes the observed 45pt lift.
-  if(STHResolveKeyboardScene(scene,keyboard,CGRectNull,ignoreX,&local,&overlap))return overlap;
+  if(STHResolveKeyboardScene(scene,keyboard,CGRectNull,ignoreX,&local,&overlap)){
+   if(minimum)*minimum=overlap<=0;
+   return overlap;
+  }
  }@catch(NSException *exception){}
  return old;
 }

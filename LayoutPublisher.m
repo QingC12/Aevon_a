@@ -8,7 +8,6 @@ extern NSString *STHNativeCopyBundleID(void *) NS_RETURNS_RETAINED;
 extern CGRect STHNativeRect(void *);
 extern NSUInteger STHNativeOrientation(void *);
 extern void STHNativeRefreshGeometry(void *);
-extern void STHNativeAnimatePhysicalKeyboard(void *);
 static __weak id observedModel;
 static NSString *observedBundle;
 static CGRect keyboardFrame;
@@ -27,7 +26,14 @@ void STHPrepareLayoutFocus(void *model){
  NSString *bundle=STHNativeCopyBundleID(model);if(!bundle.length)return;
  if(preparedBundle&&![preparedBundle isEqualToString:bundle])STHPublishLayout(preparedBundle,CGRectZero,CGRectZero,NO);
  preparedModel=(__bridge id)model;preparedBundle=bundle;
- STHBeginLayout(bundle);unsigned generation=++prepareGeneration;
+ CGRect current=STHNativeRect(model),screen=UIScreen.mainScreen.bounds;
+ if(current.size.width>1&&current.size.height>1){
+  double factor=screen.size.width/current.size.width;
+  CGRect target=CGRectMake(screen.origin.x,CGRectGetMidY(current)-current.size.height*factor*.5,
+                           screen.size.width,current.size.height*factor);
+  STHPreviewLayout(bundle,target);
+ }else STHBeginLayout(bundle);
+ unsigned generation=++prepareGeneration;
  dispatch_after(dispatch_time(DISPATCH_TIME_NOW,650*NSEC_PER_MSEC),dispatch_get_main_queue(),^{
   if(generation!=prepareGeneration)return;
   if(!settling.active||![observedBundle isEqualToString:bundle])STHPublishLayout(bundle,CGRectZero,CGRectZero,NO);
@@ -69,7 +75,10 @@ static CGRect physicalKeys(void){
  for(UIWindow *w in windows){
   if(w.hidden||w.alpha<.01)continue;
   int budget=512;CGRect r=CGRectNull;
-  if(collect(w,s,0,&budget,&r)){int b=512;accessories(w,s,0,&b,&r);source=@"visible-assembly";return r;}
+  if(collect(w,s,0,&budget,&r)){
+   for(int pass=0;pass<3;pass++)for(UIWindow *part in windows){int b=512;accessories(part,s,0,&b,&r);}
+   source=@"visible-assembly";return r;
+  }
  }
  source=@"native-notification-settled";return keyboardFrame;
 }
@@ -81,13 +90,9 @@ static void tick(void){
  if(!usable(keys,UIScreen.mainScreen.bounds))return;
  BOOL commit=STHSettleSample(&settling,rr(card),rr(keys),now);
  if(commit){
-  // The original show callback published the initial keyboard height. Bring
-  // its native avoidance model to the SAME settled physical frame, using the
-  // original SwiftUI spring before sampling the final hosted card again.
-  applying=YES;
-  STHNativeAnimatePhysicalKeyboard((__bridge void *)[NSValue valueWithCGRect:keys]);
-  STHNativeRefreshGeometry(m);card=STHNativeRect(m);
-  applying=NO;
+  // Do not replay native keyboard-show after its animation already started:
+  // that replay generated a second75pt/342pt cycle in the2.0.9 log.
+  // Native avoidance, movement and their original spring continue unmodified.
   settling.committedCard=rr(card);settling.candidateCard=rr(card);
   BOOL ok=STHPublishLayout(observedBundle,card,keys,YES);lastHeartbeat=now;
   STHWriteLayoutLog([NSString stringWithFormat:@"stable-commit session=%u bundle=%@ card=%@ keyboard=%@ source=%@ native=%@ nativeAge=%.3f transport=%@",
@@ -114,7 +119,22 @@ void STHStartLayout(void *model,CGRect keyboard){
   dispatch_source_set_event_handler(timer,^{tick();});dispatch_resume(timer);}
  // Do NOT publish the old pre-expansion card from this entry.
 }
-void STHUpdateLayout(void){if([NSThread isMainThread])tick();}
+void STHUpdateLayout(void){
+ if(![NSThread isMainThread])return;
+ id m=observedModel;
+ if(m&&settling.active&&!settling.haveCommitted){
+  // Keyboard.m calls here AFTER setting the full-width target, in the same
+  // original WillShow transaction. Publish it immediately, do not wait160ms.
+  STHNativeRefreshGeometry((__bridge void *)m);
+  CGRect card=STHNativeRect((__bridge void *)m),keys=physicalKeys();
+  if(usable(keys,UIScreen.mainScreen.bounds)){
+   settling.haveCommitted=YES;settling.committedCard=rr(card);settling.committedKeys=rr(keys);
+   STHPublishLayout(observedBundle,card,keys,YES);lastHeartbeat=CACurrentMediaTime();
+   STHWriteLayoutLog([NSString stringWithFormat:@"initial-sync bundle=%@ card=%@ keyboard=%@ (no notification hold)",observedBundle,NSStringFromCGRect(card),NSStringFromCGRect(keys)]);
+  }
+ }
+ tick();
+}
 void STHStopLayout(void){
  prepareGeneration++;
  if(preparedBundle&&![preparedBundle isEqualToString:observedBundle])STHPublishLayout(preparedBundle,CGRectZero,CGRectZero,NO);
@@ -125,7 +145,7 @@ void STHStopLayout(void){
  STHSettleEnd(&settling);observedModel=nil;observedBundle=nil;keyboardFrame=CGRectNull;
 }
 __attribute__((constructor)) static void ready(void){dispatch_async(dispatch_get_main_queue(),^{
- STHWriteLayoutLog(@"stheno 2.0.9 publisher: paired settling, no intermediate layout broadcasts");
+ STHWriteLayoutLog(@"stheno 2.0.10 publisher: immediate target geometry, corrections settled separately");
  void(^update)(NSNotification *)=^(NSNotification *n){
   if(!observedModel||applying)return;
   id v=n.userInfo[UIKeyboardFrameEndUserInfoKey];if(![v isKindOfClass:NSValue.class])return;

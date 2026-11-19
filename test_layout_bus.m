@@ -15,6 +15,10 @@ int main(int argc,const char **argv){
   assert(STHBeginLayout(bundle));assert(STHLayoutStatus(bundle)==2);
   CGRect pending;double amount=0;
   assert(!STHReadLayout(bundle,CGRectMake(0,0,400,800),&pending,&amount));
+  assert(STHPreviewLayout(bundle,CGRectMake(0,100.5,430,731)));
+  assert(STHLayoutStatus(bundle)==2);
+  assert(STHReadPreview(bundle,CGRectMake(0,590,430,342),CGRectMake(0,0,430,731),&pending,&amount));
+  assert(fabs(amount-241.5)<.01&&fabs(pending.origin.y-489.5)<.01);
   assert(STHPublishLayout(bundle,CGRectMake(100,400,200,400),CGRectMake(0,550,400,300),YES));
   NSTask *reader=[NSTask new];reader.executableURL=[NSURL fileURLWithPath:NSProcessInfo.processInfo.arguments[0]];
   reader.arguments=@[@"read",bundle];NSError *error=nil;

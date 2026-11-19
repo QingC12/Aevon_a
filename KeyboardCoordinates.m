@@ -9,6 +9,10 @@
 #import "LayoutBus.h"
 extern BOOL STHFloatingKeyboardScope(UIWindowScene *);
 extern UIWindow *STHTargetKeyboardWindow(UIWindowScene *,UIWindow *);
+extern void STHEditorVisibilityEvent(BOOL);
+static void updateEditorVisibility(BOOL showing){
+ dispatch_async(dispatch_get_main_queue(),^{STHEditorVisibilityEvent(showing);});
+}
 static NSDictionary *(*originalInfo)(id,SEL);
 static char cachedInfoKey,normalizedKey;
 static __thread BOOL converting;
@@ -61,8 +65,17 @@ static BOOL physicalFrame(CGRect raw,UIScreen *screen) {
 // to redefine the scene's height or add its origin to a scene-level API.
 BOOL STHResolveKeyboardScene(UIWindowScene *scene,UIWindow *keyboard,CGRect physical,BOOL ignoreX,CGRect *frame,double *inset) {
  if(!STHFloatingKeyboardScope(scene))return NO;
- if(STHLayoutStatus(NSBundle.mainBundle.bundleIdentifier)!=1)return NO;
+ int phase=STHLayoutStatus(NSBundle.mainBundle.bundleIdentifier);
  CGRect bounds=scene.coordinateSpace.bounds,raw=CGRectNull;
+ if(phase==2){
+  if(!physicalFrame(physical,scene.screen))return NO;
+  double initialInset=0;
+  if(!STHReadPreview(NSBundle.mainBundle.bundleIdentifier,physical,bounds,&raw,&initialInset))return NO;
+  resolutionSource=@"synchronous-will-preview";
+  CGRect result=canonical(bounds,raw);
+  if(frame)*frame=result;if(inset)*inset=result.size.height;return YES;
+ }
+ if(phase!=1)return NO;
  double ignored=0;
  if(STHReadLayout(NSBundle.mainBundle.bundleIdentifier,bounds,&raw,&ignored)){
   resolutionSource=@"host-scene";
@@ -100,10 +113,21 @@ static void decision(UIWindowScene *scene,CGRect frame,double inset) {
  STHWriteLayoutLog([NSString stringWithFormat:@"decision source=%@ scene=%@ end=%@ inset=%.3f (computed, not measured editor)",
    resolutionSource,NSStringFromCGRect(scene.coordinateSpace.bounds),NSStringFromCGRect(frame),inset]);
 }
+static BOOL sceneHasFocus(UIView *view,int depth,int *budget){
+ if(!view||view.hidden||view.alpha<.01||depth>18||--*budget<0)return NO;
+ if(view.isFirstResponder)return YES;
+ for(UIView *child in view.subviews)if(sceneHasFocus(child,depth+1,budget))return YES;
+ return NO;
+}
 static BOOL resolveScene(CGRect physical,UIWindowScene **found,CGRect *frame,double *inset) {
+ NSMutableArray<UIWindowScene *> *ordered=[NSMutableArray new];
  for(UIScene *s in UIApplication.sharedApplication.connectedScenes){
   if(![s isKindOfClass:UIWindowScene.class])continue;
-  UIWindowScene *scene=(UIWindowScene *)s;
+  UIWindowScene *scene=(UIWindowScene *)s;BOOL focused=NO;
+  for(UIWindow *w in scene.windows){int budget=1000;if(sceneHasFocus(w,0,&budget)){focused=YES;break;}}
+  if(focused)[ordered insertObject:scene atIndex:0];else[ordered addObject:scene];
+ }
+ for(UIWindowScene *scene in ordered){
   if(STHResolveKeyboardScene(scene,nil,physical,NO,frame,inset)){
    if(found)*found=scene;return YES;
   }
@@ -147,7 +171,7 @@ static NSDictionary *normalizedInfo(NSNotification *note,SEL selector) {
    if([raw[UIKeyboardAnimationDurationUserInfoKey] isKindOfClass:NSNumber.class])originalDuration=raw[UIKeyboardAnimationDurationUserInfoKey];
    if([raw[UIKeyboardAnimationCurveUserInfoKey] isKindOfClass:NSNumber.class])originalCurve=raw[UIKeyboardAnimationCurveUserInfoKey];
    CGRect begin=session.hasSceneFrame&&sessionScene==scene?cgRect(session.sceneFrame):end;
-   if(!session.hasSceneFrame&&!hide)begin.origin.y=CGRectGetMaxY(scene.coordinateSpace.bounds);
+   if(!session.hasSceneFrame&&!hide){begin.origin.y=CGRectGetMaxY(scene.coordinateSpace.bounds);begin.size.height=0;}
    if(!hide){
     STHSessionPhysical(&session,rectValue(incoming),CACurrentMediaTime(),false,physicalFrame(incoming,scene.screen));
     session.visible=YES;lastRealMetadata=raw;sessionScene=scene;lastHideScene=nil;
@@ -156,6 +180,8 @@ static NSDictionary *normalizedInfo(NSNotification *note,SEL selector) {
    result=frameInfo(raw,begin,end);
    objc_setAssociatedObject(note,&cachedInfoKey,result,OBJC_ASSOCIATION_RETAIN_NONATOMIC);
    decision(scene,end,inset);
+   if(hide)updateEditorVisibility(NO);
+   else if([name isEqualToString:UIKeyboardDidShowNotification]||[name isEqualToString:UIKeyboardDidChangeFrameNotification])updateEditorVisibility(YES);
   }
   if(hide){STHSessionHide(&session);sessionScene=nil;lastRealMetadata=nil;recentKeyboard=nil;}
  }@catch(NSException *e){result=raw;}
@@ -168,9 +194,9 @@ static BOOL refreshQueued;
 static void refreshHostedLayout(void) {
  if(postingLayoutRefresh||![NSThread isMainThread])return;
  int phase=STHLayoutStatus(NSBundle.mainBundle.bundleIdentifier);
- if(phase==1&&heldNotes.count)flushHeld(YES);
  if(phase==0){
   discardHeld();heldSession=NO;
+  updateEditorVisibility(NO);
   STHSessionHide(&session);sessionScene=nil;lastRealMetadata=nil;return;
  }
  if(phase==2||!session.visible)return;
@@ -190,7 +216,9 @@ static void refreshHostedLayout(void) {
  // Commit BEFORE posting; neither idempotence nor hide depends on userInfo reads.
  STHSessionCommit(&session,rectValue(end));
  NSMutableDictionary *metadata=lastRealMetadata?[lastRealMetadata mutableCopy]:[NSMutableDictionary new];
- metadata[UIKeyboardAnimationDurationUserInfoKey]=originalDuration?:@0.25;
+ // This is a settled geometry correction, NOT another keyboard animation.
+ // Never restart the original .25s transition after it already completed.
+ metadata[UIKeyboardAnimationDurationUserInfoKey]=@0;
  metadata[UIKeyboardAnimationCurveUserInfoKey]=originalCurve?:@7;
  metadata[UIKeyboardIsLocalUserInfoKey]=@YES;
  NSDictionary *info=frameInfo(metadata,begin,end);
@@ -205,6 +233,7 @@ static void refreshHostedLayout(void) {
   UIWindow *target=STHTargetKeyboardWindow(scene,nil);
   [target setNeedsLayout];[target.rootViewController.view setNeedsLayout];
   decision(scene,end,inset);
+  updateEditorVisibility(YES);
  }@catch(NSException *e){}
  postingLayoutRefresh=NO;
 }
@@ -218,5 +247,5 @@ void STHInstallKeyboardNotifications(void) {
   if(refreshQueued)return;refreshQueued=YES;
   dispatch_async(dispatch_get_main_queue(),^{refreshQueued=NO;refreshHostedLayout();});
  });
- STHWriteLayoutLog(@"2.0.9 app adapter: delivery-frozen scene frame; deferred unstable start");
+ STHWriteLayoutLog(@"2.0.10 app adapter: synchronous Will delivery; measured editor/toolbar visibility");
 }

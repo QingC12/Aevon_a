@@ -21,11 +21,17 @@ assert 'STHSessionPhysical(&session' in coordinates
 delivery=(root/'KeyboardDelivery.inc').read_text()
 publisher=(root/'LayoutPublisher.m').read_text()
 bus=(root/'LayoutBus.m').read_text()
-assert 'if(status==2){queueHeld(note);return YES;}' in delivery
+assert 'queueHeld' not in delivery and 'dispatch_after' not in delivery
+assert 'if(status==1||status==2)' in delivery
+assert 'STHReadPreview' in scene
+assert '==2)return 0' not in insets
+assert 'updateEditorVisibility(YES)' in coordinates
+assert 'setNeedsLayout' in coordinates
 assert delivery.index('normalizedInfo(note')<delivery.index('centerPost(center')
 assert 'installDelivery();' in coordinates
 assert 'STHSettleSample(&settling' in publisher
-assert 'STHNativeAnimatePhysicalKeyboard' in publisher
+assert 'STHNativeAnimatePhysicalKeyboard((' not in publisher
+assert 'initial-sync bundle=' in publisher
 assert 't.writerActive=NO;notify_set_state(t.commit,0)' in bus # only deactivation
 assert 'if(changed)notify_post' in bus # silent heartbeat, not repeated layout events
 print('Production scene routing, immutable delivery, paired settle and double-buffer transport verified')

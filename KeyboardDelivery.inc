@@ -2,9 +2,6 @@
 // independently during each app observer's userInfo read.
 static void (*centerPost)(id,SEL,NSNotification *);
 static void (*centerPostName)(id,SEL,NSString *,id,NSDictionary *);
-static NSMutableDictionary<NSString *,NSNotification *> *heldNotes;
-static NSMutableDictionary<NSString *,NSNumber *> *heldOrder;
-static NSUInteger holdOrder,holdGeneration;
 static __thread BOOL delivering;
 static BOOL heldSession,awaitingDidHide;
 static BOOL keyboardEvent(NSString *name){return [name hasPrefix:@"UIKeyboard"]&&
@@ -21,29 +18,7 @@ static void deliverFrozen(NSNotificationCenter *center,NSNotification *note){
  BOOL was=delivering;delivering=YES;
  @try{centerPost(center,@selector(postNotification:),frozen);}@finally{delivering=was;}
 }
-static void discardHeld(void){heldNotes=nil;heldOrder=nil;holdGeneration++;}
-static void flushHeld(BOOL canonicalDelivery){
- NSDictionary *notes=heldNotes,*orders=heldOrder;discardHeld();
- NSArray *names=[notes.allKeys sortedArrayUsingComparator:^NSComparisonResult(NSString *a,NSString *b){return [orders[a] compare:orders[b]];}];
- for(NSString *name in names){NSNotification *note=notes[name];
-  if(canonicalDelivery)deliverFrozen(NSNotificationCenter.defaultCenter,note);
-  else {BOOL was=delivering;delivering=YES;@try{centerPost(NSNotificationCenter.defaultCenter,@selector(postNotification:),note);}@finally{delivering=was;}}
- }
-}
-static void queueHeld(NSNotification *note){
- if(!heldNotes){heldNotes=[NSMutableDictionary new];heldOrder=[NSMutableDictionary new];}
- if(!heldOrder[note.name])heldOrder[note.name]=@(++holdOrder);
- heldNotes[note.name]=note;heldSession=YES;
- NSUInteger generation=++holdGeneration;
- // Failure escape: original behavior is restored if host never commits. No
- // permanently swallowed notifications if an app/keyboard cannot be matched.
- dispatch_after(dispatch_time(DISPATCH_TIME_NOW,650*NSEC_PER_MSEC),dispatch_get_main_queue(),^{
-  if(holdGeneration!=generation||!heldNotes.count)return;
-  int status=STHLayoutStatus(NSBundle.mainBundle.bundleIdentifier);
-  STHWriteLayoutLog([NSString stringWithFormat:@"deferred-keyboard timeout status=%d count=%lu",status,(unsigned long)heldNotes.count]);
-  flushHeld(status==1);
- });
-}
+static void discardHeld(void){}
 static BOOL interceptNotification(NSNotificationCenter *center,NSNotification *note){
  if(center!=NSNotificationCenter.defaultCenter||delivering||![NSThread isMainThread]||!keyboardEvent(note.name)||objc_getAssociatedObject(note,&normalizedKey))return NO;
  int status=STHLayoutStatus(NSBundle.mainBundle.bundleIdentifier);
@@ -54,9 +29,9 @@ static BOOL interceptNotification(NSNotificationCenter *center,NSNotification *n
   discardHeld();heldSession=NO;deliverFrozen(center,note);return YES;
  }
  awaitingDidHide=NO;
- if(status==2){queueHeld(note);return YES;}
- if(status==1){
-  if(heldNotes.count)flushHeld(YES);
+ if(status==1||status==2){
+  // Synchronous original Will timing. Pending uses a validated physical frame
+  // plus predicted full-width card, or returns native data untouched.
   heldSession=YES;deliverFrozen(center,note);return YES;
  }
  return NO;
