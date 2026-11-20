@@ -9,6 +9,8 @@ bridge=(R/'CenterChooserNative.S').read_text()
 visibility=(R/'SystemVisibilityBridge.m').read_text()
 policy=(R/'VisibilityPolicy.h').read_text()
 native=(R/'native.S').read_text()
+assert 'public func centerRingPan(' in ui
+assert 'public func showChooserFromNativeSelection()' in ui
 phase3=ui.split('if phase == 3 {',1)[1].split('guard let ring',1)[0]
 assert 'session.didFinish()' in phase3 and 'selectCenter()' in phase3
 assert 'STHChooserReadRing' not in phase3 and 's.scale' not in phase3

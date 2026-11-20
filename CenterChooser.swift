@@ -275,11 +275,11 @@ private final class CenterController: NSObject {
     }
 }
 @_cdecl("STHInstallCenterChooser")
-func installCenterChooser() { DispatchQueue.main.async { _ = CenterController.shared } }
+public func installCenterChooser() { DispatchQueue.main.async { _ = CenterController.shared } }
 @_cdecl("STHChooserHideBeforeCapture")
-func hideCenterBeforeCapture() { CenterController.shared.beforeCapture() }
+public func hideCenterBeforeCapture() { CenterController.shared.beforeCapture() }
 @_cdecl("STHCenterRingPan")
-func centerRingPan(_ ring: UnsafeMutableRawPointer?, _ recognizer: UnsafeMutableRawPointer?, _ phase: UInt32) { CenterController.shared.pan(ring, recognizer, phase: phase) }
+public func centerRingPan(_ ring: UnsafeMutableRawPointer?, _ recognizer: UnsafeMutableRawPointer?, _ phase: UInt32) { CenterController.shared.pan(ring, recognizer, phase: phase) }
 
 @_cdecl("STHChooserShowFromNativeSelection")
-func showChooserFromNativeSelection() { CenterController.shared.openPanel() }
+public func showChooserFromNativeSelection() { CenterController.shared.openPanel() }
