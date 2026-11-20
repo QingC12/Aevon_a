@@ -1,0 +1,107 @@
+{
+  "old_artifact": "stheno_2.0.14_iphoneos-arm64e.deb",
+  "new_artifact": "stheno_2.0.15_iphoneos-arm64e.deb",
+  "old_bytes": 469144,
+  "new_bytes": 463620,
+  "net_bytes_saved": 5524,
+  "sha256": "7162b1f6d7558865d03cb37e743860acd51ae0be9d9407e5226da948ebf0784a",
+  "same_entry_names_and_metadata": true,
+  "settings_resources_and_install_scripts_unchanged": true,
+  "regular_files": 31,
+  "changed_files": [
+    {
+      "path": "./Library/MobileSubstrate/DynamicLibraries/SthenoGesture.dylib",
+      "old_bytes": 144144,
+      "new_bytes": 144064
+    }
+  ],
+  "binaries": [
+    {
+      "name": "Stheno.dylib",
+      "whole_file_equal": true,
+      "sections_equal": true,
+      "changed_sections": []
+    },
+    {
+      "name": "SthenoCamera.dylib",
+      "whole_file_equal": true,
+      "sections_equal": true,
+      "changed_sections": []
+    },
+    {
+      "name": "SthenoFix.dylib",
+      "whole_file_equal": true,
+      "sections_equal": true,
+      "changed_sections": []
+    },
+    {
+      "name": "SthenoKb.dylib",
+      "whole_file_equal": true,
+      "sections_equal": true,
+      "changed_sections": []
+    },
+    {
+      "name": "SthenoKeyboard.dylib",
+      "whole_file_equal": true,
+      "sections_equal": true,
+      "changed_sections": []
+    },
+    {
+      "name": "SthenoPreference",
+      "whole_file_equal": true,
+      "sections_equal": true,
+      "changed_sections": []
+    },
+    {
+      "name": "CameraFix.dylib",
+      "whole_file_equal": true,
+      "sections_equal": true,
+      "changed_sections": []
+    },
+    {
+      "name": "KeyboardFix.dylib",
+      "whole_file_equal": true,
+      "sections_equal": true,
+      "changed_sections": []
+    },
+    {
+      "name": "SthenoGesture.dylib",
+      "whole_file_equal": false,
+      "sections_equal": false,
+      "changed_sections": [
+        "__DATA,__objc_const",
+        "__DATA,__objc_selrefs",
+        "__DATA_CONST,__cfstring",
+        "__DATA_CONST,__const",
+        "__DATA_CONST,__objc_intobj",
+        "__TEXT,__auth_stubs",
+        "__TEXT,__const",
+        "__TEXT,__cstring",
+        "__TEXT,__gcc_except_tab",
+        "__TEXT,__init_offsets",
+        "__TEXT,__objc_classname",
+        "__TEXT,__objc_methlist",
+        "__TEXT,__objc_methname",
+        "__TEXT,__objc_methtype",
+        "__TEXT,__objc_stubs",
+        "__TEXT,__text",
+        "__TEXT,__unwind_info"
+      ]
+    },
+    {
+      "name": "SthenoKeyboardInset.dylib",
+      "whole_file_equal": true,
+      "sections_equal": true,
+      "changed_sections": []
+    },
+    {
+      "name": "Orion",
+      "whole_file_equal": true,
+      "sections_equal": true,
+      "changed_sections": []
+    }
+  ],
+  "xz_bytes_saved_for_actual_payload": 5432,
+  "uncompressed_tar_sha256": "cfe35c3ec77d01b8a566df3227e653aec6e70c3ca05b0f154ede04c3a2fae513",
+  "device_tested": false
+}

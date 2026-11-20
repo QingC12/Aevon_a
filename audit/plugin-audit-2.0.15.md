@@ -32,7 +32,7 @@ The inherited `control/postinst` selects a template and may copy the complete pr
 
 Removed source outside the production compiler closure, together with its obsolete CI-only checks:
 
-- `GestureRules.h` and `test_gesture_rules.c`: obsolete experimental long-hold/upward-distance implementation; current native edge-middle release path is retained.
+- `GestureRules.h` and `test_gesture_rules.c`: obsolete comment-only hold-to-close placeholders already containing no implementation in 2.0.14; the current native edge-middle release path is retained.
 - `KeyboardInsetMath.h` and `test_keyboard_inset.c`: obsolete window-relative old-inset reduction formula. No current production caller remained; current scene-only, physical-plane, and input-assembly tests remain.
 - `EditorVisibility.m`: superseded uncompiled implementation. `EditorVisibilityMath.h` is not removed because `EditorAssembly.h`, `EditorRefinement.h`, and active tests use it.
 - Unused Python `sys`/`shutil` imports and generated Python caches/one-off analysis scripts.
