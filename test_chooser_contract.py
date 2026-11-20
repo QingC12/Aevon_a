@@ -16,7 +16,9 @@ assert 'snapshot.editing' in ui and 'snapshot.quickSetting' in ui
 center=(R/'CenterChooserNative.S').read_text()
 assert 'STHCenterRingPan' in center and 'cc_call 0xaf19c' in center and 'cc_call 0xafb5c' in center
 assert 'phase == 2' in center and 'bl \\original' in center
-assert 'STHCenterRunAnimation({ self.state.hover = hovered; self.state.drift = drift }' in ui
+assert 'STHCenterRunAnimation({ self.state.hover = hovered; self.state.drift = lift }' in ui
+assert 'STHChooserSubmitCenterSelection()' in ui and 'session.didFinish()' in ui
+assert 'pan.location(in: pan.view)' in ui and 'gap * s.scale' not in ui
 assert 'callcore 0x5421c' not in native # NOT a rings-array rebuild getter.
 assert 'STHChooserHideBeforeCapture();' in (R/'SystemActions.m').read_text()
 raw=(R/'inputs/base.deb').read_bytes();p=8;blob=None

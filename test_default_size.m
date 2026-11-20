@@ -11,5 +11,5 @@ int main(void){@autoreleasepool{
  STHFirstPresentation((__bridge void *)a);assert(shows==2&&resets==1);
  STHFirstPresentation((__bridge void *)b);assert(shows==3&&resets==2);
  STHFirstPresentation(NULL);assert(shows==3&&resets==2);
- puts("Default size lifecycle passed: one reset per new floating model; reused models untouched");
+ puts("Initial size/center lifecycle passed: each fresh model only; repeated presentation and restored models untouched");
 }return 0;}

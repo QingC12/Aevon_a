@@ -93,6 +93,13 @@ jobs:
           /tmp/stheno-dock-queue
           python3 test_update18_contract.py
           python3 test_chooser_contract.py
+      - name: Test release survives native collapse and transient system visibility restores
+        run: |
+          xcrun swiftc CenterSelection.swift test_center_selection.swift -o /tmp/stheno-center-selection
+          /tmp/stheno-center-selection
+          xcrun --sdk macosx clang -std=c11 -Wall -Wextra -Werror test_visibility_policy.c -o /tmp/stheno-visibility-policy
+          /tmp/stheno-visibility-policy
+          python3 test_update19_contract.py
       - name: Verify private Orion ABI and isolation
         run: python3 test_embed_orion.py
       - name: Build and verify arm64e binaries and Debian archive

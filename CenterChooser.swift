@@ -6,6 +6,7 @@ private final class CenterState: ObservableObject {
     @Published var origin = CGPoint.zero
     @Published var scale = 0.0
     @Published var diameter = 0.0
+    @Published var ready = false
     @Published var hover = false
     @Published var drift = CGSize.zero
 }
@@ -17,10 +18,11 @@ private struct CenterGlyph: View {
             Image(uiImage: STHAppChooserIcon(1)).resizable().scaledToFit()
                 .padding(state.diameter * 0.15)
                 .frame(width: state.diameter, height: state.diameter)
-                .background(Color.primary.opacity(0.07)).clipShape(Circle())
+                .background(Color.white.brightness(state.hover ? 0.1 : -0.1)).clipShape(Circle())
         }
-        .buttonStyle(.plain).scaleEffect(state.scale * (state.hover ? 1.15 : 1))
-        .opacity(min(1, max(0, state.scale * 2 - 1))).offset(state.drift).position(state.origin)
+        .buttonStyle(.plain).scaleEffect(state.scale * (state.hover ? 1.45 : 1))
+        .opacity(state.ready ? min(1, max(0, state.scale * 2 - 1)) : 0).offset(state.drift).position(state.origin)
+        .zIndex(state.hover ? 1 : 0)
         .accessibilityLabel("选择其他应用")
     }
 }
@@ -99,13 +101,14 @@ private final class CenterController: NSObject {
     weak var targetWindow: UIWindow?
     var scanAt = 0.0
     var suppressedUntil = 0.0
-    var tracking = false
-    var pending = false
+    var session = CenterSelectionSession()
     var last = STHChooserRingSnapshot()
-    var wasOpen = false
+    var placementReady = false
+    var ringWasVisible = false
+    var presentationGeneration: UInt64 = 0
     override init() {
         super.init()
-        host = UIHostingController(rootView: CenterGlyph(state: state) { [weak self] in self?.openPanel() })
+        host = UIHostingController(rootView: CenterGlyph(state: state) { [weak self] in self?.selectCenter() })
         host.view.backgroundColor = .clear
         surface.addSubview(host.view)
         surface.backgroundColor = .clear
@@ -140,47 +143,87 @@ private final class CenterController: NSObject {
         var snapshot = STHChooserRingSnapshot()
         let valid = STHSystemActionsEnabled() && STHChooserReadRing(&snapshot)
         let blocked = !valid || STHSystemUIBlocked() || snapshot.editing != 0 || snapshot.quickSetting != 0 || snapshot.showTab != 0 || now < suppressedUntil
-        if blocked { tracking = false; pending = false; hidePanel(); surface.isHidden = true; return }
+        if blocked {
+            session.cancel()
+            if STHSystemUIBlocked() || now < suppressedUntil { hidePanel() }
+            surface.isHidden = true
+            return
+        }
         last = snapshot
         guard let w = targetWindow else { return }
         let center = CGPoint(x: snapshot.portraitX + snapshot.offsetX, y: snapshot.portraitY + snapshot.offsetY)
         let p = surface.convert(center, from: UIScreen.main.fixedCoordinateSpace)
         let diameter = min(snapshot.iconWidth, 2 * snapshot.radius - snapshot.iconWidth - 4)
         guard diameter >= 20 else { surface.isHidden = true; return }
-        surface.isHidden = snapshot.scale < 0.01
+        let open = snapshot.scale > 0.01
         surface.frame = w.bounds
         surface.hitArea = CGRect(x: p.x - diameter / 2, y: p.y - diameter / 2, width: diameter, height: diameter)
         let scaleChanged = abs(state.scale - snapshot.scale) > 0.0001
         let positionChanged = hypot(state.origin.x - p.x, state.origin.y - p.y) > 0.1
-        if scaleChanged || (positionChanged && snapshot.gestureState == 2) {
-            STHCenterRunAnimation({ self.state.origin = p; self.state.scale = snapshot.scale; self.state.diameter = diameter }, snapshot.scale <= 0 ? 1 : 0)
-        } else if positionChanged || state.diameter != diameter {
-            state.origin = p; state.diameter = diameter
+        // First place the center at its final target without an animation.
+        // Only scale/opacity then join the original ring opening transaction.
+        if !placementReady || (!open && positionChanged) || (open && !ringWasVisible) {
+            var transaction = Transaction(); transaction.disablesAnimations = true
+            withTransaction(transaction) {
+                state.origin = p; state.diameter = diameter; state.scale = 0; state.ready = false
+            }
+            placementReady = true
+            surface.isHidden = !open
+            if open {
+                state.ready = true
+                STHCenterRunAnimation({ self.state.scale = snapshot.scale }, 0)
+            }
+        } else {
+            surface.isHidden = !open && state.scale < 0.01
+            if open && !state.ready { state.ready = true }
+            if scaleChanged || (positionChanged && snapshot.gestureState == 2) {
+                STHCenterRunAnimation({ self.state.origin = p; self.state.scale = snapshot.scale; self.state.diameter = diameter }, snapshot.scale <= 0 ? 1 : 0)
+            } else if positionChanged || state.diameter != diameter {
+                state.origin = p; state.diameter = diameter
+            }
         }
+        ringWasVisible = open
         surface.isUserInteractionEnabled = snapshot.scale > 0.5 && panelWindow == nil
-        if !tracking && snapshot.scale < 0.1 && !wasOpen { hidePanel() }
+    }
+    func updateHover(_ hovered: Bool) {
+        let lift = hovered ? CGSize(width: 0, height: -2.3 * last.iconWidth) : .zero
+        if state.hover != hovered || state.drift != lift {
+            STHCenterRunAnimation({ self.state.hover = hovered; self.state.drift = lift }, 0)
+        }
     }
     func pan(_ ring: UnsafeMutableRawPointer?, _ recognizer: UnsafeMutableRawPointer?, phase: UInt32) {
-        guard let ring, let recognizer, !STHSystemUIBlocked() else { return }
-        let pan = Unmanaged<UIPanGestureRecognizer>.fromOpaque(recognizer).takeUnretainedValue()
-        if phase == 0 { tracking = true; pending = false }
-        guard tracking else { return }
-        var s = STHChooserRingSnapshot()
-        guard STHChooserReadRing(&s), s.editing == 0, s.quickSetting == 0, s.showTab == 0 else { tracking = false; return }
-        let point = pan.view?.convert(pan.location(in: pan.view), to: UIScreen.main.fixedCoordinateSpace) ?? .zero
-        let gap = max(0, min(s.iconWidth * 0.55, s.radius - 0.6 * s.iconWidth))
-        let inside = hypot(point.x - s.portraitX - s.offsetX, point.y - s.portraitY - s.offsetY) <= gap * s.scale
-        let selected = STHCenterRingSelected(ring)
-        let hovered = inside && selected == 999 && s.scale > 0.5
-        let drift = hovered ? CGSize(width: (point.x - s.portraitX - s.offsetX) * 0.18, height: (point.y - s.portraitY - s.offsetY) * 0.18) : .zero
-        if state.hover != hovered || state.drift != drift {
-            STHCenterRunAnimation({ self.state.hover = hovered; self.state.drift = drift }, 0)
-        }
-        if phase == 2 { pending = hovered && pan.state == .ended }
+        // Do not consult native scale/selection after finish: native end has
+        // already collapsed the carrier and cleared those values.
         if phase == 3 {
-            tracking = false
-            if pending { pending = false; DispatchQueue.main.async { self.openPanel() } }
+            let shouldOpen = session.didFinish()
+            updateHover(false)
+            if shouldOpen { selectCenter() }
+            return
         }
+        guard let ring, let recognizer, !STHSystemUIBlocked() else { session.cancel(); return }
+        let pan = Unmanaged<UIPanGestureRecognizer>.fromOpaque(recognizer).takeUnretainedValue()
+        if phase == 0 { session.begin(); tick() }
+        var s = STHChooserRingSnapshot()
+        guard STHChooserReadRing(&s), s.editing == 0, s.quickSetting == 0, s.showTab == 0 else { session.cancel(); updateHover(false); return }
+        last = s
+        // The original RingEnv samples in recognizer.view's portrait space.
+        // An additional fixed-screen conversion changes the hit coordinates.
+        let point = pan.location(in: pan.view)
+        let gap = max(0, s.radius - 0.6 * s.iconWidth)
+        let inside = hypot(point.x - s.portraitX - s.offsetX, point.y - s.portraitY - s.offsetY) <= gap
+        let selected = STHCenterRingSelected(ring)
+        let candidate = inside && selected == 999 && s.scale > 0.5
+        let cancelled = pan.state == .cancelled || pan.state == .failed
+        if phase == 2 {
+            session.willFinish(candidate: candidate, cancelled: cancelled)
+        } else {
+            session.update(candidate: candidate && !cancelled)
+        }
+        updateHover(session.hovered)
+    }
+    func selectCenter() {
+        guard STHSystemActionsEnabled(), panelWindow == nil, !STHSystemUIBlocked(), CACurrentMediaTime() >= suppressedUntil else { return }
+        _ = STHChooserSubmitCenterSelection()
     }
     func openPanel() {
         guard panelWindow == nil, !STHSystemUIBlocked(), CACurrentMediaTime() >= suppressedUntil else { return }
@@ -190,15 +233,20 @@ private final class CenterController: NSObject {
             return AppRow(id: id, name: name)
         }.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
         guard let scene = targetWindow?.windowScene else { return }
-        let motion = PanelState(); panelState = motion; wasOpen = true
+        let motion = PanelState(); panelState = motion
+        presentationGeneration &+= 1
+        let generation = presentationGeneration
         previousKey = scene.windows.first(where: \.isKeyWindow)
         let w = UIWindow(windowScene: scene)
         w.frame = scene.coordinateSpace.bounds
         w.windowLevel = max((targetWindow?.windowLevel ?? .normal) + 1, .normal + 2)
         let controller = UIHostingController(rootView: AppPanel(items: items, state: motion) { [weak self] id in self?.closePanel(selecting: id) })
         controller.view.backgroundColor = .clear; w.rootViewController = controller
-        panelWindow = w; w.makeKeyAndVisible()
-        STHCenterRunAnimation({ motion.visible = true }, 0)
+        panelWindow = w; w.makeKeyAndVisible(); controller.view.layoutIfNeeded()
+        DispatchQueue.main.async {
+            guard self.presentationGeneration == generation, self.panelState === motion, !STHSystemUIBlocked() else { return }
+            STHCenterRunAnimation({ motion.visible = true }, 0)
+        }
     }
     func closePanel(selecting id: String?) {
         guard let motion = panelState else { return }
@@ -219,8 +267,12 @@ private final class CenterController: NSObject {
         if restore, let previousKey, !previousKey.isHidden { previousKey.makeKey() }
         self.previousKey = nil
     }
-    @objc func systemChanged() { if STHSystemUIBlocked() { hidePanel(); surface.isHidden = true; tracking = false; pending = false } }
-    func beforeCapture() { suppressedUntil = CACurrentMediaTime() + 1; hidePanel(); surface.isHidden = true; tracking = false; pending = false }
+    @objc func systemChanged() {
+        if STHSystemUIBlocked() { hidePanel(); surface.isHidden = true; session.cancel(); ringWasVisible = false; updateHover(false) }
+    }
+    func beforeCapture() {
+        suppressedUntil = CACurrentMediaTime() + 1; hidePanel(); surface.isHidden = true; session.cancel(); ringWasVisible = false; updateHover(false)
+    }
 }
 @_cdecl("STHInstallCenterChooser")
 func installCenterChooser() { DispatchQueue.main.async { _ = CenterController.shared } }
@@ -228,3 +280,6 @@ func installCenterChooser() { DispatchQueue.main.async { _ = CenterController.sh
 func hideCenterBeforeCapture() { CenterController.shared.beforeCapture() }
 @_cdecl("STHCenterRingPan")
 func centerRingPan(_ ring: UnsafeMutableRawPointer?, _ recognizer: UnsafeMutableRawPointer?, _ phase: UInt32) { CenterController.shared.pan(ring, recognizer, phase: phase) }
+
+@_cdecl("STHChooserShowFromNativeSelection")
+func showChooserFromNativeSelection() { CenterController.shared.openPanel() }

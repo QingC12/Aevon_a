@@ -4,6 +4,7 @@
 #include <stdint.h>
 extern NSArray *STHChooserSnapshotUnpinned(void);
 extern BOOL STHChooserSubmitFloating(NSString *);
+extern BOOL STHChooserSubmitCenterSelection(void);
 typedef struct{uintptr_t name[2],identifier[2];} App;
 uintptr_t sth_action_core_base;static BOOL ready=YES;
 static NSArray *user,*systemRows;static NSMutableArray *pinned;static NSMutableSet *buffers;
@@ -47,6 +48,8 @@ int main(void){@autoreleasepool{
  assert(!STHChooserSubmitFloating(@"pinned.app"));assert(!STHChooserSubmitFloating(@"absent.app"));
  assert(!STHChooserSubmitFloating(@"com.nx.stheno.action.screenshot"));assert(opens==1);
  [pinned addObject:@"free.app"];assert(!STHChooserSubmitFloating(@"free.app"));assert(opens==1&&!arrays&&!models);
- ready=NO;assert(!STHChooserSnapshotUnpinned());assert(!STHChooserSubmitFloating(@"system.free"));
+ assert(STHChooserSubmitCenterSelection());assert(opens==2&&[lastOpened isEqualToString:@"com.nx.stheno.action.app-picker"]);assert(!arrays&&!models);
+ assert(pinned.count==before.count+1);
+ ready=NO;assert(!STHChooserSnapshotUnpinned());assert(!STHChooserSubmitFloating(@"system.free"));assert(!STHChooserSubmitCenterSelection());
  NSLog(@"Chooser catalog passed: unpinned-only, dedup, action exclusion, stale membership recheck, native animated submission, no pin writes, 100 ownership cycles");
 }return 0;}

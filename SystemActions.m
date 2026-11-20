@@ -2,6 +2,8 @@
 #import <QuartzCore/QuartzCore.h>
 #import "SystemActionCatalog.h"
 #import "SystemActionGate.h"
+#import "ChooserSelection.h"
+extern void STHChooserShowFromNativeSelection(void);
 #import "SystemCapture.h"
 extern BOOL STHSystemActionRuntimeReady(void);
 extern BOOL STHSystemActionsEnabled(void);
@@ -55,6 +57,9 @@ static void execute(STHSystemAction action){
 BOOL STHSystemActionPresent(void *model){
  if(!model||!STHSystemActionRuntimeReady())return NO;
  NSString *identifier=CFBridgingRelease(STHSystemCopyModelIdentifier(model));
+ if([identifier isEqualToString:@STH_APP_CHOOSER_ID]){
+  dispatch_async(dispatch_get_main_queue(),^{STHChooserShowFromNativeSelection();});return YES;
+ }
  STHSystemAction action=STHSystemActionForIdentifier(identifier.UTF8String);
  if(action==STHSystemActionNone)return NO;
  dispatch_async(dispatch_get_main_queue(),^{execute(action);});return YES;

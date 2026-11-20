@@ -7,11 +7,11 @@ for name in ['CenterChooser.swift','DockQueue.swift','CenterChooserNative.S','Do
 assert 'original_animation_transactions' in (R/'update18_patch.py').read_text()
 swift=(R/'CenterChooser.swift').read_text();native=(R/'CenterChooserNative.S').read_text();dock=(R/'DockQueueNative.S').read_text();visibility=(R/'SystemVisibilityBridge.m').read_text()
 assert 'STHCenterRunAnimation' in swift and 'phase == 2' in swift and 'phase == 3' in swift
-assert 'pan.state == .ended' in swift and 'selected == 999' in swift
-assert 'self.state.drift = drift' in swift
+assert 'pan.state == .cancelled' in swift and 'selected == 999' in swift
+assert 'self.state.drift = lift' in swift
 for value in ['0x51454','0xafb5c','0xaf19c']:
  assert value in dock and value in native,value
-for value in ['SBControlCenterController','SBCoverSheetPresentationManager','SBLockScreenManager','SthenoSystemVisibilityChanged','latched']:
+for value in ['SBControlCenterController','SBCoverSheetPresentationManager','SBLockScreenManager','SthenoSystemVisibilityChanged','STHVisibilitySample']:
  assert value in visibility,value
 assert 'UIStatusBarWindow' not in visibility
 assert 't.commit=registerState(bundle,@"commit")' in (R/'LayoutBus.m').read_text()

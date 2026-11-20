@@ -1,5 +1,6 @@
 // Read-only native catalog snapshots and transient (not pinned) App launch.
 #import <Foundation/Foundation.h>
+#import "ChooserSelection.h"
 #include <stdint.h>
 #include <string.h>
 extern uintptr_t sth_action_core_base;
@@ -121,5 +122,18 @@ BOOL STHChooserSubmitFloating(NSString *identifier) {
  // NEVER bridgeObjectRelease(words[1]) here; native builder already did it.
  @try { STHChooserOpenModelAnimated(model); }
  @finally { STHChooserReleaseSwift(model); }
+ return YES;
+}
+
+// A center selection enters the same native selected-App animation and
+// admission used by ordinary ring apps. The existing action gate consumes
+// this exact ID before any scene/window is created. No saved ring item exists.
+BOOL STHChooserSubmitCenterSelection(void){
+ if(!NSThread.isMainThread||!STHChooserImageReady())return NO;
+ uintptr_t words[2];STHSystemMakeSwiftString(@STH_APP_CHOOSER_ID,words);
+ void *model=STHChooserBuildManagerConsumed(words[0],words[1]);
+ if(!model)return NO;
+ @try{STHChooserOpenModelAnimated(model);}
+ @finally{STHChooserReleaseSwift(model);}
  return YES;
 }

@@ -9,5 +9,7 @@ typedef struct {
 BOOL STHChooserReadRing(STHChooserRingSnapshot *out);
 NSArray<NSDictionary<NSString *,NSString *> *> *STHChooserSnapshotUnpinned(void);
 BOOL STHChooserSubmitFloating(NSString *identifier);
+BOOL STHChooserSubmitCenterSelection(void);
+void STHChooserShowFromNativeSelection(void);
 void STHInstallCenterChooser(void);
 void STHChooserHideBeforeCapture(void);

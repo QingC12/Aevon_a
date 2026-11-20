@@ -4,7 +4,7 @@ from embed_orion import prepare
 from system_action_patch import patch_system_actions
 from update18_patch import patch_update18
 ROOT=Path(__file__).resolve().parent
-VERSION='2.0.18'
+VERSION='2.0.19'
 os.chdir(ROOT)
 OUT=ROOT/'build';OUT.mkdir(exist_ok=True)
 def run(*args,**kw): return subprocess.check_output([str(x) for x in args],**kw)
@@ -155,7 +155,7 @@ for source in ['SystemActions.m','SystemActionRuntime.m','SystemActionPicker.m',
  args=['xcrun','clang','-target','arm64e-apple-ios16.1','-isysroot',sdk,'-Os','-c',source,'-o',obj]
  if source.endswith('.m'):args.insert(7,'-fobjc-arc')
  run(*args);action_objects.append(obj)
-run('xcrun','swiftc','-swift-version','5','-target','arm64e-apple-ios16.1','-sdk',sdk,'-Osize','-emit-library','-import-objc-header','RuntimeBridge.h','-module-name','SthenoRuntime','CenterChooser.swift','DockQueue.swift',*action_objects,'-Xlinker','-install_name','-Xlinker','@loader_path/SthenoSystemActions.dylib','-Xlinker','-rpath','-Xlinker','/usr/lib/swift','-o',action_binary)
+run('xcrun','swiftc','-swift-version','5','-target','arm64e-apple-ios16.1','-sdk',sdk,'-Osize','-emit-library','-import-objc-header','RuntimeBridge.h','-module-name','SthenoRuntime','CenterChooser.swift','CenterSelection.swift','DockQueue.swift',*action_objects,'-Xlinker','-install_name','-Xlinker','@loader_path/SthenoSystemActions.dylib','-Xlinker','-rpath','-Xlinker','/usr/lib/swift','-o',action_binary)
 quiet_companions=[]
 for filename,address,marker in [('CameraFix.dylib',0x40e4,b'CameraFixDiag.txt'),('KeyboardFix.dylib',0x4068,b'KeyboardFixDiag.txt')]:
  index=next(i for i,(m,b) in enumerate(rows) if m.name.endswith('/'+filename));image=bytearray(rows[index][1])
@@ -217,5 +217,5 @@ result=OUT/f'stheno_{VERSION}_iphoneos-arm64e.deb'
 result.write_bytes(arwrite([(n,(OUT/n).read_bytes()) for n in ('debian-binary','control.tar.xz','data.tar.xz')]))
 verify=tarread(arread(result.read_bytes())['data.tar.xz']);assert len(verify)==len(rows)
 for (a,b),(c,d) in zip(rows,verify):assert a.name==c.name and b==d
-manifest={'artifact':result.name,'sha256':hashlib.sha256(result.read_bytes()).hexdigest(),'size':result.stat().st_size,'data_tar_default_xz_bytes':len(default_data_archive),'data_tar_optimized_xz_bytes':len(data_archive),'data_tar_bytes_saved':len(default_data_archive)-len(data_archive),'data_tar_uncompressed_bytes':len(data_tar_uncompressed),'data_tar_uncompressed_sha256':hashlib.sha256(data_tar_uncompressed).hexdigest(),'patch_entries':{hex(a):hex(t) for a,(_,t) in changes.items()},'device_tested':False,'bundled_orion':orion_manifest,'keyboard_inset_adapter':True,'system_actions':system_actions_manifest,'center_app_chooser':{'version':2,'pins_apps':False,'native_catalog':True,'native_animated_launch':True,'native_pan_trigger':True,'ring_geometry_modified':False},'icon_resources':icon_resources,'update18':update18_manifest,'diagnostic_logging_removed':True}
+manifest={'artifact':result.name,'sha256':hashlib.sha256(result.read_bytes()).hexdigest(),'size':result.stat().st_size,'data_tar_default_xz_bytes':len(default_data_archive),'data_tar_optimized_xz_bytes':len(data_archive),'data_tar_bytes_saved':len(default_data_archive)-len(data_archive),'data_tar_uncompressed_bytes':len(data_tar_uncompressed),'data_tar_uncompressed_sha256':hashlib.sha256(data_tar_uncompressed).hexdigest(),'patch_entries':{hex(a):hex(t) for a,(_,t) in changes.items()},'device_tested':False,'bundled_orion':orion_manifest,'keyboard_inset_adapter':True,'system_actions':system_actions_manifest,'center_app_chooser':{'version':3,'pins_apps':False,'native_catalog':True,'native_animated_launch':True,'native_pan_trigger':True,'release_admission':True,'ring_auto_dismiss_preserved':True,'ring_geometry_modified':False},'visibility_restores_from_observed_state':True,'initial_model_position':'native_screen_center','icon_resources':icon_resources,'update18':update18_manifest,'diagnostic_logging_removed':True}
 (OUT/'build-manifest.json').write_text(json.dumps(manifest,indent=2));print(json.dumps(manifest))

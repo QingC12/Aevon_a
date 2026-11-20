@@ -4,6 +4,7 @@ import ast,hashlib,json
 R=Path(__file__).resolve().parent
 frozen=json.loads((R/'inputs/frozen-runtime-2.0.15.json').read_text())
 reviewed=json.loads((R/'inputs/reviewed-runtime-2.0.18.json').read_text())
+reviewed.update(json.loads((R/'inputs/reviewed-runtime-2.0.19.json').read_text()))
 for name,digest in frozen.items():
  if name in ('LayoutProbe.m','LayoutProbe.h','NotificationPolicy.m'):
   assert not (R/name).exists();continue

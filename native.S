@@ -249,6 +249,11 @@ begin STHNativePresent
 begin STHNativeInitialSize
  mov x20,x0
  bl LresetSize
+ // A newly presented model starts at the native fixed-coordinate center.
+ // This is not the shared reset gesture or a restore/keyboard path.
+ fmov d0,xzr
+ fmov d1,xzr
+ target 0x3f350
  target 0x9c67c
  finish
 
