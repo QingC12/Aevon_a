@@ -15,7 +15,7 @@ import io,tarfile
 with tarfile.open(fileobj=io.BytesIO(parts['data.tar.xz'])) as t:
  core=t.extractfile('./Library/MobileSubstrate/DynamicLibraries/Stheno.dylib').read()
 assert hashlib.sha256(core).hexdigest()=='d5612f269f5a63347d8187fd25f75a0dca45c1608bdf38986112a5bb770fb9e7'
-for offset,value in {0x47e8:'7f2303d5',0xfe30:'a8835af8',0x41a9c:'7f2303d5',0x47710:'7f2303d5',0x59870:'7f2303d5'}.items():
+for offset,value in {0x47e8:'7f2303d5',0xfe30:'a8835af8',0x41a9c:'7f2303d5',0x47710:'7f2303d5',0x59870:'7f2303d5',0x81968:'fcfaffb5',0x81c78:'760100b5'}.items():
  assert core[offset:offset+4]==bytes.fromhex(value),(hex(offset),value)
 picker=(R/'SystemActionPicker.m').read_text()
 for value in ('STHSystemGrowApps(0,','STHSystemMakeSwiftString(@"截图"','STHSystemMakeSwiftString(@"录屏"','STHSystemStableFront','count+missing'):

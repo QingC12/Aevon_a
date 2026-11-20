@@ -176,3 +176,62 @@ LSystemPickerDone:
 LSystemPickerName:
     .asciz "STHSystemActionPrependPicker"
 .p2align 2
+
+// The original saved-Apps cleanup drops identifiers with no SBApplication.
+// Keep ONLY our two exact virtual IDs; preserve every ordinary validity test.
+.macro savedCheck entry,found,second,valid,invalid
+.globl _\entry
+_\entry:
+    cbz \found,1f
+    b _\valid
+1:
+    pacibsp
+    sub sp,sp,#256
+    stp x29,x30,[sp]
+    stp x0,x1,[sp,#16]
+    stp x2,x3,[sp,#32]
+    stp x4,x5,[sp,#48]
+    stp x6,x7,[sp,#64]
+    str x8,[sp,#80]
+    stp q0,q1,[sp,#96]
+    stp q2,q3,[sp,#128]
+    stp q4,q5,[sp,#160]
+    stp q6,q7,[sp,#192]
+    str x21,[sp,#224]
+    str \second,[sp,#232]
+    mov x0,#-2
+    adr x1,LSavedIdentifierName
+    bl _STHSystemActionCoreDlsym
+    cbz x0,2f
+    mov x16,x0
+    add x0,sp,#224
+    blraaz x16
+    b 3f
+2:
+    mov w0,#0
+3:
+    mov w17,w0
+    ldp q6,q7,[sp,#192]
+    ldp q4,q5,[sp,#160]
+    ldp q2,q3,[sp,#128]
+    ldp q0,q1,[sp,#96]
+    ldr x8,[sp,#80]
+    ldp x6,x7,[sp,#64]
+    ldp x4,x5,[sp,#48]
+    ldp x2,x3,[sp,#32]
+    ldp x0,x1,[sp,#16]
+    ldp x29,x30,[sp]
+    add sp,sp,#256
+    autibsp
+    cbz w17,4f
+    b _\valid
+4:
+    b _\invalid
+.endm
+.org 0x600
+savedCheck STHSystemActionRestoreScan,x28,x22,STHSystemActionRestoreScanValid,STHSystemActionRestoreScanInvalid
+.org 0x800
+savedCheck STHSystemActionRestorePartition,x22,x25,STHSystemActionRestorePartitionValid,STHSystemActionRestorePartitionInvalid
+LSavedIdentifierName:
+    .asciz "STHSystemActionIsSavedIdentifier"
+.p2align 2

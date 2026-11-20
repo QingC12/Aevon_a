@@ -2,7 +2,9 @@
 import struct,subprocess
 from pathlib import Path
 BASE=0xd9500
-EXTERNAL={'_STHSystemActionCoreDlsym':0xb03bc,'_STHSystemActionOldPresent':0xd9440,'_STHSystemActionCoreOpenPlus4':0x47ec}
+EXTERNAL={'_STHSystemActionCoreDlsym':0xb03bc,'_STHSystemActionOldPresent':0xd9440,'_STHSystemActionCoreOpenPlus4':0x47ec,
+ '_STHSystemActionRestoreScanValid':0x818c4,'_STHSystemActionRestoreScanInvalid':0x819a4,
+ '_STHSystemActionRestorePartitionValid':0x81ca4,'_STHSystemActionRestorePartitionInvalid':0x81bb8}
 def instruction(source,target,link=False):
  delta=target-source
  assert delta%4==0 and -(1<<27)<=delta<(1<<27)
@@ -38,7 +40,9 @@ def patch_system_actions(image,out):
  image[BASE:BASE+len(code)]=code
  specs=[(0x47e8,bytes.fromhex('7f2303d5'),0xd9700,False),
         (0x41a9c,instruction(0x41a9c,0xd9440),0xd9500,False),
-        (0xfe30,bytes.fromhex('a8835af8'),0xd9a00,True)]
+        (0xfe30,bytes.fromhex('a8835af8'),0xd9a00,True),
+        (0x81968,bytes.fromhex('fcfaffb5'),0xd9b00,False),
+        (0x81c78,bytes.fromhex('760100b5'),0xd9d00,False)]
  entries={}
  for at,expected,target,link in specs:
   assert image[at:at+4]==expected,(hex(at),image[at:at+4].hex())

@@ -14,6 +14,13 @@ static unsigned priority(const void *record,void *unused){
  NSString *identifier=CFBridgingRelease(STHSystemCopySwiftString((const uintptr_t *)record+2));
  return STHSystemPickerPriority(identifier.UTF8String);
 }
+// Exact virtual IDs are valid saved items even though SpringBoard has no
+// installed SBApplication object for them. Ordinary app validity is unchanged.
+BOOL STHSystemActionIsSavedIdentifier(const uintptr_t *words){
+ if(!words||!STHSystemActionRuntimeReady())return NO;
+ NSString *identifier=CFBridgingRelease(STHSystemCopySwiftString(words));
+ return STHSystemActionForIdentifier(identifier.UTF8String)!=STHSystemActionNone;
+}
 // Consumes/returns one owned native Array<App> reference. Called only at the
 // successful System publication load, AFTER ALL native sorting. Native grow
 // with unique=0 copies/retains real App records using the ORIGINAL metadata;

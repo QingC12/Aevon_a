@@ -6,6 +6,7 @@
 #import "SystemActionCatalog.h"
 typedef struct{uintptr_t name[2],identifier[2];} Record;
 extern void *STHSystemActionPrependPicker(void *);
+extern BOOL STHSystemActionIsSavedIdentifier(const uintptr_t *);
 static BOOL enabled=YES;
 BOOL STHSystemActionRuntimeReady(void){return YES;}
 BOOL STHSystemActionsEnabled(void){return enabled;}
@@ -34,6 +35,9 @@ int main(void){@autoreleasepool{
  void *raw=array(@[@"com.apple.mobilesafari",@"com.tencent.xin",@"com.openminis.app"]);
  raw=STHSystemActionPrependPicker(raw);assert(((uintptr_t *)raw)[2]==5);
  assert([identifier(raw,0) isEqualToString:@STH_SCREENSHOT_ID]);assert([identifier(raw,1) isEqualToString:@STH_SCREEN_RECORDING_ID]);
+ Record *items=(void *)((char *)raw+32);
+ assert(STHSystemActionIsSavedIdentifier(items[0].identifier));assert(STHSystemActionIsSavedIdentifier(items[1].identifier));
+ assert(!STHSystemActionIsSavedIdentifier(items[2].identifier));
  assert([identifier(raw,2) isEqualToString:@"com.apple.mobilesafari"]);assert([identifier(raw,3) isEqualToString:@"com.tencent.xin"]);assert([identifier(raw,4) isEqualToString:@"com.openminis.app"]);
  for(int i=0;i<100;i++){raw=STHSystemActionPrependPicker(raw);assert(((uintptr_t *)raw)[2]==5);}
  releaseArray(raw);
