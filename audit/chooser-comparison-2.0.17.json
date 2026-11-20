@@ -1,0 +1,31 @@
+{
+  "artifact": "stheno_2.0.17_iphoneos-arm64e.deb",
+  "baseline": "stheno_2.0.16_iphoneos-arm64e.deb",
+  "size": 553564,
+  "sha256": "f63102666a2c61fe557c61ae9bea658b7a691a670b57fcd0a24b0676b0aeb1fc",
+  "changed_original_files": [
+    "./Library/MobileSubstrate/DynamicLibraries/SthenoSystemActions.dylib"
+  ],
+  "added_icon_files": [
+    "app-picker.png",
+    "app-picker@2x.png",
+    "app-picker@3x.png",
+    "screen-recording.png",
+    "screen-recording@2x.png",
+    "screen-recording@3x.png",
+    "screenshot.png",
+    "screenshot@2x.png",
+    "screenshot@3x.png"
+  ],
+  "old_main_Gesture_Keyboard_Inset_Orion_settings_scripts_byte_identical": true,
+  "regular_files": 41,
+  "icon_pixels_checked_separately": true,
+  "center_app_chooser": {
+    "version": 1,
+    "pins_apps": false,
+    "native_catalog": true,
+    "native_animated_launch": true,
+    "ring_geometry_modified": false
+  },
+  "device_tested": false
+}

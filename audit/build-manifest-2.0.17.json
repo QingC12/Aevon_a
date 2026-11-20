@@ -1,0 +1,90 @@
+{
+  "artifact": "stheno_2.0.17_iphoneos-arm64e.deb",
+  "sha256": "f63102666a2c61fe557c61ae9bea658b7a691a670b57fcd0a24b0676b0aeb1fc",
+  "size": 553564,
+  "data_tar_default_xz_bytes": 556012,
+  "data_tar_optimized_xz_bytes": 550356,
+  "data_tar_bytes_saved": 5656,
+  "data_tar_uncompressed_bytes": 2652160,
+  "data_tar_uncompressed_sha256": "63c57f36b560c3b49ddfcbd2ac9825b756221e9a92e69ff9ab37ab23828abd55",
+  "patch_entries": {
+    "0x3dff0": "0xd9100",
+    "0x49948": "0xd9140",
+    "0x4ad44": "0xd9180",
+    "0x4c364": "0xd91c0",
+    "0x3e41c": "0xd9200",
+    "0x3e778": "0xd9240",
+    "0x87b8c": "0xd9380",
+    "0x87dfc": "0xd93c0",
+    "0x41a9c": "0xd9500",
+    "0x47e8": "0xd9700"
+  },
+  "device_tested": false,
+  "bundled_orion": {
+    "version": "1.0.2",
+    "required_symbols": 79,
+    "resolved_symbols": 79,
+    "load_path": "@loader_path/.stheno/Orion",
+    "private_id": "@rpath/SthenoOrion",
+    "substrate_path": "@loader_path/../.jbroot/usr/lib/libsubstrate.dylib",
+    "source_arm64e_sha256": "e7cbd6e055d9ec30c750741c9a2831d73c5ce7efaf812053e7b279a4e92dbe85"
+  },
+  "keyboard_inset_adapter": true,
+  "system_actions": {
+    "version": 1,
+    "ids": [
+      "com.nx.stheno.action.screenshot",
+      "com.nx.stheno.action.screen-recording"
+    ],
+    "picker": "system-top-native-app-records",
+    "icon_container": "original-app",
+    "ring_geometry_modified": false,
+    "dispatch_base": "0xd9500",
+    "dispatch_bytes": 2248,
+    "patches": {
+      "0x47e8": {
+        "target": "0xd9700",
+        "kind": "b",
+        "original": "7f2303d5"
+      },
+      "0x41a9c": {
+        "target": "0xd9500",
+        "kind": "b",
+        "original": "695e0214"
+      },
+      "0xfe30": {
+        "target": "0xd9a00",
+        "kind": "bl",
+        "original": "a8835af8"
+      },
+      "0x81968": {
+        "target": "0xd9b00",
+        "kind": "b",
+        "original": "fcfaffb5"
+      },
+      "0x81c78": {
+        "target": "0xd9d00",
+        "kind": "b",
+        "original": "760100b5"
+      }
+    }
+  },
+  "center_app_chooser": {
+    "version": 1,
+    "pins_apps": false,
+    "native_catalog": true,
+    "native_animated_launch": true,
+    "ring_geometry_modified": false
+  },
+  "icon_resources": {
+    "screenshot.png": "13ee19a2ed7f10ba5658c7453e1db70e0b59c704a452c9694b0125282688b9f0",
+    "screenshot@2x.png": "d71658bebb48ef46e96d17cfc7b640b4033b637a82ddeaa61e139a1462e026ac",
+    "screenshot@3x.png": "e49c632e5d4add81fa952edc418fb823b351cb975b59bd46e629c9d1adb2bd5a",
+    "screen-recording.png": "ebe412b69a2d516fef79b9d9441106c29ec87bbebb55095187686f08ccee058c",
+    "screen-recording@2x.png": "c85f37ae7426404b7b969bdc3ac816d4f2809dd6dd63fab9bad9b4723989aad9",
+    "screen-recording@3x.png": "e073ff7d988162e642debcd36157fd61a14d498824713e28cc5e5cd2ff817773",
+    "app-picker.png": "0318c3cd7393af2dd03b53016562d2353d90ef7fc85a9dfb43470ed768a87d85",
+    "app-picker@2x.png": "b2b2ac60d517fefacb7a5bc879ccff3774e10ef8b6d874d7a2601657d4e19d47",
+    "app-picker@3x.png": "4f711d0a5d51c38b29621fee91c8c91c784192ce8bad0f20c414bb25f3dba625"
+  }
+}
