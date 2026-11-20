@@ -56,7 +56,7 @@ void STHRegisterSthenoSurface(UIView *view){
 static void scan(UIView *view,int depth,int *budget){
  if(!view||depth>10||--*budget<0)return;
  NSString *name=NSStringFromClass(view.class);
- if([name containsString:@"HostingView"]&&([name containsString:@"Stheno.Container"]||[name isEqualToString:@"_UIHostingView<Container>"]))STHRegisterSthenoSurface(view);
+ if([name containsString:@"HostingView"]&&([name containsString:@"Stheno.Container"]||[name containsString:@"6Stheno9Container"]||[name isEqualToString:@"_UIHostingView<Container>"]))STHRegisterSthenoSurface(view);
  for(UIView *child in view.subviews)scan(child,depth+1,budget);
 }
 void STHRefreshSystemVisibility(void){

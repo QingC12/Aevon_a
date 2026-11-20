@@ -118,7 +118,7 @@ private final class CenterController: NSObject {
     private func containsHost(_ view: UIView, depth: Int = 0) -> Bool {
         guard depth < 8 else { return false }
         let name = NSStringFromClass(type(of: view))
-        if name.contains("HostingView") && (name.contains("Stheno.Container") || name == "_UIHostingView<Container>") { return true }
+        if name.contains("HostingView") && (name.contains("Stheno.Container") || name.contains("6Stheno9Container") || name == "_UIHostingView<Container>") { return true }
         return view.subviews.contains { containsHost($0, depth: depth + 1) }
     }
     private func findWindow(_ now: Double) {
