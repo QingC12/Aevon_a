@@ -43,7 +43,8 @@ int main(int argc,const char **argv){
   assert(STHReadPreview(bundle,CGRectMake(0,550,400,300),CGRectMake(0,0,400,800),&pending,&amount));
   assert(fabs(pending.origin.x-firstPreviewX)>10);
   assert(STHPublishLayout(bundle,CGRectZero,CGRectZero,NO));
-  assert(!STHReadLayout(bundle,CGRectMake(0,0,400,800),&local,&overlap));
+  CGRect finalLocal;double finalOverlap=0;
+  assert(!STHReadLayout(bundle,CGRectMake(0,0,400,800),&finalLocal,&finalOverlap));
   puts("Cross-process layout transport passed (separate reader executable, preview/session isolation and hide invalidation)");
  }
  return 0;
