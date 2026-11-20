@@ -2,7 +2,15 @@
 
 This private project reconstructs the requested portrait-gesture dispatch from the supplied Stheno binary. It is a replacement gesture module with ABI bridges, **not a recovery of the original full Swift source tree**.
 
-## 2.0.13 complete composer ownership
+## 2.0.15 whole-plugin audit and safe cleanup
+
+This maintenance release removes only confirmed unbuilt/dead source stubs: the abandoned hold-to-close `GestureRules.h`/test, an unused old keyboard-inset math header/test, and the superseded uncompiled `EditorVisibility.m`. Their settings, installed code paths, gesture switches and runtime modules are untouched. The current native bridge source contains no references or definitions for the old tuple-scale getters/setters or second keyboard-animation replay. `LayoutProbe` and `NotificationPolicy` remain live: the former reports bounded class/rect/flags for the unresolved Douyin row, the latter only reads/logs one preference bit for the sound investigation. Python caches/generated build products are ignored and excluded from the DEB.
+
+The `data.tar.xz` compressor now uses a deterministic LZMA2 parameter set, checks that decompression is byte-identical before packaging, and records before/after archive sizes in the manifest. On the prior2.0.14 payload this reduced the data archive from465,936 to460,508 bytes (5,428 bytes) with every decompressed path, file byte and mode unchanged. This is an archive-only reduction; it does not strip original code or remove toggles.
+
+`audit/plugin-audit-2.0.15.md` records the read-only toggle/source audit, installer finding and unresolved mappings; `audit/maintenance-2.0.15.md` records exact cleanup and package-safety checks. These reports remain in source control for traceability but the build uses an explicit allow-list and does not ship audit documents. No setting menu, setting bit/default, hook feature, installer script or original package component was changed. The main global audit finding is inherited `postinst`: under its fallback/template-copy conditions it can replace the complete saved preference plist, potentially resetting user bits/app lists. This release leaves that installation behavior untouched.
+
+## 2.0.14 previous keyboard handoff
 
 WeChat joins QQ and Minis on a preserved route: its2.0.12 refined source is hash-checked after removing ONLY a constructor routing guard, and its previous keyboard measurement source is unchanged. Only Coolapk, WeiFeng and Douyin enter `EditorCompositeGuard.m`. Existing original native gesture/keyboard/default-size entrypoints and Orion payload remain unchanged.
 
@@ -44,7 +52,7 @@ Existing native keyboard spring, full-width/restore, first-open default size, ge
 - Yellow bottom-center: touch and drag immediately to move; release is passed once to the original Stheno edge-middle drag-end routine with hit class 4 and its long-press latch cleared. Native flick threshold, cleanup and animation decide closing. There is no .25s hold requirement, 24pt threshold or custom close action.
 - Yellow continuous movement never changes its saved edge-middle hit class. The native close recognition code is byte-for-byte preserved, and build.py asserts this before signing.
 - Movement and corner scaling use original Stheno update paths. Docking uses the original SwiftUI spring transaction; closing uses the original native release path. Restoring a docked window and switching orientations retain their original callbacks.
-- Sileo lists `stheno` at `2.0.13`. The Debian control file retains `stheno` as its short description.
+- Sileo lists `stheno` at `2.0.15`. The Debian control file retains `stheno` as its short description.
 - Keyboard: the touched portrait floating card is sized to the full screen width and horizontally centered, without the old 12pt margin or 35% cap. Hide restores the snapshot, unless the user changed it while typing. Hardware/floating keyboards and landscape retain native behavior.
 - Keyboard coordinates now prefer a fresh, per-bundle snapshot published by SpringBoard: the native final card rectangle (which already includes final scale) and docked physical keyboard rectangle. Application notifications and UIKit insets map the keyboard using BOTH the card origin and its screen-to-app scale. Top-positioned cards can have zero obstruction; lower cards get the correct larger local obstruction. Native InputSetHost/physical-screen conversion remains a fallback if the host snapshot is absent. The native card's `finalFrame` is already computed as base frame times final scale at `0x9c73c–0x9c758`; it is not multiplied by scale a second time.
 - In2.0.10 the FIRST keyboard target is synchronous: focus pre-announces the predicted full-width card, a validated physical WillShow frame maps immediately, and the actual target is committed after Keyboard.m sets native geometry. No keyboard notices are queued or replayed. Pending UIKit queries retain native values instead of forcing zero. Later corrections retain the pairwise stability filter and double-buffer transport; sustained changes remain possible. This replaces2.0.9's160–250ms startup hold, which the new log confirms delayed application acknowledgments by172–365ms.
@@ -72,7 +80,7 @@ Existing native keyboard spring, full-width/restore, first-open default size, ge
 
 `python3 build.py` on macOS with Xcode's iPhoneOS SDK. The workflow is `.github/workflows/build.yml`.
 
-The script verifies the input DEB and exact arm64e main-image SHA-256, assembles PAC-preserving entry stubs and original-entry trampolines, compiles `Gesture.m` and `native.S`, signs both changed Mach-O files, verifies signatures, packs a Debian archive and reads every archive member back. Eight original components and the gesture helper remain arm64e-only; the bundled Orion runtime is arm64e-only as well.
+The script verifies the input DEB and exact arm64e main-image SHA-256, assembles PAC-preserving entry stubs and original-entry trampolines, compiles the explicitly enumerated main/helper sources, signs each changed Mach-O file, verifies signatures, packs a Debian archive, and reads every archive member back. It recompresses only the data TAR and asserts decompression is byte-identical before packaging. The resulting file count is recorded in `build-manifest.json`. Eight original components and the gesture helper remain arm64e-only; the bundled Orion runtime is arm64e-only as well.
 
 Only gesture entry code, the private Orion load path, and an added app-side keyboard-inset helper load command are patched. Media and package-maintenance logic are retained. The original app-side keyboard code is preserved; the helper wraps its result after the original hooks initialize. Source model offsets are specific to the supplied sample, so the script rejects other binaries.
 

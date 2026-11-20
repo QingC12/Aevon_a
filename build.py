@@ -1,5 +1,5 @@
 from pathlib import Path
-import hashlib,struct,subprocess,json,sys,tarfile,io,shutil,copy,os,re
+import hashlib,struct,subprocess,json,tarfile,io,copy,os,re,lzma
 from embed_orion import prepare
 ROOT=Path(__file__).resolve().parent
 os.chdir(ROOT)
@@ -42,6 +42,14 @@ def tarwrite(rows):
   for m,data in rows:
    m=copy.copy(m);m.size=len(data);t.addfile(m,io.BytesIO(data) if m.isfile() else None)
  return buf.getvalue()
+def optimized_data_xz(blob):
+ # Only repack the data archive. Decompressed TAR bytes (paths, modes,
+ # timestamps, scripts, signatures and binary payloads) remain identical.
+ raw=lzma.decompress(blob)
+ packed=lzma.compress(raw,format=lzma.FORMAT_XZ,check=lzma.CHECK_CRC64,
+  filters=[{'id':lzma.FILTER_LZMA2,'preset':6,'lc':0,'lp':2,'pb':2}])
+ assert lzma.decompress(packed)==raw and len(packed)<=len(blob)
+ return packed
 base=ROOT/'inputs/base.deb'
 assert hashlib.sha256(base.read_bytes()).hexdigest()=='67937ea54f1a79d43bb48242c436e0c78b0177ef79d251e4c21465286ee1dace'
 members=arread(base.read_bytes());rows=tarread(members['data.tar.xz']);controls=tarread(members['control.tar.xz'])
@@ -142,7 +150,7 @@ assert hashlib.sha256(license_bytes).hexdigest()=='5afa9b37c934d452ecd7d3c184367
 rows.append((license_entry,license_bytes))
 for i,(m,b) in enumerate(controls):
  if Path(m.name).name=='control':
-  fields={'Name':'stheno','Version':'2.0.14','Description':'stheno','Architecture':'iphoneos-arm64e',
+  fields={'Name':'stheno','Version':'2.0.15','Description':'stheno','Architecture':'iphoneos-arm64e',
           'Installed-Size':str((sum(len(x) for _,x in rows)+1023)//1024)}
   lines=[];skip=False
   for line in b.decode().splitlines():
@@ -158,10 +166,14 @@ for i,(m,b) in enumerate(controls):
    else:
     lines.append(f'{field}: {fields[field]}' if field in fields else line)
   controls[i]=(m,('\n'.join(lines)+'\n').encode())
-for n,b in [('debian-binary',b'2.0\n'),('control.tar.xz',tarwrite(controls)),('data.tar.xz',tarwrite(rows))]:(OUT/n).write_bytes(b)
-result=OUT/'stheno_2.0.14_iphoneos-arm64e.deb'
+default_data_archive=tarwrite(rows)
+data_tar_uncompressed=lzma.decompress(default_data_archive)
+data_archive=optimized_data_xz(default_data_archive)
+assert lzma.decompress(data_archive)==data_tar_uncompressed
+for n,b in [('debian-binary',b'2.0\n'),('control.tar.xz',tarwrite(controls)),('data.tar.xz',data_archive)]:(OUT/n).write_bytes(b)
+result=OUT/'stheno_2.0.15_iphoneos-arm64e.deb'
 result.write_bytes(arwrite([(n,(OUT/n).read_bytes()) for n in ('debian-binary','control.tar.xz','data.tar.xz')]))
 verify=tarread(arread(result.read_bytes())['data.tar.xz']);assert len(verify)==len(rows)
 for (a,b),(c,d) in zip(rows,verify):assert a.name==c.name and b==d
-manifest={'artifact':result.name,'sha256':hashlib.sha256(result.read_bytes()).hexdigest(),'size':result.stat().st_size,'patch_entries':{hex(a):hex(t) for a,(_,t) in changes.items()},'device_tested':False,'bundled_orion':orion_manifest,'keyboard_inset_adapter':True}
+manifest={'artifact':result.name,'sha256':hashlib.sha256(result.read_bytes()).hexdigest(),'size':result.stat().st_size,'data_tar_default_xz_bytes':len(default_data_archive),'data_tar_optimized_xz_bytes':len(data_archive),'data_tar_bytes_saved':len(default_data_archive)-len(data_archive),'data_tar_uncompressed_bytes':len(data_tar_uncompressed),'patch_entries':{hex(a):hex(t) for a,(_,t) in changes.items()},'device_tested':False,'bundled_orion':orion_manifest,'keyboard_inset_adapter':True}
 (OUT/'build-manifest.json').write_text(json.dumps(manifest,indent=2));print(json.dumps(manifest))

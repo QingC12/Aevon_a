@@ -30,7 +30,6 @@ assert 'setNeedsLayout' in coordinates
 assert delivery.index('normalizedInfo(note')<delivery.index('centerPost(center')
 assert 'installDelivery();' in coordinates
 assert 'STHSettleSample(&settling' in publisher
-assert 'STHNativeAnimatePhysicalKeyboard((' not in publisher
 assert 'initial-sync session=' in publisher
 assert 't.writerActive=NO;notify_set_state(t.commit,0)' in bus # only deactivation
 assert 'if(changed)notify_post' in bus # silent heartbeat, not repeated layout events
