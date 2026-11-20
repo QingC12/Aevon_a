@@ -1,0 +1,60 @@
+{
+  "artifact": "stheno_2.0.18_iphoneos-arm64e.deb",
+  "sha256": "909cd32b4bec8cd5051d7490cd5977d2e0c68252a623326eabcbce30cd08524c",
+  "size": 522368,
+  "baseline_size": 553564,
+  "bytes_saved": 31196,
+  "removed_high_density_icons": [
+    "./Library/Application Support/Stheno/SystemActions/app-picker@2x.png",
+    "./Library/Application Support/Stheno/SystemActions/app-picker@3x.png",
+    "./Library/Application Support/Stheno/SystemActions/screen-recording@2x.png",
+    "./Library/Application Support/Stheno/SystemActions/screen-recording@3x.png",
+    "./Library/Application Support/Stheno/SystemActions/screenshot@2x.png",
+    "./Library/Application Support/Stheno/SystemActions/screenshot@3x.png"
+  ],
+  "changed_files": [
+    "./Library/MobileSubstrate/DynamicLibraries/Stheno.dylib",
+    "./Library/MobileSubstrate/DynamicLibraries/CameraFix.dylib",
+    "./Library/MobileSubstrate/DynamicLibraries/KeyboardFix.dylib",
+    "./Library/MobileSubstrate/DynamicLibraries/SthenoGesture.dylib",
+    "./Library/MobileSubstrate/DynamicLibraries/SthenoKeyboardInset.dylib",
+    "./Library/MobileSubstrate/DynamicLibraries/SthenoSystemActions.dylib"
+  ],
+  "regular_files": 35,
+  "unchanged_other_regular_files": 29,
+  "original_transition_ranges_byte_identical": [
+    [
+      "0x4d3dc",
+      "0x4d4e0"
+    ],
+    [
+      "0x51454",
+      "0x51588"
+    ],
+    [
+      "0x57094",
+      "0x570e4"
+    ],
+    [
+      "0x58514",
+      "0x5853c"
+    ],
+    [
+      "0x59870",
+      "0x59928"
+    ],
+    [
+      "0x65af4",
+      "0x65b10"
+    ],
+    [
+      "0xaf19c",
+      "0xaf1ac"
+    ]
+  ],
+  "quiet_companion_all_sections_otherwise_equal": true,
+  "default_icons_byte_identical": true,
+  "postrm_unchanged": true,
+  "postinst_logging_removed": true,
+  "runtime_device_tested": false
+}

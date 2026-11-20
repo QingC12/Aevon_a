@@ -89,4 +89,4 @@ for removed in ['GestureRules.h','test_gesture_rules.c','KeyboardInsetMath.h','t
 for live in ['EditorVisibilityMath.h','KeyboardCoordinates.h']:
  assert (R/live).exists(),live
 assert '.gitignore' in [p.name for p in R.iterdir()]
-print('Maintenance checks passed: all original preference/UI/toggle assets preserved; settings defaults and install scripts unchanged; compression round-trip identical; data XZ savings',manifest['data_tar_bytes_saved'],'bytes; only allowlisted runtime modules added; diagnostic emitters removed')
+print('Maintenance checks passed: all original preference/UI/toggle assets preserved; settings defaults and uninstall script unchanged; quiet installer verified; compression round-trip identical; data XZ savings',manifest['data_tar_bytes_saved'],'bytes; only allowlisted runtime modules added; diagnostic emitters removed')
