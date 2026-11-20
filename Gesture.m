@@ -86,7 +86,7 @@ static void resetGestureState(STHGestureState *s){
  s.holdArmed=NO;s.moving=NO;s.moveOriginSet=NO;
 }
 static STHGestureState *registerState(void *m) {
- STHGestureState *s=registerState(m);
+ STHGestureState *s=state(m);
  if (!s) { s=[STHGestureState new]; [states setObject:s forKey:(__bridge id)m]; }
  return s;
 }
