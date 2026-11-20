@@ -4,7 +4,7 @@ from embed_orion import prepare
 from system_action_patch import patch_system_actions
 from update18_patch import patch_update18
 ROOT=Path(__file__).resolve().parent
-VERSION='2.0.21'
+VERSION='2.0.22'
 os.chdir(ROOT)
 OUT=ROOT/'build';OUT.mkdir(exist_ok=True)
 def run(*args,**kw): return subprocess.check_output([str(x) for x in args],**kw)

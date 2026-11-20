@@ -35,6 +35,82 @@ private final class CenterSurface: UIView {
 private final class ChooserPanelWindow: UIWindow {
     override var canBecomeKey: Bool { true }
 }
+private struct SearchField: UIViewRepresentable {
+    @Binding var text: String
+    let wantsFocus: Bool
+    func makeCoordinator() -> Coordinator { Coordinator(text: $text, wantsFocus: wantsFocus) }
+    func makeUIView(context: Context) -> UITextField {
+        let field = UITextField()
+        field.placeholder = "搜索应用"
+        field.autocorrectionType = .no
+        field.autocapitalizationType = .none
+        field.returnKeyType = .search
+        field.backgroundColor = .clear
+        field.delegate = context.coordinator
+        field.addTarget(context.coordinator, action: #selector(Coordinator.changed(_:)), for: .editingChanged)
+        context.coordinator.field = field
+        context.coordinator.observeKeyWindow()
+        return field
+    }
+    func updateUIView(_ field: UITextField, context: Context) {
+        context.coordinator.text = $text
+        context.coordinator.wantsFocus = wantsFocus
+        if field.text != text { field.text = text }
+        if wantsFocus {
+            context.coordinator.requestFocus()
+        } else {
+            context.coordinator.cancelFocus()
+            if field.isFirstResponder { field.resignFirstResponder() }
+        }
+    }
+    final class Coordinator: NSObject, UITextFieldDelegate {
+        var text: Binding<String>
+        var wantsFocus: Bool
+        weak var field: UITextField?
+        private var attempts = 0
+        private var keyObserver: NSObjectProtocol?
+        init(text: Binding<String>, wantsFocus: Bool) {
+            self.text = text; self.wantsFocus = wantsFocus
+        }
+        func observeKeyWindow() {
+            keyObserver = NotificationCenter.default.addObserver(forName: Notification.Name("UIWindowDidBecomeKeyNotification"), object: nil, queue: .main) { [weak self] note in
+                guard let self, let window = note.object as? UIWindow, window === self.field?.window, self.wantsFocus else { return }
+                self.attempts = 0
+                self.requestFocus()
+            }
+        }
+        deinit {
+            if let keyObserver { NotificationCenter.default.removeObserver(keyObserver) }
+        }
+        @objc func changed(_ sender: UITextField) { text.wrappedValue = sender.text ?? "" }
+        func cancelFocus() { attempts = 0 }
+        func requestFocus() {
+            guard wantsFocus, field?.isFirstResponder != true, attempts == 0 else { return }
+            attempts = 1
+            focusAttempt()
+        }
+        private func focusAttempt() {
+            guard wantsFocus, let field else { attempts = 0; return }
+            guard attempts < 20 else { attempts = 0; return }
+            attempts += 1
+            DispatchQueue.main.async { [weak self, weak field] in
+                guard let self, self.wantsFocus, let field else { return }
+                guard field.window?.isKeyWindow == true else {
+                    self.retryFocus()
+                    return
+                }
+                if !field.isFirstResponder { field.becomeFirstResponder() }
+                if field.isFirstResponder { self.attempts = 0 }
+                else { self.retryFocus() }
+            }
+        }
+        private func retryFocus() {
+            guard wantsFocus, attempts < 20 else { attempts = 0; return }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in self?.focusAttempt() }
+        }
+        func textFieldDidBeginEditing(_ textField: UITextField) { attempts = 0 }
+    }
+}
 private struct AppRow: Identifiable {
     let id: String
     let name: String
@@ -47,7 +123,7 @@ private struct AppPanel: View {
     let state: PanelState
     let select: (String?) -> Void
     @State private var query = ""
-    @FocusState private var searchFocused: Bool
+    @State private var searchWantsFocus = false
     @ObservedObject private var motion: PanelState
     init(items: [AppRow], state: PanelState, select: @escaping (String?) -> Void) {
         self.items = items; self.state = state; self.select = select; self.motion = state
@@ -79,7 +155,8 @@ private struct AppPanel: View {
                     }
                     HStack {
                         Image(systemName: "magnifyingglass").foregroundColor(.secondary)
-                        TextField("搜索应用", text: $query).autocorrectionDisabled().textInputAutocapitalization(.never).focused($searchFocused)
+                        SearchField(text: $query, wantsFocus: motion.visible || searchWantsFocus)
+                            .frame(minHeight: 20)
                     }.padding(12).background(Color.primary.opacity(0.06)).cornerRadius(12)
                     if matches.isEmpty {
                         Text("没有匹配的应用").foregroundColor(.secondary).frame(maxWidth: .infinity).frame(height: 48)
@@ -107,7 +184,7 @@ private struct AppPanel: View {
             }
         }
         .onChange(of: motion.visible) { visible in
-            DispatchQueue.main.async { searchFocused = visible }
+            DispatchQueue.main.async { searchWantsFocus = visible }
         }
     }
 }
@@ -137,11 +214,16 @@ private final class CenterController: NSObject {
         host.view.backgroundColor = .clear
         surface.addSubview(host.view)
         surface.backgroundColor = .clear
-        surface.isHidden = true
+        surface.isHidden = false
+        host.view.isHidden = true
+        surface.isUserInteractionEnabled = false
         display = CADisplayLink(target: self, selector: #selector(tick))
         display.preferredFramesPerSecond = 30
         display.add(to: .main, forMode: .common)
         NotificationCenter.default.addObserver(self, selector: #selector(systemChanged), name: Notification.Name("SthenoSystemVisibilityChanged"), object: nil)
+        for name in [Notification.Name("UIWindowDidBecomeVisibleNotification"), Notification.Name("UIWindowDidBecomeHiddenNotification"), Notification.Name("UISceneDidActivateNotification"), Notification.Name("UIApplicationDidBecomeActiveNotification")] {
+            NotificationCenter.default.addObserver(self, selector: #selector(lifecycleChanged), name: name, object: nil)
+        }
     }
     private func findHost(_ view: UIView, depth: Int = 0) -> UIView? {
         guard depth < 8 else { return nil }
@@ -152,20 +234,50 @@ private final class CenterController: NSObject {
         }
         return nil
     }
-    private func containsHost(_ view: UIView, depth: Int = 0) -> Bool {
-        findHost(view, depth: depth) != nil
+    private func setGlyphVisible(_ visible: Bool) {
+        host.view.isHidden = !visible
+        surface.isUserInteractionEnabled = visible && panelWindow == nil && state.scale > 0.5
+    }
+    private func attach(to window: UIWindow, hostView: UIView) {
+        targetWindow = window
+        ringView = hostView
+        surface.removeFromSuperview()
+        surface.frame = window.bounds
+        surface.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        host.view.frame = surface.bounds
+        host.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        window.addSubview(surface)
+        setGlyphVisible(false)
+        surface.isUserInteractionEnabled = false
+        placementReady = false
+        ringWasVisible = false
+        state.ready = false
+        state.scale = 0
+        state.lift = 0
+        STHRegisterSthenoSurface(surface)
     }
     private func findWindow(_ now: Double) {
-        if let w = targetWindow, !w.isHidden { return }
-        guard now - scanAt > 0.6 else { return }; scanAt = now
+        if let w = targetWindow, !w.isHidden {
+            let hostAttached = ringView?.window === w
+            let carrierAttached = surface.window === w
+            guard now - scanAt > 0.15 || !carrierAttached || !hostAttached else { return }
+            scanAt = now
+            if let currentHost = findHost(w) {
+                let hostChanged = ringView.map { $0 !== currentHost } ?? true
+                if hostChanged || !carrierAttached { attach(to: w, hostView: currentHost) }
+                return
+            }
+        }
+        targetWindow = nil
+        ringView = nil
+        guard now - scanAt > 0.15 else { return }; scanAt = now
         for case let scene as UIWindowScene in UIApplication.shared.connectedScenes {
-            for w in scene.windows where w !== panelWindow && containsHost(w) {
-                targetWindow = w
-                ringView = findHost(w)
-                surface.removeFromSuperview(); surface.frame = w.bounds
-                surface.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-                host.view.frame = surface.bounds; host.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-                w.addSubview(surface); STHRegisterSthenoSurface(surface); return
+            guard scene.activationState == .foregroundActive || scene.activationState == .foregroundInactive else { continue }
+            for w in scene.windows where w !== panelWindow && !w.isHidden {
+                if let hostView = findHost(w) {
+                    attach(to: w, hostView: hostView)
+                    return
+                }
             }
         }
     }
@@ -178,11 +290,13 @@ private final class CenterController: NSObject {
         if blocked {
             session.cancel()
             if STHSystemUIBlocked() || now < suppressedUntil { hidePanel() }
-            surface.isHidden = true
+            setGlyphVisible(false)
+            updateHover(false)
             return
         }
         last = snapshot
         guard let w = targetWindow else { return }
+        if surface.isHidden { surface.isHidden = false }
         surface.frame = w.bounds
         let center = CGPoint(x: snapshot.portraitX + snapshot.offsetX, y: snapshot.portraitY + snapshot.offsetY)
         // RingEnv and the recognizer use the same host-local portrait space.
@@ -190,7 +304,7 @@ private final class CenterController: NSObject {
         let p = ringView.map { surface.convert(center, from: $0) } ??
             surface.convert(center, from: UIScreen.main.fixedCoordinateSpace)
         let diameter = min(snapshot.iconWidth, 2 * snapshot.radius - snapshot.iconWidth - 4)
-        guard diameter >= 20 else { surface.isHidden = true; return }
+        guard diameter >= 20 else { setGlyphVisible(false); return }
         let open = snapshot.scale > 0.01
         surface.frame = w.bounds
         surface.hitArea = CGRect(x: p.x - diameter / 2, y: p.y - diameter / 2, width: diameter, height: diameter)
@@ -202,20 +316,20 @@ private final class CenterController: NSObject {
             withTransaction(transaction) {
                 state.origin = p; state.diameter = diameter
             }
-            surface.isHidden = false
-        } else if !placementReady || (!open && positionChanged) || (open && !ringWasVisible) {
+            setGlyphVisible(true)
+ (!open && positionChanged) || (open && !ringWasVisible) {
             var transaction = Transaction(); transaction.disablesAnimations = true
             withTransaction(transaction) {
                 state.origin = p; state.diameter = diameter; state.scale = 0; state.ready = false
             }
             placementReady = true
-            surface.isHidden = !open
+            setGlyphVisible(open)
             if open {
                 state.ready = true
                 STHCenterRunAnimation({ self.state.scale = snapshot.scale }, 0)
             }
         } else {
-            surface.isHidden = !open && state.scale < 0.01
+            setGlyphVisible(open || state.scale >= 0.01)
             if open && !state.ready { state.ready = true }
             if scaleChanged || (positionChanged && snapshot.gestureState == 2) {
                 STHCenterRunAnimation({ self.state.origin = p; self.state.scale = snapshot.scale; self.state.diameter = diameter }, snapshot.scale <= 0 ? 1 : 0)
@@ -224,7 +338,9 @@ private final class CenterController: NSObject {
             }
         }
         ringWasVisible = open
-        surface.isUserInteractionEnabled = snapshot.scale > 0.5 && panelWindow == nil
+        let interactive = snapshot.scale > 0.5 && panelWindow == nil
+        surface.isUserInteractionEnabled = interactive
+        host.view.isUserInteractionEnabled = interactive
     }
     func updateHover(_ hovered: Bool) {
         let lift: CGFloat = hovered ? CGFloat(-2.3 * last.iconWidth) : 0
@@ -310,15 +426,27 @@ private final class CenterController: NSObject {
     func hidePanel() {
         guard let window = panelWindow else { return }
         panelState = nil; panelWindow = nil
-        let restore = window.isKeyWindow; window.endEditing(true); window.isHidden = true; window.rootViewController = nil
-        if restore, let previousKey, !previousKey.isHidden { previousKey.makeKey() }
+        let restore = window.isKeyWindow
+        window.endEditing(true); window.isHidden = true; window.rootViewController = nil
+        if restore, let previousKey, !previousKey.isHidden,
+           previousKey.windowScene === window.windowScene,
+           previousKey.windowScene?.activationState == .foregroundActive {
+            previousKey.makeKey()
+        }
         self.previousKey = nil
     }
     @objc func systemChanged() {
-        if STHSystemUIBlocked() { hidePanel(); surface.isHidden = true; session.cancel(); ringWasVisible = false; updateHover(false) }
+        scanAt = 0
+        if STHSystemUIBlocked() {
+            hidePanel(); setGlyphVisible(false); session.cancel(); ringWasVisible = false; placementReady = false; updateHover(false)
+        }
+    }
+    @objc func lifecycleChanged() {
+        scanAt = 0
+        if targetWindow == nil || surface.window == nil { setGlyphVisible(false) }
     }
     func beforeCapture() {
-        suppressedUntil = CACurrentMediaTime() + 1; hidePanel(); surface.isHidden = true; session.cancel(); ringWasVisible = false; updateHover(false)
+        suppressedUntil = CACurrentMediaTime() + 1; hidePanel(); setGlyphVisible(false); session.cancel(); ringWasVisible = false; placementReady = false; updateHover(false)
     }
 }
 @_cdecl("STHInstallCenterChooser")

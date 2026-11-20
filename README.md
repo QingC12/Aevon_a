@@ -2,6 +2,14 @@
 
 This private project reconstructs the requested portrait-gesture dispatch from the supplied Stheno binary. It is a replacement gesture module with ABI bridges, **not a recovery of the original full Swift source tree**.
 
+# Stheno 2.0.22 center visibility recovery and reliable search input
+
+The ring-follow overlay is now treated as a permanent transparent carrier. Its registered parent is no longer hidden by the center chooser for ring collapse, small center holes, capture suppression, or system gating; only the private glyph hosting view and its interaction state are toggled. When system visibility unblocks, the tick path repairs a stale hidden carrier. Window/scene lifecycle notifications trigger host rescans, and a short bounded host check rebinds when SpringBoard replaces the Stheno Container view. Rebinding resets placement and state before the live native ring snapshot is applied. Release admission and original ring collapse are unchanged.
+
+The search control is now a UIKit `UITextField` hosted through `UIViewRepresentable`, still bound to the same query and compact SwiftUI card. It requests `becomeFirstResponder()` only when attached to the actual panel UIWindow and that window owns key status. A bounded retry handles either attachment or key acquisition arriving first; a key-window notification restarts the request after a handoff. Closing cancels focus and ends editing before detach. Previous-key restoration is restricted to the same visible, foreground-active scene and only when the chooser owned key at teardown.
+
+CI contracts now cover the carrier hide regression, host replacement rebinding, key-gated responder, and bounded focus lifecycle. These are host/source checks; intermittent SpringBoard visibility and keyboard presentation still need device verification.
+
 # Stheno 2.0.21 center hover and search keyboard
 
 Center selection now follows the normal App hover response while preserving the existing pan-follow center position: white backing brightness, whole-tile 1.45× scale, and a 2.3× native icon-width screen-up hop scaled with the ring's current presentation scale. The hop is only visual; the center origin and native hole hit geometry remain fixed. It begins only after the gesture enters the center following an outside sample, matching the actual swipe-to-center interaction, and returns to rest when the pointer leaves or the gesture ends. The selected App/release path and original ring auto-collapse remain untouched.
