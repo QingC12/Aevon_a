@@ -1,0 +1,60 @@
+{
+  "baseline": "stheno_2.0.18_iphoneos-arm64e.deb",
+  "artifact": "stheno_2.0.19_iphoneos-arm64e.deb",
+  "sha256": "f5f0a33d7b34146ba4727841a0fb0bcb19fcbd1f9f0e3c161603d3c270487422",
+  "size": 525112,
+  "regular_files": 35,
+  "changed_files": [
+    "./Library/MobileSubstrate/DynamicLibraries/SthenoGesture.dylib",
+    "./Library/MobileSubstrate/DynamicLibraries/SthenoSystemActions.dylib"
+  ],
+  "unchanged_regular_files": 33,
+  "original_main_binary_byte_identical": true,
+  "original_ring_invocation_release_and_all_transition_ranges_byte_identical": [
+    [
+      "0x4d3dc",
+      "0x4d4e0"
+    ],
+    [
+      "0x51454",
+      "0x51588"
+    ],
+    [
+      "0x57094",
+      "0x570e4"
+    ],
+    [
+      "0x58514",
+      "0x5853c"
+    ],
+    [
+      "0x59870",
+      "0x59928"
+    ],
+    [
+      "0x65af4",
+      "0x65b10"
+    ],
+    [
+      "0xaf19c",
+      "0xaf1ac"
+    ],
+    [
+      "0x56634",
+      "0x56fcc"
+    ],
+    [
+      "0x56fd0",
+      "0x578e0"
+    ],
+    [
+      "0x578e4",
+      "0x59864"
+    ]
+  ],
+  "all_default_icons_original_byte_identical": true,
+  "keyboard_Inset_Orion_settings_installer_byte_identical": true,
+  "ring_auto_dismiss_preserved": true,
+  "fresh_model_initial_position": "native_screen_center",
+  "device_tested": false
+}
