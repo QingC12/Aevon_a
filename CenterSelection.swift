@@ -29,7 +29,7 @@ struct CenterSelectionSession {
     }
     mutating func willFinish(candidate: Bool, cancelled: Bool) {
         released = enteredCenter && candidate && !cancelled
-        hovered = candidate && !cancelled
+        hovered = enteredCenter && candidate && !cancelled
     }
     mutating func didFinish() -> Bool {
         let open = released
