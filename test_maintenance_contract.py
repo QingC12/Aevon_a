@@ -2,8 +2,9 @@
 from pathlib import Path
 import hashlib, io, json, lzma, plistlib, tarfile
 R=Path(__file__).resolve().parent
-base=R/'inputs/base.deb';artifact=R/'build/stheno_2.0.15_iphoneos-arm64e.deb'
+base=R/'inputs/base.deb'
 manifest=json.loads((R/'build/build-manifest.json').read_text())
+artifact=R/'build'/manifest['artifact']
 assert hashlib.sha256(base.read_bytes()).hexdigest()=='67937ea54f1a79d43bb48242c436e0c78b0177ef79d251e4c21465286ee1dace'
 
 def ar_members(pkg):
@@ -41,6 +42,8 @@ added={
  './Library/MobileSubstrate/DynamicLibraries/.stheno/Orion',
  './Library/MobileSubstrate/DynamicLibraries/.stheno/Orion-LICENSE.txt',
 }
+if manifest.get('system_actions'):
+ added.add('./Library/MobileSubstrate/DynamicLibraries/SthenoSystemActions.dylib')
 assert set(new)==set(old)|added,(set(old)-set(new),set(new)-set(old)-added)
 changed={path for path in old if old[path]!=new[path]}
 allowed={'./Library/MobileSubstrate/DynamicLibraries/Stheno.dylib','./Library/MobileSubstrate/DynamicLibraries/SthenoKeyboard.dylib'}
@@ -78,4 +81,4 @@ for removed in ['GestureRules.h','test_gesture_rules.c','KeyboardInsetMath.h','t
 for live in ['LayoutProbe.m','LayoutProbe.h','NotificationPolicy.m','EditorVisibilityMath.h','KeyboardCoordinates.h']:
  assert (R/live).exists(),live
 assert '.gitignore' in [p.name for p in R.iterdir()]
-print('2.0.15 maintenance checks passed: all preference/UI/toggle assets preserved; settings defaults and install scripts unchanged; unpacked files identical; data XZ savings',manifest['data_tar_bytes_saved'],'bytes; only confirmed dead sources removed; active probes retained')
+print('Maintenance checks passed: all original preference/UI/toggle assets preserved; settings defaults and install scripts unchanged; compression round-trip identical; data XZ savings',manifest['data_tar_bytes_saved'],'bytes; only allowlisted runtime modules added; active probes retained')

@@ -1,7 +1,9 @@
 from pathlib import Path
 import hashlib,struct,subprocess,json,tarfile,io,copy,os,re,lzma
 from embed_orion import prepare
+from system_action_patch import patch_system_actions
 ROOT=Path(__file__).resolve().parent
+VERSION='2.0.16'
 os.chdir(ROOT)
 OUT=ROOT/'build';OUT.mkdir(exist_ok=True)
 def run(*args,**kw): return subprocess.check_output([str(x) for x in args],**kw)
@@ -109,6 +111,16 @@ lc=struct.pack('<6I',0xc,sz,24,2,0x10000,0x10000)+name;lc+=bytes(sz-len(lc))
 n,nbytes=struct.unpack_from('<II',img,16);at=32+nbytes
 assert at+sz<0x4000 and img[at:at+sz]==bytes(sz)
 img[at:at+sz]=lc;struct.pack_into('<II',img,16,n+1,nbytes+sz)
+# A separate dependency owns ONLY the two opt-in system actions. Existing
+# helpers and old dispatch bytes remain unchanged.
+name=b'@loader_path/SthenoSystemActions.dylib\0';sz=(24+len(name)+7)&~7
+lc=struct.pack('<6I',0xc,sz,24,2,0x10000,0x10000)+name;lc+=bytes(sz-len(lc))
+n,nbytes=struct.unpack_from('<II',img,16);at=32+nbytes
+assert at+sz<0x4000 and img[at:at+sz]==bytes(sz)
+img[at:at+sz]=lc;struct.pack_into('<II',img,16,n+1,nbytes+sz)
+img,system_actions_manifest=patch_system_actions(img,OUT)
+changes[0x41a9c]=(changes[0x41a9c][0],0xd9500)
+changes[0x47e8]=(bytes.fromhex('7f2303d5'),0xd9700)
 # Preserve the COMPLETE native close/update recognition and animation routines.
 # Only their entry instructions above are hooked; the body and release predicate remain original.
 for start,stop in [(0x4c368,0x4c8a8),(0x507bc,0x50a58),(0x4473c,0x449dc),
@@ -133,7 +145,9 @@ struct.pack_into('<II',keyboard_image,16,count+1,command_size+size)
 assert keyboard_image[0x4000:]==keyboard_original[0x4000:]
 keyboard_binary=OUT/'SthenoKeyboard.dylib';keyboard_binary.write_bytes(keyboard_image)
 run('xcrun','clang','-target','arm64e-apple-ios16.1','-isysroot',run('xcrun','--sdk','iphoneos','--show-sdk-path').decode().strip(),'-fobjc-arc','-O2','-dynamiclib','KeyboardInset.m','KeyboardCoordinates.m','EditorGuard.m','EditorPolicy.m','EditorRefinedGuard.m','EditorCompositeGuard.m','KeyboardMeasurement.m','KeyboardRefinedMeasurement.m','KeyboardCompositeMeasurement.m','LayoutBus.m','LayoutProbe.m','-framework','UIKit','-framework','Foundation','-framework','CoreGraphics','-framework','QuartzCore','-install_name','@loader_path/SthenoKeyboardInset.dylib','-o',OUT/'SthenoKeyboardInset.dylib')
-for p in [core,OUT/'SthenoGesture.dylib',orion,keyboard_binary,OUT/'SthenoKeyboardInset.dylib']:
+action_binary=OUT/'SthenoSystemActions.dylib'
+run('xcrun','clang','-target','arm64e-apple-ios16.1','-isysroot',run('xcrun','--sdk','iphoneos','--show-sdk-path').decode().strip(),'-fobjc-arc','-O2','-dynamiclib','SystemActions.m','SystemActionRuntime.m','SystemActionPicker.m','SystemActionIcons.m','SystemActionHooks.m','SystemCapture.m','SystemActionNative.S','-framework','UIKit','-framework','Foundation','-framework','CoreGraphics','-framework','QuartzCore','-install_name','@loader_path/SthenoSystemActions.dylib','-o',action_binary)
+for p in [core,OUT/'SthenoGesture.dylib',orion,keyboard_binary,OUT/'SthenoKeyboardInset.dylib',action_binary]:
  run('codesign','--force','--sign','-','--timestamp=none',p,stderr=subprocess.STDOUT)
  run('codesign','--verify','--strict',p,stderr=subprocess.STDOUT)
  rows[mi]=(rows[mi][0],core.read_bytes())
@@ -141,6 +155,8 @@ helper=copy.copy(rows[mi][0]);helper.name='./Library/MobileSubstrate/DynamicLibr
 rows[ki]=(rows[ki][0],keyboard_binary.read_bytes())
 inset_entry=copy.copy(helper);inset_entry.name='./Library/MobileSubstrate/DynamicLibraries/SthenoKeyboardInset.dylib'
 rows.append((inset_entry,(OUT/'SthenoKeyboardInset.dylib').read_bytes()))
+action_entry=copy.copy(helper);action_entry.name='./Library/MobileSubstrate/DynamicLibraries/SthenoSystemActions.dylib'
+rows.append((action_entry,action_binary.read_bytes()))
 private_dir='./Library/MobileSubstrate/DynamicLibraries/.stheno'
 directory=copy.copy(next(m for m,b in rows if m.isdir()));directory.name=private_dir;directory.mode=0o755;rows.append((directory,b''))
 runtime_entry=copy.copy(helper);runtime_entry.name=private_dir+'/Orion';runtime_entry.mode=0o755;rows.append((runtime_entry,orion.read_bytes()))
@@ -150,7 +166,7 @@ assert hashlib.sha256(license_bytes).hexdigest()=='5afa9b37c934d452ecd7d3c184367
 rows.append((license_entry,license_bytes))
 for i,(m,b) in enumerate(controls):
  if Path(m.name).name=='control':
-  fields={'Name':'stheno','Version':'2.0.15','Description':'stheno','Architecture':'iphoneos-arm64e',
+  fields={'Name':'stheno','Version':VERSION,'Description':'stheno','Architecture':'iphoneos-arm64e',
           'Installed-Size':str((sum(len(x) for _,x in rows)+1023)//1024)}
   lines=[];skip=False
   for line in b.decode().splitlines():
@@ -171,9 +187,9 @@ data_tar_uncompressed=lzma.decompress(default_data_archive)
 data_archive=optimized_data_xz(default_data_archive)
 assert lzma.decompress(data_archive)==data_tar_uncompressed
 for n,b in [('debian-binary',b'2.0\n'),('control.tar.xz',tarwrite(controls)),('data.tar.xz',data_archive)]:(OUT/n).write_bytes(b)
-result=OUT/'stheno_2.0.15_iphoneos-arm64e.deb'
+result=OUT/f'stheno_{VERSION}_iphoneos-arm64e.deb'
 result.write_bytes(arwrite([(n,(OUT/n).read_bytes()) for n in ('debian-binary','control.tar.xz','data.tar.xz')]))
 verify=tarread(arread(result.read_bytes())['data.tar.xz']);assert len(verify)==len(rows)
 for (a,b),(c,d) in zip(rows,verify):assert a.name==c.name and b==d
-manifest={'artifact':result.name,'sha256':hashlib.sha256(result.read_bytes()).hexdigest(),'size':result.stat().st_size,'data_tar_default_xz_bytes':len(default_data_archive),'data_tar_optimized_xz_bytes':len(data_archive),'data_tar_bytes_saved':len(default_data_archive)-len(data_archive),'data_tar_uncompressed_bytes':len(data_tar_uncompressed),'data_tar_uncompressed_sha256':hashlib.sha256(data_tar_uncompressed).hexdigest(),'patch_entries':{hex(a):hex(t) for a,(_,t) in changes.items()},'device_tested':False,'bundled_orion':orion_manifest,'keyboard_inset_adapter':True}
+manifest={'artifact':result.name,'sha256':hashlib.sha256(result.read_bytes()).hexdigest(),'size':result.stat().st_size,'data_tar_default_xz_bytes':len(default_data_archive),'data_tar_optimized_xz_bytes':len(data_archive),'data_tar_bytes_saved':len(default_data_archive)-len(data_archive),'data_tar_uncompressed_bytes':len(data_tar_uncompressed),'data_tar_uncompressed_sha256':hashlib.sha256(data_tar_uncompressed).hexdigest(),'patch_entries':{hex(a):hex(t) for a,(_,t) in changes.items()},'device_tested':False,'bundled_orion':orion_manifest,'keyboard_inset_adapter':True,'system_actions':system_actions_manifest}
 (OUT/'build-manifest.json').write_text(json.dumps(manifest,indent=2));print(json.dumps(manifest))
