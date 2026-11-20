@@ -5,6 +5,7 @@ from pathlib import Path
 root=Path(__file__).resolve().parent
 coordinates=(root/'KeyboardCoordinates.m').read_text()
 insets=(root/'KeyboardInset.m').read_text()
+keyboard=(root/'Keyboard.m').read_text()
 scene=coordinates.split('BOOL STHResolveKeyboardScene(',1)[1].split('static void decision',1)[0]
 assert 'STHReadLayout(NSBundle.mainBundle.bundleIdentifier,bounds,' in scene
 assert 'target.bounds' not in scene # must not derive scene inset from popup size
@@ -21,6 +22,12 @@ assert 'STHSessionPhysical(&session' in coordinates
 delivery=(root/'KeyboardDelivery.inc').read_text()
 publisher=(root/'LayoutPublisher.m').read_text()
 bus=(root/'LayoutBus.m').read_text()
+gesture=(root/'Gesture.m').read_text()
+assert 'STHKeyboardFocus(m);' in gesture.split('void STHSetup',1)[1].split('void STHUpdate',1)[0]
+assert 'STHKeyboardFocus(m);' not in gesture.split('int STHClassify',1)[1].split('void STHSetup',1)[0]
+assert 'if (currentOwner && (currentOwner!=focus || !eligible)) restoreCard();' in keyboard
+assert 'BOOL ownerMismatch=currentOwner&&currentOwner!=focus;' in keyboard
+assert 'if(ownerMismatch){candidate=nil;candidateAt=0;focus=nil;}' in keyboard
 assert 'queueHeld' not in delivery and 'dispatch_after' not in delivery
 assert 'if(status==1||status==2)' in delivery
 assert 'STHReadPreview' in scene
@@ -32,7 +39,7 @@ assert 'installDelivery();' in coordinates
 assert 'STHSettleSample(&settling' in publisher
 assert 'settling.haveCommitted=YES;settling.committedCard=rr(card);settling.committedKeys=rr(keys);' in publisher
 assert 'STHPublishLayout(observedBundle,card,keys,YES);lastHeartbeat=CACurrentMediaTime();' in publisher
-assert 't.writerActive=NO;notify_set_state(t.commit,0)' in bus # only deactivation
+assert 't.writerActive=NO;' in bus and 'notify_set_state(t.commit,0)' in bus # only deactivation
 assert 'if(changed)notify_post' in bus # silent heartbeat, not repeated layout events
 editor=(root/'EditorGuard.m').read_text()
 assert 'prepareKeyboardLifecycle(note.name,status)' in delivery.split('if(status==1||status==2)',1)[1]

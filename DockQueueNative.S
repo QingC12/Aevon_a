@@ -46,6 +46,35 @@ _\name:
  ldr x0,[sp,#24]
  callcore 0xb0a0c
 .endm
+enter STHDockNativeOrientation
+ sub sp,sp,#48
+ stp x19,x20,[sp]
+ stp x21,x22,[sp,#16]
+ mov x20,x0
+ adrp x22,_sth_action_core_base@PAGE
+ ldr x22,[x22,_sth_action_core_base@PAGEOFF]
+ add x0,x22,#0xb6,lsl #12
+ add x0,x0,#0x808
+ callcore 0xb091c
+ mov x19,x0
+ add x0,x22,#0xb6,lsl #12
+ add x0,x0,#0x830
+ callcore 0xb091c
+ mov x21,x0
+ mov x8,sp
+ mov x0,x20
+ mov x1,x19
+ mov x2,x21
+ callcore 0xaeecc
+ mov x0,x19
+ callcore 0xb0a0c
+ mov x0,x21
+ callcore 0xb0a0c
+ ldr x0,[sp]
+ ldp x21,x22,[sp,#16]
+ ldp x19,x20,[sp]
+ add sp,sp,#48
+ leave
 enter STHDockNativeMinimized
  sub sp,sp,#32
  mov x20,x0

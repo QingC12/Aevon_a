@@ -22,8 +22,9 @@ NSUInteger STHTestOffset(uintptr_t address) {
  const char *name=address==0xf7920?"_hitValue":address==0xf7928?"_latchValue":"_phaseValue";
  return ivar_getOffset(class_getInstanceVariable(TestModel.class,name));
 }
+static int nativeHit=4;
 CGRect STHNativeRect(void *m) { return CGRectMake(20,20,200,400); }
-int STHNativeClassify(void *m,CGPoint p) { return 4; }
+int STHNativeClassify(void *m,CGPoint p) { return nativeHit; }
 NSUInteger STHNativeOrientation(void *m) { return 1; }
 CGSize STHNativeTranslation(void *drag) { return ((Drag *)drag)->translation; }
 void STHNativeMove(void *m,CGSize t) { moves++;movedBy=t; }
@@ -49,6 +50,9 @@ static void beginYellow(TestModel *model,Drag *drag) {
 int main(void) {
  @autoreleasepool {
   TestModel *model=[TestModel new];void *m=(__bridge void *)model;
+  nativeHit=10;
+  assert(STHClassify(m,CGPointMake(120,200))==10);
+  nativeHit=4;
   Drag drag={CGSizeZero,YES};
   beginYellow(model,&drag);
   drag.translation=CGSizeMake(8,-50);STHUpdate(&drag,m);
@@ -72,6 +76,9 @@ int main(void) {
   assert(docked==0&&updates==0&&setups==3);
   assert(STHClassify(m,CGPointMake(120,120))==6);
   STHSetup(&drag,m);
+  nativeHit=10;
+  assert(STHClassify(m,CGPointMake(120,120))==10);
+  nativeHit=4;
   assert(STHClassify(m,CGPointMake(222,420))==6);
   STHUpdate(&drag,m);STHLong(m);STHTap(m,1);STHEnd(&drag,m);
   assert(docked==0&&updates==0&&setups==3&&ends==3&&longs==0);

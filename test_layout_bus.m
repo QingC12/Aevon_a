@@ -34,9 +34,17 @@ int main(int argc,const char **argv){
    assert(fabs(overlap-(800-(top-400)*2))<.01);
   }
   assert(STHPublishLayout(bundle,CGRectZero,CGRectZero,NO));
-  CGRect local;double overlap=0;
+  assert(STHPreviewLayout(bundle,CGRectMake(20,120,360,720)));
+  assert(STHReadPreview(bundle,CGRectMake(0,550,400,300),CGRectMake(0,0,400,800),&pending,&amount));
+  double firstPreviewX=pending.origin.x;
+  assert(STHBeginLayout(bundle));
+  assert(!STHReadPreview(bundle,CGRectMake(0,550,400,300),CGRectMake(0,0,400,800),&pending,&amount));
+  assert(STHPreviewLayout(bundle,CGRectMake(40,160,320,640)));
+  assert(STHReadPreview(bundle,CGRectMake(0,550,400,300),CGRectMake(0,0,400,800),&pending,&amount));
+  assert(fabs(pending.origin.x-firstPreviewX)>10);
+  assert(STHPublishLayout(bundle,CGRectZero,CGRectZero,NO));
   assert(!STHReadLayout(bundle,CGRectMake(0,0,400,800),&local,&overlap));
-  puts("Cross-process layout transport passed (separate reader executable and hide invalidation)");
+  puts("Cross-process layout transport passed (separate reader executable, preview/session isolation and hide invalidation)");
  }
  return 0;
 }

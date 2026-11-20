@@ -89,10 +89,13 @@ jobs:
           /tmp/stheno-chooser-catalog
           xcrun --sdk macosx clang -std=c11 -Wall -Wextra -Werror test_chooser_motion.c -o /tmp/stheno-chooser-motion
           /tmp/stheno-chooser-motion
+          xcrun --sdk macosx clang -std=c11 -Wall -Wextra -Werror test_dock_orientation.c -o /tmp/stheno-dock-orientation
+          /tmp/stheno-dock-orientation
           xcrun swiftc -D STH_DOCK_TEST DockQueue.swift test_dock_queue.swift -o /tmp/stheno-dock-queue
           /tmp/stheno-dock-queue
           python3 test_update18_contract.py
           python3 test_chooser_contract.py
+          python3 test_installer_preferences.py
       - name: Test release survives native collapse and transient system visibility restores
         run: |
           xcrun swiftc CenterSelection.swift test_center_selection.swift -o /tmp/stheno-center-selection

@@ -12,11 +12,13 @@ assert 'callcore 0x53e7c' in native and 'callcore 0x53f10' in native
 assert 'STHCenterRunAnimation' in ui and 'selected == 999' in ui
 assert 'hitArea.contains(point)' in ui and 'w.addSubview(surface)' in ui
 assert 'fixedCoordinateSpace' in ui and 's.portraitX - s.offsetX' in ui
+assert 'resultsHeight(matches.count, available: available)' in ui and '.frame(maxWidth: 360)' in ui
+assert 'state.drift' not in ui and '2.3 * last.iconWidth' not in ui
 assert 'snapshot.editing' in ui and 'snapshot.quickSetting' in ui
 center=(R/'CenterChooserNative.S').read_text()
 assert 'STHCenterRingPan' in center and 'cc_call 0xaf19c' in center and 'cc_call 0xafb5c' in center
 assert 'phase == 2' in center and 'bl \\original' in center
-assert 'STHCenterRunAnimation({ self.state.hover = hovered; self.state.drift = lift }' in ui
+assert 'STHCenterRunAnimation({ self.state.hover = hovered }, 0)' in ui
 assert 'STHChooserSubmitCenterSelection()' in ui and 'session.didFinish()' in ui
 assert 'pan.location(in: pan.view)' in ui and 'gap * s.scale' not in ui
 assert 'callcore 0x5421c' not in native # NOT a rings-array rebuild getter.

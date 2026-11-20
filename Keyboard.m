@@ -69,6 +69,8 @@ void STHKeyboardShow(void *frameBox) {
  CGRect screen=viewport();
  id input=(__bridge id)frameBox;
  CGRect keyboard=CGRectNull;
+ BOOL ownerMismatch=currentOwner&&currentOwner!=focus;
+ if(ownerMismatch){candidate=nil;candidateAt=0;focus=nil;}
  if ([input isKindOfClass:NSValue.class]) {
 #if defined(STH_KEYBOARD_TEST)
   if ([input respondsToSelector:@selector(rectValue)]) keyboard=[input rectValue];
@@ -115,7 +117,7 @@ void STHKeyboardShow(void *frameBox) {
  else STHStopLayout();
 #endif
  STHNativeKeyboardShow(frameBox); // Original frame publication and avoidance.
- if (currentOwner && currentOwner!=focus) restoreCard();
+ if (currentOwner && (currentOwner!=focus || !eligible)) restoreCard();
  if (enlarge) {
   for (int i=0;i<3;i++) { applied[i]=target[i]; saved[i]=original[i]; }
   owner=focus;changed=YES;

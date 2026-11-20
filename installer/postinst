@@ -35,21 +35,17 @@ for J in /var/containers/Bundle/Application/.jbroot-* \
            "$J/private/var/mobile/Library/Preferences" ; do
     [ -d "$D" ] || continue
     T="$D/com.nx.stheno.plist"
-    if [ -f "$T" ] && grep -a -q "$KEYVAL" "$T" 2>/dev/null ; then
-      TSZ=$(wc -c < "$T" 2>/dev/null | tr -d ' ')
-      case "$TSZ" in ''|*[!0-9]*) TSZ=0 ;; esac
-      if [ "$TSZ" -gt 132 ] ; then
-        :
+      if [ -e "$T" ] || [ -L "$T" ] ; then
         N=$((N + 1))
         continue
       fi
-    fi
-    cp -f "$SRC" "$T" 2>/dev/null || cat "$SRC" > "$T" 2>/dev/null
-    [ -f "$T" ] || continue
-    chown mobile:mobile "$T" 2>/dev/null
-    chmod 0600 "$T" 2>/dev/null
-    N=$((N + 1))
-    :
+      if ! ( set -C; cat "$SRC" > "$T" ) 2>/dev/null ; then
+        [ -e "$T" ] || [ -L "$T" ] || continue
+      fi
+      [ -f "$T" ] || continue
+      chown mobile:mobile "$T" 2>/dev/null
+      chmod 0600 "$T" 2>/dev/null
+      N=$((N + 1))
   done
 done
 for P in /var/mobile/Library/Preferences/com.nx.stheno.plist ; do

@@ -1,35 +1,44 @@
 import Foundation
 
-// The release decision is captured before native RingEnv cleanup. Delivery
-// must not re-read collapsed scale, cleared selection or a terminal recognizer.
+// A center release is eligible only after this gesture crosses into the hole.
 struct CenterSelectionSession {
     private(set) var active = false
     private(set) var hovered = false
+    private var enteredCenter = false
+    private var sawOutside = false
     private var released = false
 
     mutating func begin() {
         active = true
         hovered = false
+        enteredCenter = false
+        sawOutside = false
         released = false
     }
-    mutating func update(candidate: Bool) {
+    mutating func update(candidate: Bool, moved: Bool) {
         if !active { begin() }
+        if !candidate {
+            sawOutside = true
+        } else if sawOutside && moved {
+            enteredCenter = true
+        }
         hovered = candidate
     }
     mutating func willFinish(candidate: Bool, cancelled: Bool) {
-        released = candidate && !cancelled
+        released = enteredCenter && candidate && !cancelled
         hovered = candidate && !cancelled
     }
     mutating func didFinish() -> Bool {
         let open = released
-        active = false
-        hovered = false
-        released = false
+        reset()
         return open
     }
-    mutating func cancel() {
+    mutating func cancel() { reset() }
+    private mutating func reset() {
         active = false
         hovered = false
+        enteredCenter = false
+        sawOutside = false
         released = false
     }
 }

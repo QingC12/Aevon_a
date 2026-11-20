@@ -48,8 +48,12 @@ int main(void) {
   show(a,frame);a.scale=.95;a.offset=CGSizeMake(12,15);
   STHKeyboardHide();assert(fabs(a.scale-.95)<.001&&fabs(a.offset.width-12)<.001);
 
-  Model *b=make();a=make();show(a,frame);show(b,frame);
-  assert(fabs(a.scale-.8)<.001&&b.scale>.8&&owner==b);
+  Model *b=make();a=make();show(a,frame);
+  STHKeyboardFocus((__bridge void *)b);STHKeyboardShow((__bridge void *)frame);
+  assert(owner==nil&&fabs(a.scale-.8)<.001&&fabs(b.scale-.8)<.001);
+  STHKeyboardHide();
+  show(b,frame);
+  assert(b.scale>.8&&owner==b);
   STHKeyboardHide();assert(fabs(b.scale-.8)<.001);
 
   Model *offcenter=make();offcenter.card=CGRectMake(70,150,320,500);
@@ -70,9 +74,15 @@ int main(void) {
   int before=writes;
   NSValue *hardware=[NSValue valueWithRect:NSMakeRect(0,840,400,10)];
   show(b,hardware);assert(writes==before);
-  b.orientation=3;show(b,frame);assert(writes==before);
+  Model *sameOwner=make();show(sameOwner,frame);
+  assert(owner==sameOwner&&sameOwner.scale>.8);
+  before=writes;
+  show(sameOwner,hardware);
+  assert(owner==nil&&writes==before+1&&fabs(sameOwner.scale-.8)<.001);
+  assert(fabs(sameOwner.offset.width)<.001&&fabs(sameOwner.offset.height-20)<.001);
+  b.orientation=3;show(b,frame);assert(writes==before+1);
   b.orientation=1;STHKeyboardFocus((__bridge void *)b);candidateAt-=3;
-  STHKeyboardShow((__bridge void *)frame);assert(writes==before);
+  STHKeyboardShow((__bridge void *)frame);assert(writes==before+1);
   printf("Keyboard routing passed: %d native show, %d hide, %d geometry writes\n",showCalls,hideCalls,writes);
  }
  return 0;

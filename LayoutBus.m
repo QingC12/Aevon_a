@@ -9,6 +9,7 @@
 @property int keys1;
 @property int commit;
 @property int preview;
+@property int previewCommit;
 @property int observed;
 @property BOOL valid;
 @property BOOL writerActive;
@@ -30,14 +31,17 @@ static STHLayoutTokens *getTokens(NSString *bundle) {
  NSCharacterSet *invalid=[[NSCharacterSet characterSetWithCharactersInString:@"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-_"] invertedSet];
  if([bundle rangeOfCharacterFromSet:invalid].location!=NSNotFound)return nil;
  if(!tokens)tokens=[NSMutableDictionary new];
- STHLayoutTokens *t=tokens[bundle];if(t)return t;
- t=[STHLayoutTokens new];t.observed=-1;
- t.card0=registerState(bundle,@"card0");t.card1=registerState(bundle,@"card1");
- t.keys0=registerState(bundle,@"keys0");t.keys1=registerState(bundle,@"keys1");
- t.preview=registerState(bundle,@"preview");
- t.commit=registerState(bundle,@"commit");
- t.valid=t.card0>=0&&t.card1>=0&&t.keys0>=0&&t.keys1>=0&&t.commit>=0;
- tokens[bundle]=t;return t;
+ STHLayoutTokens *t=tokens[bundle];
+ if(!t) {
+  t=[STHLayoutTokens new];t.observed=-1;
+  t.card0=registerState(bundle,@"card0");t.card1=registerState(bundle,@"card1");
+  t.keys0=registerState(bundle,@"keys0");t.keys1=registerState(bundle,@"keys1");
+  t.preview=registerState(bundle,@"preview");t.previewCommit=registerState(bundle,@"preview-commit");
+  t.commit=registerState(bundle,@"commit");
+  t.valid=t.card0>=0&&t.card1>=0&&t.keys0>=0&&t.keys1>=0&&t.commit>=0;
+  tokens[bundle]=t;
+ }
+ return t;
 }
 static uint64_t nowMilliseconds(void){return (uint64_t)(CACurrentMediaTime()*1000.0);}
 static BOOL recent(uint64_t state){uint64_t stamp=state&0x0000ffffffffffffULL,now=nowMilliseconds();return (state>>63)&&now>=stamp&&now-stamp<=1500;}
@@ -46,16 +50,26 @@ int STHLayoutStatus(NSString *bundle){
  if(!t.valid||notify_get_state(t.commit,&commit)!=0||!recent(commit))return 0;
  return (commit&(1ULL<<61))?2:1;
 }
-BOOL STHBeginLayout(NSString *bundle){
+static BOOL beginLayout(NSString *bundle,uint64_t previewValue,BOOL hasPreview){
  STHLayoutTokens *t=getTokens(bundle);if(!t.valid)return NO;
  t.writerActive=NO;t.lastCard=0;t.lastKeys=0;
+ if(hasPreview){
+  if(t.preview<0||t.previewCommit<0||notify_set_state(t.previewCommit,0)!=0||notify_set_state(t.preview,previewValue)!=0)return NO;
+ }
  uint64_t value=(1ULL<<63)|(1ULL<<61)|((++t.serial&0x1fffULL)<<48)|(nowMilliseconds()&0x0000ffffffffffffULL);
  if(notify_set_state(t.commit,value)!=0)return NO;
+ if(hasPreview&&notify_set_state(t.previewCommit,value)!=0)return NO;
  notify_post(channel(bundle,@"changed").UTF8String);return YES;
 }
+BOOL STHBeginLayout(NSString *bundle){return beginLayout(bundle,0,NO);}
 BOOL STHPublishLayout(NSString *bundle,CGRect card,CGRect keyboard,BOOL active){
  STHLayoutTokens *t=getTokens(bundle);if(!t.valid)return NO;
- if(!active){t.writerActive=NO;notify_set_state(t.commit,0);notify_post(channel(bundle,@"changed").UTF8String);return YES;}
+ if(!active){
+  t.writerActive=NO;
+  if(notify_set_state(t.commit,0)!=0)return NO;
+  if(t.previewCommit>=0)notify_set_state(t.previewCommit,0);
+  notify_post(channel(bundle,@"changed").UTF8String);return YES;
+ }
  uint64_t a=0,b=0;
  if(!STHPackRect((STHRect){card.origin.x,card.origin.y,card.size.width,card.size.height},&a)||
     !STHPackRect((STHRect){keyboard.origin.x,keyboard.origin.y,keyboard.size.width,keyboard.size.height},&b))return NO;
@@ -95,14 +109,14 @@ void STHObserveLayout(NSString *bundle,dispatch_block_t block){
 
 BOOL STHPreviewLayout(NSString *bundle,CGRect card){
  STHLayoutTokens *t=getTokens(bundle);uint64_t bits=0;
- if(!t.valid||t.preview<0||!STHPackRect((STHRect){card.origin.x,card.origin.y,card.size.width,card.size.height},&bits))return NO;
- if(notify_set_state(t.preview,bits)!=0)return NO;
- return STHBeginLayout(bundle);
+ if(!t.valid||!STHPackRect((STHRect){card.origin.x,card.origin.y,card.size.width,card.size.height},&bits))return NO;
+ return beginLayout(bundle,bits,YES);
 }
 BOOL STHReadPreview(NSString *bundle,CGRect keys,CGRect scene,CGRect *local,double *inset){
- STHLayoutTokens *t=getTokens(bundle);uint64_t a=0,b=0,card=0;
- if(!t.valid||notify_get_state(t.commit,&a)!=0||!recent(a)||!(a&(1ULL<<61)))return NO;
- if(notify_get_state(t.preview,&card)!=0||notify_get_state(t.commit,&b)!=0||a!=b)return NO;
+ STHLayoutTokens *t=getTokens(bundle);uint64_t a=0,b=0,card=0,previewCommit=0,previewCommitAfter=0;
+ if(!t.valid||t.previewCommit<0||notify_get_state(t.commit,&a)!=0||!recent(a)||!(a&(1ULL<<61)))return NO;
+ if(notify_get_state(t.previewCommit,&previewCommit)!=0||previewCommit!=a||notify_get_state(t.preview,&card)!=0||
+    notify_get_state(t.commit,&b)!=0||notify_get_state(t.previewCommit,&previewCommitAfter)!=0||a!=b||previewCommitAfter!=a)return NO;
  STHRect c=STHUnpackRect(card),out;
  // Match low-card visibility protection used by Keyboard.m, now that keyboard
  // target is known. No text or arbitrary toolbar height is assumed.

@@ -1,11 +1,13 @@
 #import <Foundation/Foundation.h>
 #import <UIKit/UIKit.h>
+#import "DockOrientation.h"
 #include <stdbool.h>
 extern void *STHDockCopyFloating(void);
 extern size_t STHChooserManagersCount(void *);
 extern void *STHChooserCopyManagerAt(size_t,void *);
 extern void STHChooserReleaseArray(void *),STHChooserReleaseSwift(void *);
 extern BOOL STHDockNativeMinimized(void *);
+extern NSUInteger STHDockNativeOrientation(void *);
 extern CGSize STHDockNativeOffset(void *);
 extern void STHDockNativeSetOffset(void *,double,double);
 extern CGRect STHDockNativeRect(void *);
@@ -40,13 +42,17 @@ void STHDockReflow(void){
  models=[NSMutableArray array];
  @try{
   size_t n=STHChooserManagersCount(array);if(n>4096)return;
+  BOOL portraitOnly=YES;
   for(size_t i=0;i<n;i++){
    void *m=STHChooserCopyManagerAt(i,array);
-   if(STHDockNativeMinimized(m))[models addObject:[NSValue valueWithPointer:m]];else STHChooserReleaseSwift(m);
+   if(STHDockNativeMinimized(m)){
+    if(!STHDockUsesNativeReflow((unsigned)STHDockNativeOrientation(m)))portraitOnly=NO;
+    [models addObject:[NSValue valueWithPointer:m]];
+   }else STHChooserReleaseSwift(m);
   }
   UIScreen *s=UIScreen.mainScreen;CGFloat h=MAX(s.bounds.size.width,s.bounds.size.height);UIEdgeInsets safe=hostWindow().safeAreaInsets;
   originY=h/2;top=MAX(28,safe.top)+8;bottom=h-MAX(20,safe.bottom)-8;
-  STHDockSwiftReflow();
+  if(portraitOnly)STHDockSwiftReflow();
   lastMembers=[models copy];
  }@finally{
   for(NSValue *v in models)STHChooserReleaseSwift(v.pointerValue);

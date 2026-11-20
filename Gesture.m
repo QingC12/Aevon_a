@@ -80,16 +80,12 @@ int STHClassify(void *m,CGPoint p) {
  ensureBase();
  STHGestureState *s=state(m);
  // Native scene hit-testing may query classification again during a drag.
- if(s.dragActive)return s.lockedHit;
+ // Preserve the core's keyboard exclusion so the scene can skip this card.
+ if (s.dragActive){int native=STHNativeClassify(m,p);return native==10?native:s.lockedHit;}
  int original=STHNativeClassify(m,p);
+ if(original==10)return original;
  CGRect content=STHNativeRect(m);
  if(original!=7&&CGRectContainsPoint(CGRectInset(content,4,4),p))original=6;
-#if !defined(STH_ROUTING_TEST)
- if (original==6) {
-  extern void STHKeyboardFocus(void *);
-  STHKeyboardFocus(m);
- }
-#endif
  s=registerState(m);
  s.lockedHit=(unsigned char)original;
  s.zone=original==6?ZContent:ZOriginal;
@@ -130,7 +126,13 @@ int STHClassify(void *m,CGPoint p) {
 void STHSetup(void *drag,void *m) {
  STHGestureState *s=state(m);
  s.dragActive=YES;
- if(s.zone==ZContent){*hit(m)=6;*latch(m)=0;return;}
+ if(s.zone==ZContent){
+#if !defined(STH_ROUTING_TEST)
+  extern void STHKeyboardFocus(void *);
+  STHKeyboardFocus(m);
+#endif
+  *hit(m)=6;*latch(m)=0;return;
+ }
  if (!s||s.zone==ZOriginal||s.zone==ZReturnPortrait) {STHNativeSetup(drag,m);return;}
  *hit(m)=s.zone==ZMove?4:(s.zone==ZCorner?2:3);*latch(m)=0;*phase(m)=2;
  STHNativeSetup(drag,m);
