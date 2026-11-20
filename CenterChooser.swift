@@ -90,8 +90,8 @@ private struct SearchField: UIViewRepresentable {
             focusAttempt()
         }
         private func focusAttempt() {
-            guard wantsFocus, let field else { attempts = 0; return }
-            guard attempts < 20 else { attempts = 0; return }
+            guard wantsFocus, let field else { attempts = -1; return }
+            guard attempts >= 0 && attempts < 20 else { attempts = -1; return }
             attempts += 1
             DispatchQueue.main.async { [weak self, weak field] in
                 guard let self, self.wantsFocus, let field else { return }
@@ -105,7 +105,7 @@ private struct SearchField: UIViewRepresentable {
             }
         }
         private func retryFocus() {
-            guard wantsFocus, attempts < 20 else { attempts = 0; return }
+            guard wantsFocus, attempts >= 0, attempts < 20 else { attempts = -1; return }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in self?.focusAttempt() }
         }
         func textFieldDidBeginEditing(_ textField: UITextField) { attempts = 0 }
@@ -317,7 +317,7 @@ private final class CenterController: NSObject {
                 state.origin = p; state.diameter = diameter
             }
             setGlyphVisible(true)
- (!open && positionChanged) || (open && !ringWasVisible) {
+        } else if !placementReady || (!open && positionChanged) || (open && !ringWasVisible) {
             var transaction = Transaction(); transaction.disablesAnimations = true
             withTransaction(transaction) {
                 state.origin = p; state.diameter = diameter; state.scale = 0; state.ready = false
