@@ -156,10 +156,16 @@ for source in ['SystemActions.m','SystemActionRuntime.m','SystemActionPicker.m',
  if source.endswith('.m'):args.insert(7,'-fobjc-arc')
  run(*args);action_objects.append(obj)
 run('xcrun','swiftc','-swift-version','5','-target','arm64e-apple-ios16.1','-sdk',sdk,'-Osize','-emit-library','-import-objc-header','RuntimeBridge.h','-module-name','SthenoRuntime','CenterChooser.swift','DockQueue.swift',*action_objects,'-Xlinker','-install_name','-Xlinker','@loader_path/SthenoSystemActions.dylib','-Xlinker','-rpath','-Xlinker','/usr/lib/swift','-o',action_binary)
-for p in [core,OUT/'SthenoGesture.dylib',orion,keyboard_binary,OUT/'SthenoKeyboardInset.dylib',action_binary]:
+quiet_companions=[]
+for filename,address,marker in [('CameraFix.dylib',0x40e4,b'CameraFixDiag.txt'),('KeyboardFix.dylib',0x4068,b'KeyboardFixDiag.txt')]:
+ index=next(i for i,(m,b) in enumerate(rows) if m.name.endswith('/'+filename));image=bytearray(rows[index][1])
+ assert marker in image and image[address:address+4]==bytes.fromhex('7f2303d5')
+ image[address:address+4]=bytes.fromhex('c0035fd6');path=OUT/filename;path.write_bytes(image);quiet_companions.append((index,path))
+for p in [core,OUT/'SthenoGesture.dylib',orion,keyboard_binary,OUT/'SthenoKeyboardInset.dylib',action_binary]+[p for _,p in quiet_companions]:
  run('codesign','--force','--sign','-','--timestamp=none',p,stderr=subprocess.STDOUT)
  run('codesign','--verify','--strict',p,stderr=subprocess.STDOUT)
  rows[mi]=(rows[mi][0],core.read_bytes())
+for index,path in quiet_companions:rows[index]=(rows[index][0],path.read_bytes())
 helper=copy.copy(rows[mi][0]);helper.name='./Library/MobileSubstrate/DynamicLibraries/SthenoGesture.dylib';rows.append((helper,(OUT/'SthenoGesture.dylib').read_bytes()))
 rows[ki]=(rows[ki][0],keyboard_binary.read_bytes())
 inset_entry=copy.copy(helper);inset_entry.name='./Library/MobileSubstrate/DynamicLibraries/SthenoKeyboardInset.dylib'
@@ -183,6 +189,8 @@ for icon in ('screenshot','screen-recording','app-picker'):
   entry=copy.copy(license_entry);entry.name=icon_directory.name+'/'+filename
   rows.append((entry,raw));icon_resources[filename]=hashlib.sha256(raw).hexdigest()
 for i,(m,b) in enumerate(controls):
+ if Path(m.name).name=='postinst':
+  controls[i]=(m,(ROOT/'installer/postinst').read_bytes());continue
  if Path(m.name).name=='control':
   fields={'Name':'stheno','Version':VERSION,'Description':'stheno','Architecture':'iphoneos-arm64e',
           'Installed-Size':str((sum(len(x) for _,x in rows)+1023)//1024)}

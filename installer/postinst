@@ -1,0 +1,110 @@
+#!/bin/sh
+set +e
+
+
+KEYVAL=REXIIUA5FF8288VP
+DOM=/var/mobile/Library/Preferences/com.nx.stheno
+
+:
+:
+
+SRC=""
+for c in /var/jb/usr/local/share/stheno/com.nx.stheno.plist \
+         /usr/local/share/stheno/com.nx.stheno.plist \
+         /var/mobile/Library/Preferences/com.nx.stheno.plist \
+         /var/jb/var/mobile/Library/Preferences/com.nx.stheno.plist ; do
+  [ -f "$c" ] && { SRC="$c"; break; }
+done
+:
+[ -n "$SRC" ] || exit 0
+:
+if grep -a -q "$KEYVAL" "$SRC" 2>/dev/null ; then
+  :
+else
+  :
+fi
+
+killall -9 cfprefsd 2>/dev/null
+sleep 1 2>/dev/null
+
+N=0
+for J in /var/containers/Bundle/Application/.jbroot-* \
+         /private/var/containers/Bundle/Application/.jbroot-* ; do
+  [ -d "$J" ] || continue
+  for D in "$J/var/mobile/Library/Preferences" \
+           "$J/private/var/mobile/Library/Preferences" ; do
+    [ -d "$D" ] || continue
+    T="$D/com.nx.stheno.plist"
+    if [ -f "$T" ] && grep -a -q "$KEYVAL" "$T" 2>/dev/null ; then
+      TSZ=$(wc -c < "$T" 2>/dev/null | tr -d ' ')
+      case "$TSZ" in ''|*[!0-9]*) TSZ=0 ;; esac
+      if [ "$TSZ" -gt 132 ] ; then
+        :
+        N=$((N + 1))
+        continue
+      fi
+    fi
+    cp -f "$SRC" "$T" 2>/dev/null || cat "$SRC" > "$T" 2>/dev/null
+    [ -f "$T" ] || continue
+    chown mobile:mobile "$T" 2>/dev/null
+    chmod 0600 "$T" 2>/dev/null
+    N=$((N + 1))
+    :
+  done
+done
+for P in /var/mobile/Library/Preferences/com.nx.stheno.plist ; do
+  [ -f "$P" ] || continue
+  chown mobile:mobile "$P" 2>/dev/null
+  chmod 0600 "$P" 2>/dev/null
+  :
+done
+:
+
+if command -v defaults >/dev/null 2>&1 ; then
+  :
+  CUR=$(defaults read "$DOM" Key 2>/dev/null)
+  :
+  if [ "$CUR" = "$KEYVAL" ] ; then
+    :
+  else
+    defaults write "$DOM" Key -string "$KEYVAL" 2>/dev/null
+    :
+  fi
+  INJ=$(defaults read "$DOM" Inject 2>/dev/null)
+  if [ -z "$INJ" ] ; then
+    defaults write "$DOM" Inject -bool true 2>/dev/null
+    :
+  else
+    :
+  fi
+else
+  :
+fi
+
+:
+for J in /var/containers/Bundle/Application/.jbroot-* ; do
+  [ -d "$J" ] || continue
+  for D in "$J/var/mobile/Library/Preferences" "$J/private/var/mobile/Library/Preferences" ; do
+    [ -f "$D/com.nx.stheno.plist" ] || continue
+    if grep -a -q "$KEYVAL" "$D/com.nx.stheno.plist" 2>/dev/null ; then
+      :
+    else
+      :
+    fi
+  done
+done
+:
+if command -v defaults >/dev/null 2>&1 ; then
+  :
+fi
+
+if [ -f /var/mobile/Documents/SthenoAutoRespring ] ; then
+  :
+  sync
+  killall -9 SpringBoard 2>/dev/null
+else
+  :
+  :
+fi
+sync
+exit 0

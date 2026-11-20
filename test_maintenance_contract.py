@@ -52,7 +52,7 @@ if manifest.get('icon_resources'):
   added.add(path);assert hashlib.sha256(new[path]).hexdigest()==digest
 assert set(new)==set(old)|added,(set(old)-set(new),set(new)-set(old)-added)
 changed={path for path in old if old[path]!=new[path]}
-allowed={'./Library/MobileSubstrate/DynamicLibraries/Stheno.dylib','./Library/MobileSubstrate/DynamicLibraries/SthenoKeyboard.dylib'}
+allowed={'./Library/MobileSubstrate/DynamicLibraries/'+n for n in ['Stheno.dylib','SthenoKeyboard.dylib','CameraFix.dylib','KeyboardFix.dylib']}
 assert changed==allowed,changed
 for path in ['./usr/local/share/stheno/com.nx.stheno.plist',
  './Library/PreferenceBundles/SthenoPreference.bundle/Info.plist',
@@ -72,7 +72,9 @@ assert not mask&(1<<27) and not mask&(1<<28)
 for p in ['control.tar.xz']:
  with tarfile.open(fileobj=io.BytesIO(ar(base,p))) as a,tarfile.open(fileobj=io.BytesIO(ar(artifact,p))) as b:
   aa={Path(x.name).name:a.extractfile(x).read() for x in a if x.isfile()};bb={Path(x.name).name:b.extractfile(x).read() for x in b if x.isfile()}
-  for name in ['postinst','postrm']:assert aa[name]==bb[name]
+  assert aa['postrm']==bb['postrm']
+  assert bb['postinst']==(R/'installer/postinst').read_bytes()
+  assert b'SthenoInstall.txt' not in bb['postinst']
 local=plistlib.loads(new['./Library/Application Support/Stheno/zh-Hans.lproj/Localizable.strings'])
 for key in ['BlockInterceptor','SSInterceptor','SSInterceptorSilence','SSListen','SSNoUniversalLinks','SSNoSafariViewService','ForegroundNotify','FrontmostNotify','HookUIKit']:
  assert key in local,key

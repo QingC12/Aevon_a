@@ -32,4 +32,6 @@ def patch_update18(image,out):
  sites={0x447d4:base,0x449dc:base+0x80,0x9d7f4:base+0x100}
  for at,target in sites.items():
   assert image[at:at+4]==bytes.fromhex('7f2303d5');image[at:at+4]=instruction(at,target)
- return image,{'center':center,'dock':{'dispatch_base':hex(base),'dispatch_bytes':len(code),'patches':{hex(a):{'kind':'b','target':hex(t),'original':'7f2303d5'} for a,t in sites.items()}},'original_animation_transactions':True}
+ assert image[0x3c11c:0x3c120]==bytes.fromhex('7f2303d5')
+ image[0x3c11c:0x3c120]=bytes.fromhex('c0035fd6')
+ return image,{'quiet_core_logger':{'address':'0x3c11c','kind':'ret'},'center':center,'dock':{'dispatch_base':hex(base),'dispatch_bytes':len(code),'patches':{hex(a):{'kind':'b','target':hex(t),'original':'7f2303d5'} for a,t in sites.items()}},'original_animation_transactions':True}
