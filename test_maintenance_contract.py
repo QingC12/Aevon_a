@@ -1,27 +1,49 @@
 """Maintenance safety: preserve every user-facing option/resource and validate only reversible packaging changes."""
 from pathlib import Path
-import hashlib, io, json, lzma, plistlib, subprocess, tarfile
+import hashlib, io, json, lzma, plistlib, tarfile
 R=Path(__file__).resolve().parent
 base=R/'inputs/base.deb';artifact=R/'build/stheno_2.0.15_iphoneos-arm64e.deb'
 manifest=json.loads((R/'build/build-manifest.json').read_text())
 assert hashlib.sha256(base.read_bytes()).hexdigest()=='67937ea54f1a79d43bb48242c436e0c78b0177ef79d251e4c21465286ee1dace'
 
-def ar(pkg,name):return subprocess.check_output(['ar','p',str(pkg),name])
+def ar_members(pkg):
+ raw=Path(pkg).read_bytes();assert raw[:8]==b'!<arch>\n';out={};pos=8
+ while pos<len(raw):
+  header=raw[pos:pos+60];assert header[58:60]==b'`\n';size=int(header[48:58]);name=header[:16].decode().strip().rstrip('/')
+  payload=raw[pos+60:pos+60+size]
+  if name.startswith('#1/'):
+   n=int(name[3:]);name=payload[:n].rstrip(b'\0').decode();payload=payload[n:]
+  out[name]=payload;pos+=60+size+(size%2)
+ return out
+def ar(pkg,name):return ar_members(pkg)[name]
 def members(pkg):
  with tarfile.open(fileobj=io.BytesIO(ar(pkg,'data.tar.xz'))) as t:
   return {m.name:t.extractfile(m).read() for m in t if m.isfile()}
 old,new=members(base),members(artifact)
-assert manifest['data_tar_uncompressed_bytes']==len(lzma.decompress(ar(artifact,'data.tar.xz')))
+artifact_bytes=artifact.read_bytes()
+assert manifest['artifact']==artifact.name and manifest['size']==len(artifact_bytes)
+assert manifest['sha256']==hashlib.sha256(artifact_bytes).hexdigest()
+data_archive=ar(artifact,'data.tar.xz');data_raw=lzma.decompress(data_archive)
+assert manifest['data_tar_uncompressed_bytes']==len(data_raw)
+assert manifest['data_tar_uncompressed_sha256']==hashlib.sha256(data_raw).hexdigest()
 assert manifest['data_tar_optimized_xz_bytes']<manifest['data_tar_default_xz_bytes']
-assert len(ar(artifact,'data.tar.xz'))==manifest['data_tar_optimized_xz_bytes']
-assert manifest['data_tar_bytes_saved']==manifest['data_tar_default_xz_bytes']-manifest['data_tar_optimized_xz_bytes']
-# The unpacked install payload is deliberately byte- and path-identical to the
-# ordinary deterministic GNU tar. Compression settings alone may change.
-assert len(new)==len(old)+4,(len(old),len(new))
-changed=[]
-for path in old:
- if path in new and old[path]!=new[path]:changed.append(path)
-allowed=['./Library/MobileSubstrate/DynamicLibraries/Stheno.dylib','./Library/MobileSubstrate/DynamicLibraries/SthenoKeyboard.dylib']
+assert len(data_archive)==manifest['data_tar_optimized_xz_bytes']
+assert manifest['data_tar_bytes_saved']==manifest['data_tar_default_xz_bytes']-len(data_archive)
+# Independently recompress with ordinary XZ and verify the same unpacked TAR.
+ordinary=lzma.compress(data_raw)
+assert len(ordinary)==manifest['data_tar_default_xz_bytes']
+assert lzma.decompress(ordinary)==data_raw
+# Exact file allowlist: no inherited file may disappear and no accidental
+# source, cache, debug output or extra payload may enter the package.
+added={
+ './Library/MobileSubstrate/DynamicLibraries/SthenoGesture.dylib',
+ './Library/MobileSubstrate/DynamicLibraries/SthenoKeyboardInset.dylib',
+ './Library/MobileSubstrate/DynamicLibraries/.stheno/Orion',
+ './Library/MobileSubstrate/DynamicLibraries/.stheno/Orion-LICENSE.txt',
+}
+assert set(new)==set(old)|added,(set(old)-set(new),set(new)-set(old)-added)
+changed={path for path in old if old[path]!=new[path]}
+allowed={'./Library/MobileSubstrate/DynamicLibraries/Stheno.dylib','./Library/MobileSubstrate/DynamicLibraries/SthenoKeyboard.dylib'}
 assert changed==allowed,changed
 for path in ['./usr/local/share/stheno/com.nx.stheno.plist',
  './Library/PreferenceBundles/SthenoPreference.bundle/Info.plist',
@@ -33,16 +55,16 @@ for path in ['./usr/local/share/stheno/com.nx.stheno.plist',
  './Library/Application Support/Stheno/en.lproj/Localizable.strings',
  './Library/Application Support/Stheno/zh-Hans.lproj/Localizable.strings']:
  assert old[path]==new[path],f'user setting or preference UI modified: {path}'
-template=plistlib.loads(new['./var/jb/usr/local/share/stheno/com.nx.stheno.plist'])
+template=plistlib.loads(new['./usr/local/share/stheno/com.nx.stheno.plist'])
 assert template['SettingMask']==1585815 and template['Inject'] is True and template['StatusBarGroup'] is True
 mask=template['SettingMask']
 assert [i for i in range(64) if mask&(1<<i)]==[0,1,2,4,7,9,12,13,19,20]
 assert not mask&(1<<27) and not mask&(1<<28)
 for p in ['control.tar.xz']:
  with tarfile.open(fileobj=io.BytesIO(ar(base,p))) as a,tarfile.open(fileobj=io.BytesIO(ar(artifact,p))) as b:
-  aa={x.name:a.extractfile(x).read() for x in a if x.isfile()};bb={x.name:b.extractfile(x).read() for x in b if x.isfile()}
+  aa={Path(x.name).name:a.extractfile(x).read() for x in a if x.isfile()};bb={Path(x.name).name:b.extractfile(x).read() for x in b if x.isfile()}
   for name in ['postinst','postrm']:assert aa[name]==bb[name]
-local=plistlib.loads(new['./var/jb/Library/Application Support/Stheno/zh-Hans.lproj/Localizable.strings'])
+local=plistlib.loads(new['./Library/Application Support/Stheno/zh-Hans.lproj/Localizable.strings'])
 for key in ['BlockInterceptor','SSInterceptor','SSInterceptorSilence','SSListen','SSNoUniversalLinks','SSNoSafariViewService','ForegroundNotify','FrontmostNotify','HookUIKit']:
  assert key in local,key
 

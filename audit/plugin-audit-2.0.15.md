@@ -30,14 +30,14 @@ The inherited `control/postinst` selects a template and may copy the complete pr
 
 ## Confirmed dead-source cleanup
 
-Removed only source/test items proven outside the production build and CI closure:
+Removed source outside the production compiler closure, together with its obsolete CI-only checks:
 
 - `GestureRules.h` and `test_gesture_rules.c`: obsolete experimental long-hold/upward-distance implementation; current native edge-middle release path is retained.
 - `KeyboardInsetMath.h` and `test_keyboard_inset.c`: obsolete window-relative old-inset reduction formula. No current production caller remained; current scene-only, physical-plane, and input-assembly tests remain.
 - `EditorVisibility.m`: superseded uncompiled implementation. `EditorVisibilityMath.h` is not removed because `EditorAssembly.h`, `EditorRefinement.h`, and active tests use it.
 - Unused Python `sys`/`shutil` imports and generated Python caches/one-off analysis scripts.
 
-Unused tuple-array/native animation bridge wrappers had already been absent from the current `native.S`; this audit confirms they are outside the source closure. Active `STHNativeGetScale`, `STHNativeGetOffset`, geometry setter, keyboard notification, first-presentation, and gesture bridges remain. `LayoutProbe` is still called by the composite row scan and consumed by the SpringBoard diagnostic receiver, so it is not dead. `NotificationPolicy` is constructor-reachable and deliberately retained as read-only. The full regression suite and all setting controls/resources remain.
+This release removes the unreferenced `_STHNativeAnimatePhysicalKeyboard` bridge and test-only `STHKeyboardCenterDelta` formula. Tuple-array wrappers were already absent. Active `STHNativeGetScale`, `STHNativeGetOffset`, geometry setter, keyboard notification, first-presentation, native animation entry and gesture bridges remain. `LayoutProbe` is still called by the composite row scan and consumed by the SpringBoard diagnostic receiver, so it is not dead. `NotificationPolicy` is constructor-reachable and deliberately retained as read-only. Current-production regression tests and all setting controls/resources remain.
 
 ## DEB size and exact payload
 
