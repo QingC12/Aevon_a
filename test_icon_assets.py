@@ -25,7 +25,7 @@ def decode(raw):
  return w,h,rows
 hashes=[]
 for name in ('screenshot','screen-recording','app-picker'):
- for scale in (1,2,3):
+ for scale in (1,):
   suffix='' if scale==1 else f'@{scale}x';p=R/(name+suffix+'.png');raw=p.read_bytes();w,h,rows=decode(raw);assert w==h==60*scale
   def pixel(x,y):return tuple(rows[y][x*4:x*4+4])
   assert pixel(0,0)[3]==0
@@ -36,5 +36,5 @@ for name in ('screenshot','screen-recording','app-picker'):
   colors={tuple(row[i:i+4]) for row in rows for i in range(0,len(row),4)}
   assert len(colors)>100 and any(c[0]>245 and c[1]>245 and c[2]>245 and c[3]>245 for c in colors)
   hashes.append(hashlib.sha256(raw).hexdigest())
-assert len(set(hashes))==9
-print('Nine actual PNG assets decoded: correct dimensions, colored opaque background, transparent rounded corners, white glyph detail; no blank/template images')
+assert len(set(hashes))==3 and len(list(R.glob('*.png')))==3
+print('Three default PNG assets decoded: correct dimensions, colored opaque background, transparent rounded corners, white glyph detail; no blank/template images')

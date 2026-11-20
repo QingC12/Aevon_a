@@ -109,14 +109,7 @@ BOOL STHResolveKeyboardScene(UIWindowScene *scene,UIWindow *keyboard,CGRect phys
  return YES;
 }
 
-static void decision(UIWindowScene *scene,CGRect frame,double inset) {
- static CFTimeInterval last=0;CFTimeInterval now=CACurrentMediaTime();
- STHReportNotificationFrame(NSBundle.mainBundle.bundleIdentifier,scene.coordinateSpace.bounds,frame);
- STHReportLayout(NSBundle.mainBundle.bundleIdentifier,inset,YES);
- if(now-last<.25)return;last=now;
- STHWriteLayoutLog([NSString stringWithFormat:@"decision source=%@ scene=%@ end=%@ inset=%.3f (computed, not measured editor)",
-   resolutionSource,NSStringFromCGRect(scene.coordinateSpace.bounds),NSStringFromCGRect(frame),inset]);
-}
+
 static BOOL sceneHasFocus(UIView *view,int depth,int *budget){
  if(!view||view.hidden||view.alpha<.01||depth>18||--*budget<0)return NO;
  if(view.isFirstResponder)return YES;
@@ -183,7 +176,7 @@ static NSDictionary *normalizedInfo(NSNotification *note,SEL selector) {
    STHSessionCommit(&session,rectValue(end));
    result=frameInfo(raw,begin,end);
    objc_setAssociatedObject(note,&cachedInfoKey,result,OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-   decision(scene,end,inset);
+
    if(hide)updateEditorVisibility(NO);
    else if([name isEqualToString:UIKeyboardDidShowNotification]||[name isEqualToString:UIKeyboardDidChangeFrameNotification])updateEditorVisibility(YES);
   }
@@ -208,7 +201,7 @@ static BOOL prepareKeyboardLifecycle(NSString *name,int phase){
  if(willHide){STHEditorWillHide(&editorLifecycle);updateEditorVisibility(NO);return YES;}
  if(didHide){
   if(!STHEditorDidHide(&editorLifecycle)&&phase>0&&editorLifecycle.active){
-   STHWriteLayoutLog(@"stale DidHide ignored after newer show");return NO;
+   ;return NO;
   }
   updateEditorVisibility(NO);return YES;
  }
@@ -268,7 +261,7 @@ static void refreshHostedLayout(void) {
   // Invalidate layout so a UIKit-only input client re-queries the SAME scene inset.
   UIWindow *target=STHTargetKeyboardWindow(scene,nil);
   [target setNeedsLayout];[target.rootViewController.view setNeedsLayout];
-  decision(scene,end,inset);
+
   updateEditorVisibility(YES);
  }@catch(NSException *e){}
  postingLayoutRefresh=NO;
@@ -283,5 +276,5 @@ void STHInstallKeyboardNotifications(void) {
   if(refreshQueued)return;refreshQueued=YES;
   dispatch_async(dispatch_get_main_queue(),^{refreshQueued=NO;refreshHostedLayout();});
  });
- STHWriteLayoutLog(@"2.0.14 app adapter: validated keyplanes, native geometry shield, bounded clipped-row repair; normal routes preserved");
+
 }

@@ -58,7 +58,7 @@ jobs:
         run: |
           xcrun --sdk macosx clang -std=c11 -Wall -Wextra -Werror test_layout_math.c -o /tmp/stheno-layout-math
           /tmp/stheno-layout-math
-          xcrun --sdk macosx clang -fobjc-arc -Wall -Wextra -Wno-unused-parameter test_layout_bus.m LayoutBus.m LayoutProbe.m -framework Foundation -framework QuartzCore -framework CoreGraphics -o /tmp/stheno-layout-bus
+          xcrun --sdk macosx clang -fobjc-arc -Wall -Wextra -Wno-unused-parameter test_layout_bus.m LayoutBus.m -framework Foundation -framework QuartzCore -framework CoreGraphics -o /tmp/stheno-layout-bus
           /tmp/stheno-layout-bus
       - name: Test default size only on first presentation
         run: |
@@ -89,6 +89,9 @@ jobs:
           /tmp/stheno-chooser-catalog
           xcrun --sdk macosx clang -std=c11 -Wall -Wextra -Werror test_chooser_motion.c -o /tmp/stheno-chooser-motion
           /tmp/stheno-chooser-motion
+          xcrun swiftc -D STH_DOCK_TEST DockQueue.swift test_dock_queue.swift -o /tmp/stheno-dock-queue
+          /tmp/stheno-dock-queue
+          python3 test_update18_contract.py
           python3 test_chooser_contract.py
       - name: Verify private Orion ABI and isolation
         run: python3 test_embed_orion.py

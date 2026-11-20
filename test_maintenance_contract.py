@@ -45,7 +45,7 @@ added={
 if manifest.get('system_actions'):
  added.add('./Library/MobileSubstrate/DynamicLibraries/SthenoSystemActions.dylib')
 if manifest.get('icon_resources'):
- assert len(manifest['icon_resources'])==9
+ assert len(manifest['icon_resources'])==3
  for filename,digest in manifest['icon_resources'].items():
   assert '/' not in filename and filename.endswith('.png')
   path='./Library/Application Support/Stheno/SystemActions/'+filename
@@ -80,11 +80,11 @@ for key in ['BlockInterceptor','SSInterceptor','SSInterceptorSilence','SSListen'
 # Explicit production compiler closure. Tests, audit notes, probes remain source
 # tools but none enter the DEB as accidental data files.
 build=(R/'build.py').read_text()
-for src in ['Gesture.m','Keyboard.m','DefaultSize.m','LayoutPublisher.m','NotificationPolicy.m','LayoutBus.m','LayoutProbe.m','EditorGuard.m','EditorPolicy.m','EditorRefinedGuard.m','EditorCompositeGuard.m','KeyboardMeasurement.m','KeyboardRefinedMeasurement.m','KeyboardCompositeMeasurement.m']:
+for src in ['Gesture.m','Keyboard.m','DefaultSize.m','LayoutPublisher.m','LayoutBus.m','EditorGuard.m','EditorPolicy.m','EditorRefinedGuard.m','EditorCompositeGuard.m','KeyboardMeasurement.m','KeyboardRefinedMeasurement.m','KeyboardCompositeMeasurement.m']:
  assert f"'{src}'" in build,src
 for removed in ['GestureRules.h','test_gesture_rules.c','KeyboardInsetMath.h','test_keyboard_inset.c','EditorVisibility.m']:
  assert not (R/removed).exists(),removed
-for live in ['LayoutProbe.m','LayoutProbe.h','NotificationPolicy.m','EditorVisibilityMath.h','KeyboardCoordinates.h']:
+for live in ['EditorVisibilityMath.h','KeyboardCoordinates.h']:
  assert (R/live).exists(),live
 assert '.gitignore' in [p.name for p in R.iterdir()]
-print('Maintenance checks passed: all original preference/UI/toggle assets preserved; settings defaults and install scripts unchanged; compression round-trip identical; data XZ savings',manifest['data_tar_bytes_saved'],'bytes; only allowlisted runtime modules added; active probes retained')
+print('Maintenance checks passed: all original preference/UI/toggle assets preserved; settings defaults and install scripts unchanged; compression round-trip identical; data XZ savings',manifest['data_tar_bytes_saved'],'bytes; only allowlisted runtime modules added; diagnostic emitters removed')

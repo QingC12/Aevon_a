@@ -24,8 +24,8 @@ static NSMapTable<UIView *,STHRefinedTransform *> *adjustments;
 static __weak UIView *lastComposer;
 static CADisplayLink *display;
 static BOOL active;
-static CFTimeInterval fastUntil,lastTick,lastReport;
-static int lastStage;
+static CFTimeInterval fastUntil,lastTick;
+
 extern BOOL STHMeasuredKeyboardRefined(UIWindowScene *,UIView *,CGRect *,double *);
 static CGRect measuredCandidate;
 static __weak UIWindowScene *measuredScene;
@@ -33,8 +33,8 @@ static CFTimeInterval measuredAt;
 static BOOL haveMeasured;
 static CGRect lastControlBounds;
 static CFTimeInterval controlsStableAt;
-static CFTimeInterval lastDetail;
-static NSString *keyboardSource;
+
+
 static BOOL shown(UIView *v){return v&&!v.hidden&&v.alpha>.01&&v.window;}
 static BOOL keyboardWindow(UIWindow *w){return [NSStringFromClass(w.class) containsString:@"Keyboard"];}
 static BOOL editing(UIView *v){return v&&([v isKindOfClass:UITextField.class]||[v isKindOfClass:UITextView.class]||[v conformsToProtocol:@protocol(UITextInput)]);}
@@ -195,12 +195,7 @@ static BOOL moveView(UIView *view,UIWindowScene *scene,double lift){
  s.applied=t;s.sceneY=-lift;
  [UIView performWithoutAnimation:^{view.transform=t;}];return YES;
 }
-static void report(int stage,CGRect r,double top,double lift,unsigned rows){
- double now=CACurrentMediaTime();if(stage==lastStage&&now-lastReport<.5)return;
- lastStage=stage;lastReport=now;
- STHReportEditor(NSBundle.mainBundle.bundleIdentifier,stage,r,top,lift,rows);
- STHWriteLayoutLog([NSString stringWithFormat:@"editor-stage=%d frame=%@ keysTop=%.3f appliedLift=%.3f rows=%u",stage,NSStringFromCGRect(r),top,lift,rows]);
-}
+
 @interface STHRefinedEditorGuard:NSObject
 +(void)tick:(CADisplayLink *)link;
 @end
@@ -211,22 +206,22 @@ static void report(int stage,CGRect r,double top,double lift,unsigned rows){
  // on hide/expired host: no scanning unrelated full-screen applications.
  if(now-lastTick<(now<fastUntil?.028:.095))return;lastTick=now;
  int phase=STHLayoutStatus(NSBundle.mainBundle.bundleIdentifier);
- if(!phase){active=NO;[display invalidate];display=nil;restoreAll();report(6,CGRectZero,0,0,0);return;}
- if(phase!=1){report(1,CGRectZero,0,0,0);return;}
+ if(!phase){active=NO;[display invalidate];display=nil;restoreAll();return;}
+ if(phase!=1){return;}
  UIView *field=currentEditor();
- if(!field){restoreAll();report(2,CGRectZero,0,0,0);return;}
+ if(!field){restoreAll();return;}
  UIWindow *window=field.window;UIWindowScene *scene=window.windowScene;
  if(!scene||keyboardWindow(window)||!UIInterfaceOrientationIsPortrait(scene.interfaceOrientation))return;
  CGRect keys;double inset=0;
- if(!STHReadLayout(NSBundle.mainBundle.bundleIdentifier,scene.coordinateSpace.bounds,&keys,&inset)){report(1,CGRectZero,0,0,0);return;}
- CGRect measuredKeys;double measuredInset=0;keyboardSource=@"host-committed";
+ if(!STHReadLayout(NSBundle.mainBundle.bundleIdentifier,scene.coordinateSpace.bounds,&keys,&inset)){return;}
+ CGRect measuredKeys;double measuredInset=0;
  if(STHMeasuredKeyboardRefined(scene,field,&measuredKeys,&measuredInset)){
   BOOL same=haveMeasured&&measuredScene==scene&&fabs(measuredKeys.origin.y-measuredCandidate.origin.y)<=.5&&
    fabs(measuredKeys.size.height-measuredCandidate.size.height)<=.5;
   if(!same){measuredCandidate=measuredKeys;measuredAt=now;haveMeasured=YES;measuredScene=scene;}
   // Use only repeated current samples. Do not permanently lock the first563
   // or warm590 source; no synthetic27pt compensation.
-  else if(now-measuredAt>=.06){keys=measuredKeys;inset=measuredInset;keyboardSource=@"measured-excluding-app-accessory";}
+  else if(now-measuredAt>=.06){keys=measuredKeys;inset=measuredInset;}
  }else haveMeasured=NO;
  UIView *root=nil;
  for(UIView *v=field;v&&v!=window;v=v.superview){
@@ -235,7 +230,7 @@ static void report(int stage,CGRect r,double top,double lift,unsigned rows){
   if(STHCompactComposer(r.size.width,r.size.height,scene.coordinateSpace.bounds.size.width,
       scene.coordinateSpace.bounds.size.height,[v isKindOfClass:UIScrollView.class])){root=v;break;}
  }
- if(!root||!root.superview){restoreAll();report(3,[field convertRect:field.bounds toCoordinateSpace:scene.coordinateSpace],keys.origin.y,0,0);return;}
+ if(!root||!root.superview){restoreAll();return;}
  if(lastComposer!=root){restoreAll();lastComposer=root;controlsStableAt=now;lastControlBounds=CGRectNull;}
  CGRect original;NSArray<UIView *> *views=assembly(root,scene,&original);
  // A removed/reparented toolbar must not retain an old transform.
@@ -272,20 +267,13 @@ static void report(int stage,CGRect r,double top,double lift,unsigned rows){
  for(UIView *v in views){if(v.superview)changed=moveView(v,scene,lift)||changed;}
  CGRect measured=measuredGroup(views,scene);
  unsigned rows=(unsigned)views.count-1+protrudingCount;
- report(changed?5:4,measured,keys.origin.y,lift,rows);
- if(changed||now-lastDetail>=.75){lastDetail=now;
-  unsigned flags=(transparent(root)?1u:0u)|(protrudingCount?2u:0u)|([keyboardSource hasPrefix:@"measured"]?4u:0u)|(closeTail?8u:0u);
-  if(!CGRectIsNull(controls))STHReportEditor(NSBundle.mainBundle.bundleIdentifier,7,controls,keys.origin.y,lift,flags);
-  STHWriteLayoutLog([NSString stringWithFormat:@"refined-editor class=%@ field=%@ root=%@ actual=%@ controls=%@ result=%@ keysTop=%.3f source=%@ shift=%.3f rows=%u transparent=%d",
-   NSStringFromClass(root.class),NSStringFromClass(field.class),NSStringFromCGRect(original),NSStringFromCGRect(actual),
-   NSStringFromCGRect(controls),NSStringFromCGRect(measured),keys.origin.y,keyboardSource,lift,rows,transparent(root)]);
- }
+
 }
 @end
 void STHEditorVisibilityRefinedEvent(BOOL showing){
  if(![NSThread isMainThread])return;
- if(!showing){active=NO;haveMeasured=NO;measuredScene=nil;[display invalidate];display=nil;restoreAll();report(6,CGRectZero,0,0,0);return;}
- if(!active){active=YES;lastTick=0;report(1,CGRectZero,0,0,0);}
+ if(!showing){active=NO;haveMeasured=NO;measuredScene=nil;[display invalidate];display=nil;restoreAll();return;}
+ if(!active){active=YES;lastTick=0;}
  fastUntil=CACurrentMediaTime()+1.2;
  if(!display){display=[CADisplayLink displayLinkWithTarget:STHRefinedEditorGuard.class selector:@selector(tick:)];
   display.preferredFramesPerSecond=30;[display addToRunLoop:NSRunLoop.mainRunLoop forMode:NSRunLoopCommonModes];}

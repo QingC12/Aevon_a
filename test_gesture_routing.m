@@ -70,7 +70,13 @@ int main(void) {
   assert(ends==3&&!nativeWouldClose);
   assert(fabs(movedBy.width-35)<.001&&fabs(movedBy.height-10)<.001);
   assert(docked==0&&updates==0&&setups==3);
-  puts("Production yellow routing passed: immediate move, native release, no hold gate");
+  assert(STHClassify(m,CGPointMake(120,120))==6);
+  STHSetup(&drag,m);
+  assert(STHClassify(m,CGPointMake(222,420))==6);
+  STHUpdate(&drag,m);STHLong(m);STHTap(m,1);STHEnd(&drag,m);
+  assert(docked==0&&updates==0&&setups==3&&ends==3&&longs==0);
+  assert(STHClassify(m,CGPointMake(18,120))!=6);
+  puts("Production routing passed: native edge release and immutable content touch ownership");
  }
  return 0;
 }

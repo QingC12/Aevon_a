@@ -58,9 +58,6 @@ BOOL STHMeasuredKeyboardComposite(UIWindowScene *scene,UIView *field,CGRect *map
  // as a substitute keyplane. In the log these added the app's57/61pt row.
  for(int pass=0;pass<3;pass++)for(UIWindow *w in windows){int budget=700;assistantRows(w,s,physical,appRows,0,&budget,&keys);}
  if(quality==0&&CGRectEqualToRect(keys,host))return NO; // keep host path, do not label it a local measurement
- static CFTimeInterval last=0;
- if(CACurrentMediaTime()-last>.75){last=CACurrentMediaTime();
-  STHWriteLayoutLog([NSString stringWithFormat:@"physical-keys v2.0.14 host=%@ selected=%@ confidence=%d appAccessories=%lu",NSStringFromCGRect(host),NSStringFromCGRect(keys),quality,(unsigned long)appRows.count]);
- }
+
  return STHReadLayoutUsingKeyboard(NSBundle.mainBundle.bundleIdentifier,scene.coordinateSpace.bounds,keys,mapped,inset);
 }

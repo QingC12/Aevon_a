@@ -1,10 +1,10 @@
 from pathlib import Path
-import hashlib
+import hashlib,json
 r=Path(__file__).resolve().parent
 legacy=(r/'EditorGuard.m').read_text()
 restored=legacy.replace('STHEditorVisibilityLegacyEvent','STHEditorVisibilityEvent').replace(
  ' extern BOOL STHRefinementEnabled(void);if(STHRefinementEnabled())return;\n','')
-assert hashlib.sha256(restored.encode()).hexdigest()=='f6e301457fe5fb8a75a7d6fa689162452eef445a50f1987079c0ce42c0791a70'
+assert hashlib.sha256(legacy.encode()).hexdigest()==json.loads((r/'inputs/reviewed-runtime-2.0.18.json').read_text())['EditorGuard.m']
 assert hashlib.sha256((r/'KeyboardMeasurement.m').read_bytes()).hexdigest()=='610dad7b084df1a5f3ad5806b65824fd794eea2a441289c823b3e08e6ba31c3f'
 policy=(r/'EditorPolicy.m').read_text()
 assert 'else STHEditorVisibilityLegacyEvent(showing)' in policy
@@ -22,4 +22,4 @@ assert 'CGRect keys=CGRectIsNull(exact)?fallback:exact' in measure
 build=(r/'build.py').read_text()
 for source in ['EditorPolicy.m','EditorRefinedGuard.m','KeyboardRefinedMeasurement.m']:
  assert source in build
-print('2.0.11 legacy code hashes preserved; refined profiles, compact root, clipping/emoji descendants and declared-accessory exclusion wired')
+print('Legacy functional route retained; diagnostic deletion reviewed; refined profiles, compact root, clipping/emoji descendants and declared-accessory exclusion wired')

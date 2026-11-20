@@ -6,17 +6,14 @@ UIImage *STHSystemActionIcon(NSString *identifier,CGFloat requestedScale);
 
 // Full-color bitmap assets are private resources beside the tweak's Library
 // tree. Resolve the actual RootHide path from this loaded image, not /var/jb.
-static UIImage *bundledIcon(NSString *name,CGFloat scale){
+static UIImage *bundledIcon(NSString *name){
  Dl_info info={0};
  if(!dladdr((const void *)&STHSystemActionIcon,&info)||!info.dli_fname)return nil;
  NSString *library=[[[NSString stringWithUTF8String:info.dli_fname] stringByDeletingLastPathComponent] stringByDeletingLastPathComponent];
  library=[library stringByDeletingLastPathComponent];
  NSString *directory=[library stringByAppendingPathComponent:@"Application Support/Stheno/SystemActions"];
- NSInteger density=scale>=2.5?3:(scale>=1.5?2:1);
- NSString *suffix=density==1?@".png":[NSString stringWithFormat:@"@%ldx.png",(long)density];
- UIImage *image=[UIImage imageWithContentsOfFile:[directory stringByAppendingPathComponent:[name stringByAppendingString:suffix]]];
- if(!image.CGImage)return nil;
- return [[UIImage imageWithCGImage:image.CGImage scale:density orientation:UIImageOrientationUp] imageWithRenderingMode:UIImageRenderingModeAlwaysOriginal];
+ UIImage *image=[UIImage imageWithContentsOfFile:[directory stringByAppendingPathComponent:[name stringByAppendingString:@".png"]]];
+ return [image imageWithRenderingMode:UIImageRenderingModeAlwaysOriginal];
 }
 
 // Return the icon content only. The ORIGINAL SwiftUI row/ring supplies the
@@ -24,13 +21,13 @@ static UIImage *bundledIcon(NSString *name,CGFloat scale){
 UIImage *STHSystemActionIcon(NSString *identifier,CGFloat requestedScale){
  STHSystemAction action=STHSystemActionForIdentifier(identifier.UTF8String);
  if(action==STHSystemActionNone)return nil;
- CGFloat scale=isfinite(requestedScale)&&requestedScale>=1&&requestedScale<=4?requestedScale:UIScreen.mainScreen.scale;
- if(scale<1||scale>4)scale=2;
+ (void)requestedScale;
+ CGFloat scale=1;
  static NSCache<NSString *,UIImage *> *cache;
  static dispatch_once_t once;dispatch_once(&once,^{cache=[NSCache new];cache.countLimit=12;});
  NSString *key=[NSString stringWithFormat:@"%d:%.2f",action,(double)scale];
  UIImage *cached=[cache objectForKey:key];if(cached)return cached;
- UIImage *asset=bundledIcon(action==STHSystemActionScreenshot?@"screenshot":@"screen-recording",scale);
+ UIImage *asset=bundledIcon(action==STHSystemActionScreenshot?@"screenshot":@"screen-recording");
  if(asset){[cache setObject:asset forKey:key];return asset;}
  UIGraphicsImageRendererFormat *format=[UIGraphicsImageRendererFormat defaultFormat];
  format.scale=scale;format.opaque=NO;
@@ -68,7 +65,7 @@ UIImage *STHSystemActionIcon(NSString *identifier,CGFloat requestedScale){
  if(image)[cache setObject:image forKey:key];return image;
 }
 UIImage *STHAppChooserIcon(CGFloat scale){
- UIImage *asset=bundledIcon(@"app-picker",scale);if(asset)return asset;
+ (void)scale;UIImage *asset=bundledIcon(@"app-picker");if(asset)return asset;
  // Visible, full-color fallback only if a damaged installation omits assets.
  UIGraphicsImageRenderer *renderer=[[UIGraphicsImageRenderer alloc] initWithSize:CGSizeMake(60,60)];
  return [[renderer imageWithActions:^(UIGraphicsImageRendererContext *context){

@@ -30,7 +30,8 @@ assert 'setNeedsLayout' in coordinates
 assert delivery.index('normalizedInfo(note')<delivery.index('centerPost(center')
 assert 'installDelivery();' in coordinates
 assert 'STHSettleSample(&settling' in publisher
-assert 'initial-sync session=' in publisher
+assert 'settling.haveCommitted=YES;settling.committedCard=rr(card);settling.committedKeys=rr(keys);' in publisher
+assert 'STHPublishLayout(observedBundle,card,keys,YES);lastHeartbeat=CACurrentMediaTime();' in publisher
 assert 't.writerActive=NO;notify_set_state(t.commit,0)' in bus # only deactivation
 assert 'if(changed)notify_post' in bus # silent heartbeat, not repeated layout events
 editor=(root/'EditorGuard.m').read_text()
@@ -38,6 +39,6 @@ assert 'prepareKeyboardLifecycle(note.name,status)' in delivery.split('if(status
 assert 'STHEditorDidHide(&editorLifecycle)' in coordinates
 assert refresh.index('updateEditorVisibility(YES)')<refresh.index('if(phase==2||!session.visible)return')
 assert 'now>deadline' not in editor and 'currentEditor()' in editor
-assert 'STHReportEditor' in editor and 'STHEditorAttachedRow' in editor
-assert 'STHReportEditor' in bus and 'editor-report bundle=' in bus
+assert 'STHReportEditor' not in editor and 'STHEditorAttachedRow' in editor
+assert 'STHReportEditor' not in bus and 'editor-report bundle=' not in bus
 print('Scene routing, immediate immutable delivery and independent repeat-show editor lifecycle verified')

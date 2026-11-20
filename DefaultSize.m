@@ -19,7 +19,7 @@ void STHFirstPresentation(void *model) {
   // the native presentation transaction; do not schedule a second jump/reset.
   STHNativeInitialSize(model);
 #if !defined(STH_DEFAULT_SIZE_TEST)
-  STHWriteLayoutLog(@"first presentation: default size and aspect initialized");
+
 #endif
  }
 }

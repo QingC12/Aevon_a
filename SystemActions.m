@@ -16,7 +16,7 @@ static UIWindow *errorWindow;
 
 static void showError(NSError *error){
  if(!error)return;
- NSLog(@"[Stheno system actions] %@",error.localizedDescription);
+
  if(errorWindow)return;
  UIWindowScene *scene=nil;
  for(UIScene *candidate in UIApplication.sharedApplication.connectedScenes)
@@ -62,7 +62,8 @@ BOOL STHSystemActionPresent(void *model){
 __attribute__((constructor)) static void installSystemActions(void){
  if(![NSBundle.mainBundle.bundleIdentifier isEqualToString:@"com.apple.springboard"])return;
  if(!STHSystemActionRuntimeReady())return;
- BOOL icon=STHInstallSystemActionIconHook();
+ (void)STHInstallSystemActionIconHook();
+ extern void STHInstallSystemVisibility(void),STHInstallDockQueue(void);
+ STHInstallSystemVisibility();STHInstallDockQueue();
  STHInstallCenterChooser();
- NSLog(@"[Stheno 2.0.17] colored action icons and center app chooser ready; icon hook=%d",icon);
 }

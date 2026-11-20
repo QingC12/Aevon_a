@@ -1,8 +1,6 @@
 #import "LayoutBus.h"
-#import "LayoutProbe.h"
 #import <QuartzCore/QuartzCore.h>
 #import <notify.h>
-#import <syslog.h>
 
 @interface STHLayoutTokens : NSObject
 @property int card0;
@@ -11,14 +9,8 @@
 @property int keys1;
 @property int commit;
 @property int preview;
-@property int ack;
-@property int appScene;
-@property int appFrame;
-@property int editorFrame;
-@property int editorState;
 @property int observed;
 @property BOOL valid;
-@property BOOL ackObserved;
 @property BOOL writerActive;
 @property uint64_t serial;
 @property uint64_t lastCard;
@@ -43,29 +35,9 @@ static STHLayoutTokens *getTokens(NSString *bundle) {
  t.card0=registerState(bundle,@"card0");t.card1=registerState(bundle,@"card1");
  t.keys0=registerState(bundle,@"keys0");t.keys1=registerState(bundle,@"keys1");
  t.preview=registerState(bundle,@"preview");
- t.commit=registerState(bundle,@"commit");t.ack=registerState(bundle,@"ack");
- t.editorFrame=registerState(bundle,@"editorFrame");t.editorState=registerState(bundle,@"editorState");
- t.appScene=registerState(bundle,@"appScene");t.appFrame=registerState(bundle,@"appFrame");
- t.valid=t.card0>=0&&t.card1>=0&&t.keys0>=0&&t.keys1>=0&&t.commit>=0&&t.ack>=0;
+ t.commit=registerState(bundle,@"commit");
+ t.valid=t.card0>=0&&t.card1>=0&&t.keys0>=0&&t.keys1>=0&&t.commit>=0;
  tokens[bundle]=t;return t;
-}
-void STHWriteLayoutLog(NSString *line) {
- if(![line isKindOfClass:NSString.class])return;
- NSString *text=[NSString stringWithFormat:@"%.3f %@ %@\n",CACurrentMediaTime(),NSBundle.mainBundle.bundleIdentifier,line];
- NSData *data=[text dataUsingEncoding:NSUTF8StringEncoding];
- NSArray *paths=@[@"/var/mobile/Documents/SthenoKeyboardLayout.log",
-  [NSHomeDirectory() stringByAppendingPathComponent:@"Documents/SthenoKeyboardLayout.log"],
-  [NSTemporaryDirectory() stringByAppendingPathComponent:@"SthenoKeyboardLayout.log"]];
- for(NSString *path in paths){@try{
-  NSFileManager *fm=NSFileManager.defaultManager;
-  [fm createDirectoryAtPath:path.stringByDeletingLastPathComponent withIntermediateDirectories:YES attributes:nil error:NULL];
-  NSDictionary *attr=[fm attributesOfItemAtPath:path error:NULL];
-  if([attr[NSFileSize] unsignedLongLongValue]>524288)[fm removeItemAtPath:path error:NULL];
-  if(![fm fileExistsAtPath:path]&&![fm createFileAtPath:path contents:nil attributes:@{NSFilePosixPermissions:@0600}])continue;
-  NSFileHandle *f=[NSFileHandle fileHandleForWritingAtPath:path];if(!f)continue;
-  [f seekToEndOfFile];[f writeData:data];[f closeFile];return;
- }@catch(NSException *e){}}
- syslog(LOG_NOTICE,"Stheno keyboard layout: %s",line.UTF8String);
 }
 static uint64_t nowMilliseconds(void){return (uint64_t)(CACurrentMediaTime()*1000.0);}
 static BOOL recent(uint64_t state){uint64_t stamp=state&0x0000ffffffffffffULL,now=nowMilliseconds();return (state>>63)&&now>=stamp&&now-stamp<=1500;}
@@ -99,26 +71,6 @@ BOOL STHPublishLayout(NSString *bundle,CGRect card,CGRect keyboard,BOOL active){
  if(notify_set_state(t.commit,commit)!=0)return NO;
  t.lastCard=a;t.lastKeys=b;t.writerActive=YES;
  if(changed)notify_post(channel(bundle,@"changed").UTF8String); // heartbeat is silent
- if(!t.ackObserved){
-  STHObserveLayoutProbe(bundle);
-  t.ackObserved=YES;int observed=-1;
-  notify_register_dispatch(channel(bundle,@"applied").UTF8String,&observed,dispatch_get_main_queue(),^(int n){
-   uint64_t ack=0,scene=0,frame=0;
-   notify_get_state(t.appScene,&scene);notify_get_state(t.appFrame,&frame);notify_get_state(t.ack,&ack);
-   STHRect s=STHUnpackRect(scene),f=STHUnpackRect(frame);
-   STHWriteLayoutLog([NSString stringWithFormat:@"app-ack bundle=%@ overlap=%.3f computed=%d scene={%.3f,%.3f,%.3f,%.3f} notice={%.3f,%.3f,%.3f,%.3f}",bundle,(ack&0xffffffffULL)/8.0,(int)(ack>>63),s.x,s.y,s.w,s.h,f.x,f.y,f.w,f.h]);
-  });
-  int editorObserve=-1;
-  notify_register_dispatch(channel(bundle,@"editorMeasured").UTF8String,&editorObserve,dispatch_get_main_queue(),^(int n){
-   uint64_t before=0,after=0,rect=0;
-   notify_get_state(t.editorState,&before);notify_get_state(t.editorFrame,&rect);notify_get_state(t.editorState,&after);
-   if(before!=after||!(after>>63))return;
-   STHRect f=STHUnpackRect(rect);
-   int stage=(after>>48)&255;double key=(int16_t)(after&65535)/8.0;
-   double lift=(int16_t)((after>>16)&65535)/8.0;unsigned rows=(after>>32)&255;
-   STHWriteLayoutLog([NSString stringWithFormat:@"editor-report bundle=%@ stage=%d frame={%.3f,%.3f,%.3f,%.3f} keysTop=%.3f appliedLift=%.3f rows=%u (measured when stage4/5)",bundle,stage,f.x,f.y,f.w,f.h,key,lift,rows]);
-  });
- }
  return YES;
 }
 BOOL STHReadLayout(NSString *bundle,CGRect appBounds,CGRect *local,double *overlap){
@@ -140,17 +92,6 @@ void STHObserveLayout(NSString *bundle,dispatch_block_t block){
  STHLayoutTokens *t=getTokens(bundle);if(!t.valid||t.observed!=-1||!block)return;
  int n=-1;if(notify_register_dispatch(channel(bundle,@"changed").UTF8String,&n,dispatch_get_main_queue(),^(int token){block();})==0)t.observed=n;
 }
-void STHReportLayout(NSString *bundle,double overlap,BOOL applied){
- STHLayoutTokens *t=getTokens(bundle);if(!t.valid||!isfinite(overlap)||overlap<0)return;
- uint64_t ack=((uint64_t)llround(overlap*8)&0xffffffffULL)|(applied?(1ULL<<63):0);
- if(notify_set_state(t.ack,ack)==0)notify_post(channel(bundle,@"applied").UTF8String);
-}
-void STHReportNotificationFrame(NSString *bundle,CGRect scene,CGRect frame){
- STHLayoutTokens *t=getTokens(bundle);if(!t.valid)return;
- uint64_t a=0,b=0;
- if(STHPackRect((STHRect){scene.origin.x,scene.origin.y,scene.size.width,scene.size.height},&a))notify_set_state(t.appScene,a);
- if(STHPackRect((STHRect){frame.origin.x,frame.origin.y,frame.size.width,frame.size.height},&b))notify_set_state(t.appFrame,b);
-}
 
 BOOL STHPreviewLayout(NSString *bundle,CGRect card){
  STHLayoutTokens *t=getTokens(bundle);uint64_t bits=0;
@@ -170,18 +111,6 @@ BOOL STHReadPreview(NSString *bundle,CGRect keys,CGRect scene,CGRect *local,doub
  if(!STHMapHostedKeyboard(c,(STHRect){keys.origin.x,keys.origin.y,keys.size.width,keys.size.height},
   (STHRect){scene.origin.x,scene.origin.y,scene.size.width,scene.size.height},&out,inset))return NO;
  if(local)*local=CGRectMake(out.x,out.y,out.w,out.h);return YES;
-}
-
-void STHReportEditor(NSString *bundle,int stage,CGRect frame,double top,double lift,unsigned rows){
- STHLayoutTokens *t=getTokens(bundle);if(!t.valid||t.editorFrame<0||t.editorState<0||!isfinite(top)||!isfinite(lift))return;
- static uint64_t sequence;
- uint64_t r=0;
- if(frame.size.width>1&&frame.size.height>1&&!STHPackRect((STHRect){frame.origin.x,frame.origin.y,frame.size.width,frame.size.height},&r))return;
- uint16_t k=(uint16_t)(int16_t)llround(fmax(-4095,fmin(4095,top))*8);
- uint16_t l=(uint16_t)(int16_t)llround(fmax(-4095,fmin(4095,lift))*8);
- uint64_t state=(1ULL<<63)|((uint64_t)(stage&255)<<48)|((++sequence&127)<<40)|((uint64_t)(rows&255)<<32)|((uint64_t)l<<16)|k;
- notify_set_state(t.editorState,0);notify_set_state(t.editorFrame,r);notify_set_state(t.editorState,state);
- notify_post(channel(bundle,@"editorMeasured").UTF8String);
 }
 
 BOOL STHReadLayoutUsingKeyboard(NSString *bundle,CGRect scene,CGRect keys,CGRect *mapped,double *inset){

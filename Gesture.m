@@ -23,7 +23,7 @@ extern int STHNativeClassify(void *,CGPoint);
 extern CGSize STHNativeTranslation(void *);
 extern void STHNativeMove(void *,CGSize);
 
-typedef NS_ENUM(int, Zone) { ZOriginal, ZSide, ZCorner, ZRotate, ZReset, ZMove, ZReturnPortrait };
+typedef NS_ENUM(int, Zone) { ZOriginal, ZSide, ZCorner, ZRotate, ZReset, ZMove, ZReturnPortrait, ZContent };
 @interface STHGestureState : NSObject
 @property Zone zone;
 @property CGPoint start;
@@ -80,8 +80,10 @@ int STHClassify(void *m,CGPoint p) {
  ensureBase();
  STHGestureState *s=state(m);
  // Native scene hit-testing may query classification again during a drag.
- if (s.dragActive && s.zone==ZMove) return s.lockedHit;
+ if(s.dragActive)return s.lockedHit;
  int original=STHNativeClassify(m,p);
+ CGRect content=STHNativeRect(m);
+ if(original!=7&&CGRectContainsPoint(CGRectInset(content,4,4),p))original=6;
 #if !defined(STH_ROUTING_TEST)
  if (original==6) {
   extern void STHKeyboardFocus(void *);
@@ -90,7 +92,7 @@ int STHClassify(void *m,CGPoint p) {
 #endif
  s=registerState(m);
  s.lockedHit=(unsigned char)original;
- s.zone=ZOriginal;
+ s.zone=original==6?ZContent:ZOriginal;
  s.start=p;
  s.began=CACurrentMediaTime();
  s.moving=NO;
@@ -128,6 +130,7 @@ int STHClassify(void *m,CGPoint p) {
 void STHSetup(void *drag,void *m) {
  STHGestureState *s=state(m);
  s.dragActive=YES;
+ if(s.zone==ZContent){*hit(m)=6;*latch(m)=0;return;}
  if (!s||s.zone==ZOriginal||s.zone==ZReturnPortrait) {STHNativeSetup(drag,m);return;}
  *hit(m)=s.zone==ZMove?4:(s.zone==ZCorner?2:3);*latch(m)=0;*phase(m)=2;
  STHNativeSetup(drag,m);
@@ -135,6 +138,7 @@ void STHSetup(void *drag,void *m) {
 void STHUpdate(void *drag,void *m) {
  ensureBase();
  STHGestureState *s=state(m);
+ if(s.zone==ZContent)return;
  CGSize translation=STHNativeTranslation(drag);
  BOOL displaced=hypot(translation.width,translation.height)>3.0;
  if (!s||s.zone==ZOriginal||s.zone==ZReturnPortrait){if(displaced)s.moving=YES;if(!s.acted)STHNativeUpdate(drag,m);return;}
@@ -170,6 +174,7 @@ void STHUpdate(void *drag,void *m) {
 void STHEnd(void *drag,void *m) {
  ensureBase();
  STHGestureState *s=state(m);s.active=NO;s.dragActive=NO;
+ if(s.zone==ZContent){*hit(m)=6;*latch(m)=0;return;}
  if (!s||s.zone==ZOriginal||s.zone==ZReturnPortrait){if(!*latch(m)&&!s.acted)STHNativeEnd(drag,m);return;}
  CGSize t=STHNativeTranslation(drag);
  BOOL click=s.zone==ZSide&&!s.holdArmed&&!s.moving&&!s.acted&&hypot(t.width,t.height)<=10.0;
@@ -191,6 +196,7 @@ void STHEnd(void *drag,void *m) {
 }
 void STHLong(void *m) {
  STHGestureState *s=state(m);
+ if(s.zone==ZContent){*latch(m)=0;return;}
  if (!s||s.zone==ZOriginal) {
   // The underlying recognizer is now .25s. Preserve the original .5s elsewhere.
   *latch(m)=0;
@@ -225,6 +231,7 @@ void STHLong(void *m) {
 }
 void STHTap(void *m,NSUInteger count) {
  STHGestureState *s=state(m);
+ if(s.zone==ZContent)return;
  if(!s||s.zone==ZOriginal||s.zone==ZReturnPortrait){
   if(s.acted)return;
   NSUInteger mask=[[[[NSUserDefaults standardUserDefaults] persistentDomainForName:@"com.nx.stheno"] objectForKey:@"SettingMask"] unsignedIntegerValue];

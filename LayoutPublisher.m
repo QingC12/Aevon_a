@@ -95,8 +95,7 @@ static void tick(void){
   // Native avoidance, movement and their original spring continue unmodified.
   settling.committedCard=rr(card);settling.candidateCard=rr(card);
   BOOL ok=STHPublishLayout(observedBundle,card,keys,YES);lastHeartbeat=now;
-  STHWriteLayoutLog([NSString stringWithFormat:@"stable-commit session=%u bundle=%@ card=%@ keyboard=%@ source=%@ native=%@ nativeAge=%.3f transport=%@",
-    settling.generation,observedBundle,NSStringFromCGRect(card),NSStringFromCGRect(keys),source,NSStringFromCGRect(keyboardFrame),now-keyboardFrameAt,ok?@"ok":@"failed"]);
+
  }else if(settling.haveCommitted&&now-lastHeartbeat>=.4){
   // Heartbeat the committed pair, NOT the pending oscillating pair. No changed
   // notification, no transient zero commit and no app re-layout every100ms.
@@ -112,7 +111,7 @@ void STHStartLayout(void *model,CGRect keyboard){
   observedModel=(__bridge id)model;observedBundle=bundle;
   keyboardFrame=CGRectNull;keyboardFrameAt=0;lastHeartbeat=0;source=@"new-session-awaiting-frame";
   STHSettleBegin(&settling,CACurrentMediaTime());STHBeginLayout(bundle);
-  STHWriteLayoutLog([NSString stringWithFormat:@"session-begin %u bundle=%@ (awaiting stable final card)",settling.generation,bundle]);
+
  }
  if(usable(keyboard,UIScreen.mainScreen.bounds)){keyboardFrame=keyboard;keyboardFrameAt=CACurrentMediaTime();}
  if(!timer){timer=dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER,0,0,dispatch_get_main_queue());
@@ -131,7 +130,7 @@ void STHUpdateLayout(void){
   if(usable(keys,UIScreen.mainScreen.bounds)&&STHFiniteRect(rr(card))&&card.size.width>=40&&card.size.height>=40){
    settling.haveCommitted=YES;settling.committedCard=rr(card);settling.committedKeys=rr(keys);
    STHPublishLayout(observedBundle,card,keys,YES);lastHeartbeat=CACurrentMediaTime();
-   STHWriteLayoutLog([NSString stringWithFormat:@"initial-sync session=%u bundle=%@ card=%@ keyboard=%@ source=%@ nativeAge=%.3f (no notification hold)",settling.generation,observedBundle,NSStringFromCGRect(card),NSStringFromCGRect(keys),source,CACurrentMediaTime()-keyboardFrameAt]);
+
   }
  }
  tick();
@@ -142,17 +141,17 @@ void STHStopLayout(void){
  preparedModel=nil;preparedBundle=nil;
  if(timer){dispatch_source_cancel(timer);timer=nil;}
  if(observedBundle){STHPublishLayout(observedBundle,CGRectZero,CGRectZero,NO);
-  STHWriteLayoutLog([NSString stringWithFormat:@"session-hide %u bundle=%@",settling.generation,observedBundle]);}
+  ;}
  STHSettleEnd(&settling);observedModel=nil;observedBundle=nil;keyboardFrame=CGRectNull;
  keyboardFrameAt=0;lastHeartbeat=0;source=nil;
 }
 __attribute__((constructor)) static void ready(void){dispatch_async(dispatch_get_main_queue(),^{
- STHWriteLayoutLog(@"stheno 2.0.14 publisher: native geometry preserved; class/rectangle probes supported; no notification policy edits");
+
  void(^update)(NSNotification *)=^(NSNotification *n){
   if(!observedModel||applying)return;
   id v=n.userInfo[UIKeyboardFrameEndUserInfoKey];if(![v isKindOfClass:NSValue.class])return;
   CGRect r=[v CGRectValue];if(!usable(r,UIScreen.mainScreen.bounds))return;
-  if(!STHSameRect(rr(r),rr(keyboardFrame)))STHWriteLayoutLog([NSString stringWithFormat:@"native-candidate session=%u frame=%@ phase=%@ (not yet committed)",settling.generation,NSStringFromCGRect(r),n.name]);
+  if(!STHSameRect(rr(r),rr(keyboardFrame)));
   keyboardFrame=r;keyboardFrameAt=CACurrentMediaTime();tick();
  };
  changeObserver=[NSNotificationCenter.defaultCenter addObserverForName:UIKeyboardWillChangeFrameNotification object:nil queue:NSOperationQueue.mainQueue usingBlock:update];

@@ -1,7 +1,7 @@
 from pathlib import Path
 import io,tarfile,struct
 R=Path(__file__).resolve().parent
-catalog=(R/'ChooserCatalog.m').read_text();ui=(R/'ChooserUI.m').read_text();state=(R/'ChooserState.m').read_text();native=(R/'ChooserNative.S').read_text()
+catalog=(R/'ChooserCatalog.m').read_text();ui=(R/'CenterChooser.swift').read_text();state=(R/'ChooserState.m').read_text();native=(R/'ChooserNative.S').read_text()
 for forbidden in ('setPersistentDomain','setObject:','STHSystemGrowApps','append','setValue:'):
  assert forbidden not in catalog,forbidden
 for term in ('STHChooserCopyPinnedManagers','STHChooserCopyCatalogs','isVirtualAction','[pinned containsObject:identifier]','[seen containsObject:identifier]','STHChooserOpenModelAnimated(model)'):
@@ -9,10 +9,14 @@ for term in ('STHChooserCopyPinnedManagers','STHChooserCopyCatalogs','isVirtualA
 assert 'callcore 0x65af4' not in native # Original signed closure, not a normal C call.
 assert 'mov x17,#0x720f' in native and 'callcore 0xaf19c' in native and 'callcore 0x4e024' in native
 assert 'callcore 0x53e7c' in native and 'callcore 0x53f10' in native
-assert 'STHChooserSpringStep' in ui and 'STHChooserAlpha(_scale.x)' in ui
-assert 'return hit==self?nil:hit' in ui and '[window addSubview:self.overlay]' in ui
-assert 'fixedCoordinateSpace' in ui and 'portraitX+snapshot.offsetX' in ui
-assert 'STHChooserDiameter' in ui and 'snapshot.editing' in ui and 'snapshot.quickSetting' in ui
+assert 'STHCenterRunAnimation' in ui and 'selected == 999' in ui
+assert 'hitArea.contains(point)' in ui and 'w.addSubview(surface)' in ui
+assert 'fixedCoordinateSpace' in ui and 's.portraitX - s.offsetX' in ui
+assert 'snapshot.editing' in ui and 'snapshot.quickSetting' in ui
+center=(R/'CenterChooserNative.S').read_text()
+assert 'STHCenterRingPan' in center and 'cc_call 0xaf19c' in center and 'cc_call 0xafb5c' in center
+assert 'phase == 2' in center and 'bl \\original' in center
+assert 'STHCenterRunAnimation({ self.state.hover = hovered }' in ui
 assert 'callcore 0x5421c' not in native # NOT a rings-array rebuild getter.
 assert 'STHChooserHideBeforeCapture();' in (R/'SystemActions.m').read_text()
 raw=(R/'inputs/base.deb').read_bytes();p=8;blob=None

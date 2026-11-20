@@ -21,8 +21,8 @@ static NSMapTable<UIView *,STHGuardTransform *> *adjustments;
 static __weak UIView *lastComposer;
 static CADisplayLink *display;
 static BOOL active;
-static CFTimeInterval fastUntil,lastTick,lastReport;
-static int lastStage;
+static CFTimeInterval fastUntil,lastTick;
+
 extern BOOL STHMeasuredKeyboardScene(UIWindowScene *,CGRect *,double *);
 static CGRect measuredCandidate;
 static __weak UIWindowScene *measuredScene;
@@ -119,12 +119,7 @@ static BOOL moveView(UIView *view,UIWindowScene *scene,double lift){
  s.applied=t;s.sceneY=-lift;
  [UIView performWithoutAnimation:^{view.transform=t;}];return YES;
 }
-static void report(int stage,CGRect r,double top,double lift,unsigned rows){
- double now=CACurrentMediaTime();if(stage==lastStage&&now-lastReport<.5)return;
- lastStage=stage;lastReport=now;
- STHReportEditor(NSBundle.mainBundle.bundleIdentifier,stage,r,top,lift,rows);
- STHWriteLayoutLog([NSString stringWithFormat:@"editor-stage=%d frame=%@ keysTop=%.3f appliedLift=%.3f rows=%u",stage,NSStringFromCGRect(r),top,lift,rows]);
-}
+
 @interface STHPersistentEditorGuard:NSObject
 +(void)tick:(CADisplayLink *)link;
 @end
@@ -135,14 +130,14 @@ static void report(int stage,CGRect r,double top,double lift,unsigned rows){
  // on hide/expired host: no scanning unrelated full-screen applications.
  if(now-lastTick<(now<fastUntil?.028:.095))return;lastTick=now;
  int phase=STHLayoutStatus(NSBundle.mainBundle.bundleIdentifier);
- if(!phase){active=NO;[display invalidate];display=nil;restoreAll();report(6,CGRectZero,0,0,0);return;}
- if(phase!=1){report(1,CGRectZero,0,0,0);return;}
+ if(!phase){active=NO;[display invalidate];display=nil;restoreAll();return;}
+ if(phase!=1){return;}
  UIView *field=currentEditor();
- if(!field){restoreAll();report(2,CGRectZero,0,0,0);return;}
+ if(!field){restoreAll();return;}
  UIWindow *window=field.window;UIWindowScene *scene=window.windowScene;
  if(!scene||keyboardWindow(window)||!UIInterfaceOrientationIsPortrait(scene.interfaceOrientation))return;
  CGRect keys;double inset=0;
- if(!STHReadLayout(NSBundle.mainBundle.bundleIdentifier,scene.coordinateSpace.bounds,&keys,&inset)){report(1,CGRectZero,0,0,0);return;}
+ if(!STHReadLayout(NSBundle.mainBundle.bundleIdentifier,scene.coordinateSpace.bounds,&keys,&inset)){return;}
  CGRect measuredKeys;double measuredInset=0;
  if(STHMeasuredKeyboardScene(scene,&measuredKeys,&measuredInset)){
   BOOL same=haveMeasured&&measuredScene==scene&&fabs(measuredKeys.origin.y-measuredCandidate.origin.y)<=.5&&
@@ -159,7 +154,7 @@ static void report(int stage,CGRect r,double top,double lift,unsigned rows){
   if(STHEditorContainer(r.size.width,r.size.height,scene.coordinateSpace.bounds.size.width,
       scene.coordinateSpace.bounds.size.height,[v isKindOfClass:UIScrollView.class]))root=v;
  }
- if(!root||!root.superview){restoreAll();report(3,[field convertRect:field.bounds toCoordinateSpace:scene.coordinateSpace],keys.origin.y,0,0);return;}
+ if(!root||!root.superview){restoreAll();return;}
  if(lastComposer!=root){restoreAll();lastComposer=root;}
  CGRect original;NSArray<UIView *> *views=assembly(root,scene,&original);
  // A removed/reparented toolbar must not retain an old transform.
@@ -170,13 +165,13 @@ static void report(int stage,CGRect r,double top,double lift,unsigned rows){
  for(UIView *v in views){if(v.superview)changed=moveView(v,scene,lift)||changed;}
  CGRect measured=CGRectNull;
  for(UIView *v in views){CGRect r=[v convertRect:v.bounds toCoordinateSpace:scene.coordinateSpace];measured=CGRectIsNull(measured)?r:CGRectUnion(measured,r);}
- report(changed?5:4,measured,keys.origin.y,lift,(unsigned)views.count-1);
+
 }
 @end
 void STHEditorVisibilityLegacyEvent(BOOL showing){
  if(![NSThread isMainThread])return;
- if(!showing){active=NO;haveMeasured=NO;measuredScene=nil;[display invalidate];display=nil;restoreAll();report(6,CGRectZero,0,0,0);return;}
- if(!active){active=YES;lastTick=0;report(1,CGRectZero,0,0,0);}
+ if(!showing){active=NO;haveMeasured=NO;measuredScene=nil;[display invalidate];display=nil;restoreAll();return;}
+ if(!active){active=YES;lastTick=0;}
  fastUntil=CACurrentMediaTime()+1.2;
  if(!display){display=[CADisplayLink displayLinkWithTarget:STHPersistentEditorGuard.class selector:@selector(tick:)];
   display.preferredFramesPerSecond=30;[display addToRunLoop:NSRunLoop.mainRunLoop forMode:NSRunLoopCommonModes];}

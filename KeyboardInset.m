@@ -89,7 +89,7 @@ static void installInset(void) {
  previousInset=(void *)method_getImplementation(method);
  if(previousInset==(void *)correctedInset)return;
  method_setImplementation(method,(IMP)correctedInset);
- STHWriteLayoutLog(@"app-adapter initialized; hosted-layout channel ready");
+
 }
 __attribute__((constructor)) static void startInset(void) {
  // Run after the original dylib has installed its hooks and initialized state.
