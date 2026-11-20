@@ -8,6 +8,7 @@ private final class CenterState: ObservableObject {
     @Published var diameter = 0.0
     @Published var ready = false
     @Published var hover = false
+    @Published var lift: CGFloat = 0
 }
 private struct CenterGlyph: View {
     @ObservedObject var state: CenterState
@@ -20,7 +21,7 @@ private struct CenterGlyph: View {
                 .background(Color.white.brightness(state.hover ? 0.1 : -0.1)).clipShape(Circle())
         }
         .buttonStyle(.plain).scaleEffect(state.scale * (state.hover ? 1.45 : 1))
-        .opacity(state.ready ? min(1, max(0, state.scale * 2 - 1)) : 0).position(state.origin)
+        .opacity(state.ready ? min(1, max(0, state.scale * 2 - 1)) : 0).offset(y: state.lift * CGFloat(state.scale)).position(state.origin)
         .zIndex(state.hover ? 1 : 0)
         .accessibilityLabel("选择其他应用")
     }
@@ -30,6 +31,9 @@ private final class CenterSurface: UIView {
     override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
         !isHidden && hitArea.contains(point)
     }
+}
+private final class ChooserPanelWindow: UIWindow {
+    override var canBecomeKey: Bool { true }
 }
 private struct AppRow: Identifiable {
     let id: String
@@ -43,6 +47,7 @@ private struct AppPanel: View {
     let state: PanelState
     let select: (String?) -> Void
     @State private var query = ""
+    @FocusState private var searchFocused: Bool
     @ObservedObject private var motion: PanelState
     init(items: [AppRow], state: PanelState, select: @escaping (String?) -> Void) {
         self.items = items; self.state = state; self.select = select; self.motion = state
@@ -74,7 +79,7 @@ private struct AppPanel: View {
                     }
                     HStack {
                         Image(systemName: "magnifyingglass").foregroundColor(.secondary)
-                        TextField("搜索应用", text: $query).autocorrectionDisabled().textInputAutocapitalization(.never)
+                        TextField("搜索应用", text: $query).autocorrectionDisabled().textInputAutocapitalization(.never).focused($searchFocused)
                     }.padding(12).background(Color.primary.opacity(0.06)).cornerRadius(12)
                     if matches.isEmpty {
                         Text("没有匹配的应用").foregroundColor(.secondary).frame(maxWidth: .infinity).frame(height: 48)
@@ -100,6 +105,9 @@ private struct AppPanel: View {
                     .scaleEffect(motion.visible ? 1 : 0.12).opacity(motion.visible ? 1 : 0)
                     .frame(maxWidth: .infinity, maxHeight: .infinity).padding(.horizontal, 16).padding(.vertical, 12)
             }
+        }
+        .onChange(of: motion.visible) { visible in
+            DispatchQueue.main.async { searchFocused = visible }
         }
     }
 }
@@ -219,8 +227,9 @@ private final class CenterController: NSObject {
         surface.isUserInteractionEnabled = snapshot.scale > 0.5 && panelWindow == nil
     }
     func updateHover(_ hovered: Bool) {
-        if state.hover != hovered {
-            STHCenterRunAnimation({ self.state.hover = hovered }, 0)
+        let lift: CGFloat = hovered ? CGFloat(-2.3 * last.iconWidth) : 0
+        if state.hover != hovered || state.lift != lift {
+            STHCenterRunAnimation({ self.state.hover = hovered; self.state.lift = lift }, 0)
         }
     }
     func pan(_ ring: UnsafeMutableRawPointer?, _ recognizer: UnsafeMutableRawPointer?, phase: UInt32) {
@@ -269,19 +278,20 @@ private final class CenterController: NSObject {
             guard let id = row["identifier"], let name = row["name"] else { return nil }
             return AppRow(id: id, name: name)
         }.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
-        guard let scene = targetWindow?.windowScene else { return }
+        guard let scene = targetWindow?.windowScene, scene.activationState == .foregroundActive else { return }
         let motion = PanelState(); panelState = motion
         presentationGeneration &+= 1
         let generation = presentationGeneration
         previousKey = scene.windows.first(where: \.isKeyWindow)
-        let w = UIWindow(windowScene: scene)
+        let w = ChooserPanelWindow(windowScene: scene)
         w.frame = scene.coordinateSpace.bounds
         w.windowLevel = max((targetWindow?.windowLevel ?? .normal) + 1, .normal + 2)
         let controller = UIHostingController(rootView: AppPanel(items: items, state: motion) { [weak self] id in self?.closePanel(selecting: id) })
         controller.view.backgroundColor = .clear; w.rootViewController = controller
-        panelWindow = w; w.makeKeyAndVisible(); controller.view.layoutIfNeeded()
+        panelWindow = w; w.isHidden = false; w.makeKeyAndVisible(); controller.view.layoutIfNeeded()
         DispatchQueue.main.async {
             guard self.presentationGeneration == generation, self.panelState === motion, !STHSystemUIBlocked() else { return }
+            if !w.isKeyWindow { w.makeKey() }
             STHCenterRunAnimation({ motion.visible = true }, 0)
         }
     }

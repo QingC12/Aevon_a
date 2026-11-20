@@ -19,10 +19,13 @@ struct CenterSelectionSession {
         if !active { begin() }
         if !candidate {
             sawOutside = true
+            hovered = false
         } else if sawOutside && moved {
             enteredCenter = true
+            hovered = true
+        } else {
+            hovered = enteredCenter
         }
-        hovered = candidate
     }
     mutating func willFinish(candidate: Bool, cancelled: Bool) {
         released = enteredCenter && candidate && !cancelled

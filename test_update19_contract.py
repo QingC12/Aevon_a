@@ -22,7 +22,8 @@ center=catalog.split('BOOL STHChooserSubmitCenterSelection(',1)[1]
 assert 'STHChooserBuildManagerConsumed' in center and 'STHChooserOpenModelAnimated(model)' in center
 assert 'STHChooserReleaseSwift(model)' in center
 assert 'Color.white.brightness(state.hover ? 0.1 : -0.1)' in ui
-assert 'state.hover ? 1.45 : 1' in ui and '2.3 * last.iconWidth' not in ui
+assert 'state.hover ? 1.45 : 1' in ui and '2.3 * last.iconWidth' in ui
+assert 'self.state.lift = lift' in ui and 'state.lift * CGFloat(state.scale)' in ui
 assert 'session.update(candidate: candidate && !cancelled, moved: moved)' in ui
 assert 'session.willFinish(candidate: candidate, cancelled: cancelled)' in ui
 assert 'resultsHeight(matches.count, available: available)' in ui
@@ -44,4 +45,4 @@ for p in R.iterdir():
  for line in text.splitlines():
   if line.lstrip().startswith('//'):assert not re.search('[\u4e00-\u9fff]',line),(p.name,line)
  assert 'NSLog(' not in text and 'STHWriteLayoutLog' not in text,p.name
-print('2.0.20: original ring auto-dismiss unchanged; release captured before collapse then ordinary admission; native App icon style; no opening translation; observed-state NC restore; fresh-model center only')
+print('2.0.21: original ring auto-dismiss unchanged; release captured before collapse then ordinary admission; native App icon style; stateful center hover lift; keyboard-capable chooser panel')

@@ -13,12 +13,17 @@ assert 'STHCenterRunAnimation' in ui and 'selected == 999' in ui
 assert 'hitArea.contains(point)' in ui and 'w.addSubview(surface)' in ui
 assert 'fixedCoordinateSpace' in ui and 's.portraitX - s.offsetX' in ui
 assert 'resultsHeight(matches.count, available: available)' in ui and '.frame(maxWidth: 360)' in ui
-assert 'state.drift' not in ui and '2.3 * last.iconWidth' not in ui
+assert '@FocusState private var searchFocused: Bool' in ui
+assert '.focused($searchFocused)' in ui and '.onChange(of: motion.visible)' in ui
+assert 'private final class ChooserPanelWindow: UIWindow' in ui and 'override var canBecomeKey: Bool { true }' in ui
+assert 'scene.activationState == .foregroundActive' in ui and 'w.makeKeyAndVisible()' in ui and 'w.makeKey()' in ui
+assert 'state.drift' not in ui and 'state.lift' in ui
 assert 'snapshot.editing' in ui and 'snapshot.quickSetting' in ui
 center=(R/'CenterChooserNative.S').read_text()
 assert 'STHCenterRingPan' in center and 'cc_call 0xaf19c' in center and 'cc_call 0xafb5c' in center
 assert 'phase == 2' in center and 'bl \\original' in center
-assert 'STHCenterRunAnimation({ self.state.hover = hovered }, 0)' in ui
+assert 'STHCenterRunAnimation({ self.state.hover = hovered; self.state.lift = lift }, 0)' in ui
+assert '.offset(y: state.lift * CGFloat(state.scale))' in ui
 assert 'STHChooserSubmitCenterSelection()' in ui and 'session.didFinish()' in ui
 assert 'pan.location(in: pan.view)' in ui and 'gap * s.scale' not in ui
 assert 'callcore 0x5421c' not in native # NOT a rings-array rebuild getter.
