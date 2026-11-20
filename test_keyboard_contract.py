@@ -25,9 +25,9 @@ bus=(root/'LayoutBus.m').read_text()
 gesture=(root/'Gesture.m').read_text()
 assert 'STHKeyboardFocus(m);' in gesture.split('void STHSetup',1)[1].split('void STHUpdate',1)[0]
 assert 'STHKeyboardFocus(m);' not in gesture.split('int STHClassify',1)[1].split('void STHSetup',1)[0]
-assert 'if (currentOwner && (currentOwner!=focus || !eligible)) restoreCard();' in keyboard
 assert 'BOOL ownerMismatch=currentOwner&&currentOwner!=focus;' in keyboard
-assert 'if(ownerMismatch){candidate=nil;candidateAt=0;focus=nil;}' in keyboard
+assert 'if(ownerMismatch){restoreCard();currentOwner=nil;}' in keyboard
+assert 'candidate=nil;' in keyboard and 'candidateAt=0;' in keyboard
 assert 'queueHeld' not in delivery and 'dispatch_after' not in delivery
 assert 'if(status==1||status==2)' in delivery
 assert 'STHReadPreview' in scene

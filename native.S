@@ -66,6 +66,65 @@ _\name:
  add x9, x9, #0xf7, lsl #12
  ldr x0, [x9, #\slot]
 .endm
+begin STHNativeMinimized
+ sub sp,sp,#32
+ mov x20,x0
+ adrp x9,_sth_core_base@PAGE
+ ldr x9,[x9,_sth_core_base@PAGEOFF]
+ add x0,x9,#0xb6,lsl #12
+ add x0,x0,#0x898
+ target 0xb091c
+ str x0,[sp,#16]
+ adrp x9,_sth_core_base@PAGE
+ ldr x9,[x9,_sth_core_base@PAGEOFF]
+ add x0,x9,#0xb6,lsl #12
+ add x0,x0,#0x8c0
+ target 0xb091c
+ str x0,[sp,#24]
+ mov x8,sp
+ mov x0,x20
+ ldp x1,x2,[sp,#16]
+ mov x21,#0
+ target 0xaeecc
+ ldrb w0,[sp]
+ strb w0,[sp,#8]
+ ldr x0,[sp,#16]
+ target 0xb0a0c
+ ldr x0,[sp,#24]
+ target 0xb0a0c
+ ldrb w0,[sp,#8]
+ add sp,sp,#32
+ finish
+
+// Explicit Published setter used before normal presentation of a minimized model.
+begin STHNativeSetMinimized
+ sub sp,sp,#32
+ mov x20,x0
+ strb w1,[sp]
+ adrp x9,_sth_core_base@PAGE
+ ldr x9,[x9,_sth_core_base@PAGEOFF]
+ add x0,x9,#0xb6,lsl #12
+ add x0,x0,#0x898
+ target 0xb091c
+ str x0,[sp,#16]
+ adrp x9,_sth_core_base@PAGE
+ ldr x9,[x9,_sth_core_base@PAGEOFF]
+ add x0,x9,#0xb6,lsl #12
+ add x0,x0,#0x8c0
+ target 0xb091c
+ str x0,[sp,#24]
+ mov x0,sp
+ mov x1,x20
+ ldp x2,x3,[sp,#16]
+ mov x21,#0
+ target 0xaeedc
+ ldr x0,[sp,#16]
+ target 0xb0a0c
+ ldr x0,[sp,#24]
+ target 0xb0a0c
+ add sp,sp,#32
+ finish
+
 begin STHNativeClassify
  mov x20, x0
  target 0xd7980

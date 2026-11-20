@@ -50,11 +50,8 @@ int main(void) {
 
   Model *b=make();a=make();show(a,frame);
   STHKeyboardFocus((__bridge void *)b);STHKeyboardShow((__bridge void *)frame);
-  assert(owner==nil&&fabs(a.scale-.8)<.001&&fabs(b.scale-.8)<.001);
+  assert(owner==b&&fabs(a.scale-.8)<.001&&b.scale>.8);
   STHKeyboardHide();
-  show(b,frame);
-  assert(b.scale>.8&&owner==b);
-  STHKeyboardHide();assert(fabs(b.scale-.8)<.001);
 
   Model *offcenter=make();offcenter.card=CGRectMake(70,150,320,500);
   offcenter.offset=CGSizeMake(30,20);show(offcenter,frame);

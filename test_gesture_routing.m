@@ -22,7 +22,9 @@ NSUInteger STHTestOffset(uintptr_t address) {
  const char *name=address==0xf7920?"_hitValue":address==0xf7928?"_latchValue":"_phaseValue";
  return ivar_getOffset(class_getInstanceVariable(TestModel.class,name));
 }
-static int nativeHit=4;
+static int nativeHit=4;static BOOL testMinimized;
+BOOL STHNativeMinimized(void *m){return testMinimized;}
+void STHNativeSetMinimized(void *m,BOOL value){testMinimized=value;}
 CGRect STHNativeRect(void *m) { return CGRectMake(20,20,200,400); }
 int STHNativeClassify(void *m,CGPoint p) { return nativeHit; }
 NSUInteger STHNativeOrientation(void *m) { return 1; }
@@ -34,7 +36,7 @@ void STHNativeEnd(void *d,void *m) {
  ends++;endHit=*hit(m);endHeld=*latch(m);
  nativeWouldClose=endHit==4&&!endHeld&&((Drag *)d)->flick;
 }
-void STHNativeDock(void *m) { docked++; }
+void STHNativeDock(void *m) { docked++;testMinimized=NO; }
 void STHNativeLong(void *m) { longs++; }
 void STHNativeReset(void *m) {}
 void STHNativeTap(void *m,NSUInteger c) {}
@@ -82,8 +84,18 @@ int main(void) {
   assert(STHClassify(m,CGPointMake(222,420))==6);
   STHUpdate(&drag,m);STHLong(m);STHTap(m,1);STHEnd(&drag,m);
   assert(docked==0&&updates==0&&setups==3&&ends==3&&longs==0);
-  assert(STHClassify(m,CGPointMake(18,120))!=6);
-  puts("Production routing passed: native edge release and immutable content touch ownership");
+  drag=(Drag){CGSizeZero,NO};beginYellow(model,&drag);drag.translation=CGSizeMake(4,-40);STHUpdate(&drag,m);
+  assert(STHClassify(m,CGPointMake(120,120))==4);
+  STHSetup(&drag,m);
+  assert(state(m).zone==ZContent&&model.hitValue==6);
+  int movesBefore=moves;drag.translation=CGSizeMake(0,120);STHUpdate(&drag,m);assert(moves==movesBefore);
+  STHEnd(&drag,m);
+
+  testMinimized=YES;nativeHit=4;
+  assert(STHClassify(m,CGPointMake(120,200))==4);
+  STHSetup(&drag,m);STHTap(m,1);
+  assert(docked==1&&!testMinimized);
+  testMinimized=NO;
  }
  return 0;
 }

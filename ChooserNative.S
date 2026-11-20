@@ -43,6 +43,34 @@ enter STHChooserReleaseArray
  callcore 0xb07fc
  leave
 
+enter STHChooserClearMinimized
+ sub sp,sp,#32
+ mov x20,x0
+ adrp x9,_sth_action_core_base@PAGE
+ ldr x9,[x9,_sth_action_core_base@PAGEOFF]
+ add x0,x9,#0xb6,lsl #12
+ add x0,x0,#0x898
+ callcore 0xb091c
+ str x0,[sp,#16]
+ adrp x9,_sth_action_core_base@PAGE
+ ldr x9,[x9,_sth_action_core_base@PAGEOFF]
+ add x0,x9,#0xb6,lsl #12
+ add x0,x0,#0x8c0
+ callcore 0xb091c
+ str x0,[sp,#24]
+ strb wzr,[sp]
+ mov x0,sp
+ mov x1,x20
+ ldp x2,x3,[sp,#16]
+ mov x21,#0
+ callcore 0xaeedc
+ ldr x0,[sp,#16]
+ callcore 0xb0a0c
+ ldr x0,[sp,#24]
+ callcore 0xb0a0c
+ add sp,sp,#32
+ leave
+
 // C: void STHChooserOpenModelAnimated(void *borrowedReflectManager);
 // Synchronous withAnimation, NOT a retained/asynchronous custom closure.
 // Reuses ORIGINAL thunk 65af4 -> 58944 -> ReflectEnv -> patched 47e8.
@@ -50,6 +78,7 @@ enter STHChooserReleaseArray
 enter STHChooserOpenModelAnimated
  sub sp,sp,#32
  str x0,[sp]
+ bl _STHChooserClearMinimized
  mov x21,#0
  callcore 0x51454
  // Original selected-launch response = 0.3 / native animation setting.

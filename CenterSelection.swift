@@ -15,21 +15,21 @@ struct CenterSelectionSession {
         sawOutside = false
         released = false
     }
-    mutating func update(candidate: Bool, moved: Bool) {
+    mutating func update(inside: Bool, eligible: Bool, moved: Bool) {
         if !active { begin() }
-        if !candidate {
+        if !inside {
             sawOutside = true
             hovered = false
-        } else if sawOutside && moved {
+        } else if sawOutside && moved && eligible {
             enteredCenter = true
             hovered = true
         } else {
-            hovered = enteredCenter
+            hovered = enteredCenter && eligible
         }
     }
-    mutating func willFinish(candidate: Bool, cancelled: Bool) {
-        released = enteredCenter && candidate && !cancelled
-        hovered = enteredCenter && candidate && !cancelled
+    mutating func willFinish(inside: Bool, eligible: Bool, cancelled: Bool) {
+        released = enteredCenter && inside && eligible && !cancelled
+        hovered = released
     }
     mutating func didFinish() -> Bool {
         let open = released

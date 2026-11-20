@@ -9,10 +9,10 @@ DOM=/var/mobile/Library/Preferences/com.nx.stheno
 :
 
 SRC=""
-for c in /var/jb/usr/local/share/stheno/com.nx.stheno.plist \
-         /usr/local/share/stheno/com.nx.stheno.plist \
-         /var/mobile/Library/Preferences/com.nx.stheno.plist \
-         /var/jb/var/mobile/Library/Preferences/com.nx.stheno.plist ; do
+for c in /var/mobile/Library/Preferences/com.nx.stheno.plist \
+         /var/jb/var/mobile/Library/Preferences/com.nx.stheno.plist \
+         /var/jb/usr/local/share/stheno/com.nx.stheno.plist \
+         /usr/local/share/stheno/com.nx.stheno.plist ; do
   [ -f "$c" ] && { SRC="$c"; break; }
 done
 :
@@ -39,7 +39,16 @@ for J in /var/containers/Bundle/Application/.jbroot-* \
         N=$((N + 1))
         continue
       fi
-      if ! ( set -C; cat "$SRC" > "$T" ) 2>/dev/null ; then
+      TMP="$T.tmp.$$"
+      rm -f "$TMP" 2>/dev/null
+      if ! ( umask 077; cat "$SRC" > "$TMP" ) 2>/dev/null ; then
+        rm -f "$TMP" 2>/dev/null
+        continue
+      fi
+      if ln "$TMP" "$T" 2>/dev/null ; then
+        rm -f "$TMP" 2>/dev/null
+      else
+        rm -f "$TMP" 2>/dev/null
         [ -e "$T" ] || [ -L "$T" ] || continue
       fi
       [ -f "$T" ] || continue

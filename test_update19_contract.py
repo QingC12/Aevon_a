@@ -14,7 +14,7 @@ assert 'public func showChooserFromNativeSelection()' in ui
 phase3=ui.split('if phase == 3 {',1)[1].split('guard let ring',1)[0]
 assert 'session.didFinish()' in phase3 and 'selectCenter()' in phase3
 assert 'STHChooserReadRing' not in phase3 and 's.scale' not in phase3
-assert 'pan.location(in: pan.view)' in ui and 'gap * s.scale' not in ui
+assert 'pan.location(in: sourceView)' in ui and 'sourceView.convert(nativeCenter, from: screen.fixedCoordinateSpace)' in ui
 assert 'pan.state == .cancelled' in ui and 'pan.state == .failed' in ui
 assert 'STHChooserSubmitCenterSelection()' in ui and 'STHChooserShowFromNativeSelection' in ui
 assert 'STH_APP_CHOOSER_ID' in actions and 'STHChooserShowFromNativeSelection();' in actions
@@ -24,9 +24,12 @@ assert 'STHChooserReleaseSwift(model)' in center
 assert 'Color.white.brightness(state.hover ? 0.1 : -0.1)' in ui
 assert 'state.hover ? 1.45 : 1' in ui and '2.3 * last.iconWidth' in ui
 assert 'self.state.lift = lift' in ui and 'state.lift * CGFloat(state.scale)' in ui
-assert 'session.update(candidate: candidate && !cancelled, moved: moved)' in ui
-assert 'session.willFinish(candidate: candidate, cancelled: cancelled)' in ui
-assert 'resultsHeight(matches.count, available: available)' in ui
+assert 'session.update(inside: inside && !cancelled, eligible: eligible, moved: moved)' in ui
+assert 'session.willFinish(inside: inside, eligible: eligible, cancelled: cancelled)' in ui
+assert 'STHNativeMinimized' in (R/'Gesture.m').read_text() and 'pendingRehit' in (R/'Gesture.m').read_text()
+assert 'finishGestureState(s)' in (R/'Gesture.m').read_text()
+chooserNative=(R/'ChooserNative.S').read_text()
+assert 'STHChooserClearMinimized' in chooserNative
 assert 'transaction.disablesAnimations = true' in ui and '(open && !ringWasVisible)' in ui
 assert 'if !tracking && snapshot.scale' not in ui
 assert 'bl \\original' in bridge and 'mov w2,#2' in bridge and 'mov w2,#3' in bridge
@@ -45,4 +48,4 @@ for p in R.iterdir():
  for line in text.splitlines():
   if line.lstrip().startswith('//'):assert not re.search('[\u4e00-\u9fff]',line),(p.name,line)
  assert 'NSLog(' not in text and 'STHWriteLayoutLog' not in text,p.name
-print('2.0.23: original ring auto-dismiss unchanged; center carrier host stays stable; Unicode app search; key-gated UIKit input')
+print('2.0.24: center geometry follows native pan basis; stale gesture recovery; dock restore; Unicode app search; key-gated UIKit input')

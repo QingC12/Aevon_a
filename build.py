@@ -4,7 +4,7 @@ from embed_orion import prepare
 from system_action_patch import patch_system_actions
 from update18_patch import patch_update18
 ROOT=Path(__file__).resolve().parent
-VERSION='2.0.23'
+VERSION='2.0.24'
 os.chdir(ROOT)
 OUT=ROOT/'build';OUT.mkdir(exist_ok=True)
 def run(*args,**kw): return subprocess.check_output([str(x) for x in args],**kw)
@@ -155,7 +155,7 @@ for source in ['SystemActions.m','SystemActionRuntime.m','SystemActionPicker.m',
  args=['xcrun','clang','-target','arm64e-apple-ios16.1','-isysroot',sdk,'-Os','-c',source,'-o',obj]
  if source.endswith('.m'):args.insert(7,'-fobjc-arc')
  run(*args);action_objects.append(obj)
-run('xcrun','swiftc','-swift-version','5','-target','arm64e-apple-ios16.1','-sdk',sdk,'-Osize','-emit-library','-import-objc-header','RuntimeBridge.h','-module-name','SthenoRuntime','CenterChooser.swift','CenterSelection.swift','DockQueue.swift','ChooserSearch.swift',*action_objects,'-Xlinker','-install_name','-Xlinker','@loader_path/SthenoSystemActions.dylib','-Xlinker','-rpath','-Xlinker','/usr/lib/swift','-o',action_binary)
+run('xcrun','swiftc','-swift-version','5','-target','arm64e-apple-ios16.1','-sdk',sdk,'-Osize','-emit-library','-import-objc-header','RuntimeBridge.h','-module-name','SthenoRuntime','CenterChooser.swift','CenterSelection.swift','DockQueue.swift','ChooserSearch.swift','CenterGlyphGeometry.swift',*action_objects,'-Xlinker','-install_name','-Xlinker','@loader_path/SthenoSystemActions.dylib','-Xlinker','-rpath','-Xlinker','/usr/lib/swift','-o',action_binary)
 quiet_companions=[]
 for filename,address,marker in [('CameraFix.dylib',0x40e4,b'CameraFixDiag.txt'),('KeyboardFix.dylib',0x4068,b'KeyboardFixDiag.txt')]:
  index=next(i for i,(m,b) in enumerate(rows) if m.name.endswith('/'+filename));image=bytearray(rows[index][1])

@@ -90,11 +90,15 @@ jobs:
           xcrun --sdk macosx clang -std=c11 -Wall -Wextra -Werror test_chooser_motion.c -o /tmp/stheno-chooser-motion
           /tmp/stheno-chooser-motion
           xcrun --sdk macosx clang -std=c11 -Wall -Wextra -Werror test_dock_orientation.c -o /tmp/stheno-dock-orientation
+          python3 test_dock_orientation_contract.py
           /tmp/stheno-dock-orientation
           xcrun swiftc -D STH_DOCK_TEST DockQueue.swift test_dock_queue.swift -o /tmp/stheno-dock-queue
           /tmp/stheno-dock-queue
           xcrun swiftc ChooserSearch.swift test_chooser_search.swift -o /tmp/stheno-chooser-search
           /tmp/stheno-chooser-search
+          xcrun swiftc CenterGlyphGeometry.swift test_center_glyph_geometry.swift -o /tmp/stheno-center-glyph-geometry
+          /tmp/stheno-center-glyph-geometry
+          python3 test_global_logic_contract.py
           python3 test_update18_contract.py
           python3 test_chooser_contract.py
           python3 test_installer_preferences.py

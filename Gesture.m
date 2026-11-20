@@ -14,6 +14,8 @@ extern CGRect STHNativeRect(void *);
 extern void STHNativeReset(void *);
 extern void STHNativeDock(void *);
 extern NSUInteger STHNativeOrientation(void *);
+extern BOOL STHNativeMinimized(void *);
+extern void STHNativeSetMinimized(void *,BOOL);
 extern void STHNativeSetup(void *,void *);
 extern void STHNativeUpdate(void *,void *);
 extern void STHNativeEnd(void *,void *);
@@ -28,14 +30,18 @@ typedef NS_ENUM(int, Zone) { ZOriginal, ZSide, ZCorner, ZRotate, ZReset, ZMove, 
 @property Zone zone;
 @property CGPoint start;
 @property double began;
+@property double lastActivity;
 @property CGSize moveOrigin;
 @property BOOL moveOriginSet;
 @property BOOL moving;
 @property BOOL acted;
 @property BOOL active;
+@property BOOL docked;
 @property BOOL dragActive;
 @property unsigned char lockedHit;
 @property BOOL holdArmed;
+@property BOOL pendingRehit;
+@property CGPoint pendingPoint;
 @property NSUInteger generation;
 @property double lastTapAt;
 @property CGPoint lastTapPoint;
@@ -70,27 +76,51 @@ static BOOL portrait(void) {
 #endif
  return YES;
 }
+static void finishGestureState(STHGestureState *s){
+ if(!s)return;
+ s.active=NO;s.dragActive=NO;s.pendingRehit=NO;s.lastActivity=0;
+}
+static void resetGestureState(STHGestureState *s){
+ if(!s)return;
+ finishGestureState(s);s.zone=ZOriginal;s.docked=NO;s.lockedHit=0;
+ s.holdArmed=NO;s.moving=NO;s.moveOriginSet=NO;
+}
 static STHGestureState *registerState(void *m) {
- STHGestureState *s=state(m);
+ STHGestureState *s=registerState(m);
  if (!s) { s=[STHGestureState new]; [states setObject:s forKey:(__bridge id)m]; }
  return s;
 }
 // Preserve membership in the ORIGINAL hit region. Subdivide it along its length only.
 int STHClassify(void *m,CGPoint p) {
  ensureBase();
- STHGestureState *s=state(m);
- // Native scene hit-testing may query classification again during a drag.
+ STHGestureState *s=registerState(m);
  // Preserve the core's keyboard exclusion so the scene can skip this card.
- if (s.dragActive){int native=STHNativeClassify(m,p);return native==10?native:s.lockedHit;}
+ if (s.dragActive){
+  double now=CACurrentMediaTime();
+  if(s.moving && s.lastActivity>0 && now-s.lastActivity>.35){
+   resetGestureState(s);
+  } else {
+   int native=STHNativeClassify(m,p);
+   if(native==10)return native;
+   s.pendingPoint=p;s.pendingRehit=YES;
+   return s.lockedHit;
+  }
+ }
  int original=STHNativeClassify(m,p);
  if(original==10)return original;
  CGRect content=STHNativeRect(m);
- if(original!=7&&CGRectContainsPoint(CGRectInset(content,4,4),p))original=6;
+ BOOL inside=original!=7&&CGRectContainsPoint(CGRectInset(content,4,4),p);
+ BOOL dockedInside=inside&&STHNativeMinimized(m);
+ if(dockedInside)original=4;
+ else if(inside)original=6;
  s=registerState(m);
+ s.docked=dockedInside;
+ s.pendingRehit=NO;
  s.lockedHit=(unsigned char)original;
  s.zone=original==6?ZContent:ZOriginal;
  s.start=p;
  s.began=CACurrentMediaTime();
+ s.lastActivity=s.began;
  s.moving=NO;
  s.acted=NO;
  s.active=YES;
@@ -98,6 +128,7 @@ int STHClassify(void *m,CGPoint p) {
  s.moveOriginSet=NO;
  s.moveOrigin=CGSizeZero;
  s.generation++;
+ if(dockedInside){s.zone=ZSide;s.lockedHit=4;return 4;}
  if (original<1 || original>4) return original;
  CGRect r=STHNativeRect(m);
  if (CGRectIsEmpty(r)||!isfinite(r.origin.x)||!isfinite(r.origin.y)||!isfinite(r.size.width)||!isfinite(r.size.height)) return original;
@@ -124,8 +155,16 @@ int STHClassify(void *m,CGPoint p) {
  return s.lockedHit;
 }
 void STHSetup(void *drag,void *m) {
- STHGestureState *s=state(m);
- s.dragActive=YES;
+ STHGestureState *s=registerState(m);
+ if(!s)return;
+ if(s.dragActive&&s.pendingRehit){
+  CGPoint start=s.pendingPoint;
+  resetGestureState(s);
+  STHClassify(m,start);
+  s=state(m);
+  if(!s)return;
+ }
+ s.dragActive=YES;s.pendingRehit=NO;s.lastActivity=CACurrentMediaTime();
  if(s.zone==ZContent){
 #if !defined(STH_ROUTING_TEST)
   extern void STHKeyboardFocus(void *);
@@ -139,7 +178,9 @@ void STHSetup(void *drag,void *m) {
 }
 void STHUpdate(void *drag,void *m) {
  ensureBase();
- STHGestureState *s=state(m);
+ STHGestureState *s=registerState(m);
+ if(!s)return;
+ s.lastActivity=CACurrentMediaTime();
  if(s.zone==ZContent)return;
  CGSize translation=STHNativeTranslation(drag);
  BOOL displaced=hypot(translation.width,translation.height)>3.0;
@@ -175,29 +216,32 @@ void STHUpdate(void *drag,void *m) {
 }
 void STHEnd(void *drag,void *m) {
  ensureBase();
- STHGestureState *s=state(m);s.active=NO;s.dragActive=NO;
- if(s.zone==ZContent){*hit(m)=6;*latch(m)=0;return;}
- if (!s||s.zone==ZOriginal||s.zone==ZReturnPortrait){if(!*latch(m)&&!s.acted)STHNativeEnd(drag,m);return;}
+ STHGestureState *s=registerState(m);if(!s)return;
+ s.active=NO;s.dragActive=NO;
+ if(s.zone==ZContent){*hit(m)=6;*latch(m)=0;finishGestureState(s);return;}
+ if (s.zone==ZOriginal||s.zone==ZReturnPortrait){if(!*latch(m)&&!s.acted)STHNativeEnd(drag,m);finishGestureState(s);return;}
  CGSize t=STHNativeTranslation(drag);
  BOOL click=s.zone==ZSide&&!s.holdArmed&&!s.moving&&!s.acted&&hypot(t.width,t.height)<=10.0;
+ if(click)s.acted=YES;
  if (s.zone==ZMove) {
   // Native end includes its original flick threshold, cleanup and close animation.
   // Never pre-clean the gesture as a movement-class gesture before this call.
   *hit(m)=4;
   *latch(m)=0;
   STHNativeEnd(drag,m);
+  finishGestureState(s);
   return;
  }
  *hit(m)=s.zone==ZCorner?2:3;
  *latch(m)=0;
  STHNativeEnd(drag,m);
  if (click) {
-  s.acted=YES;
   STHNativeDock(m);
  }
+ finishGestureState(s);
 }
 void STHLong(void *m) {
- STHGestureState *s=state(m);
+ STHGestureState *s=registerState(m);if(!s)return;
  if(s.zone==ZContent){*latch(m)=0;return;}
  if (!s||s.zone==ZOriginal) {
   // The underlying recognizer is now .25s. Preserve the original .5s elsewhere.
@@ -232,7 +276,8 @@ void STHLong(void *m) {
  }
 }
 void STHTap(void *m,NSUInteger count) {
- STHGestureState *s=state(m);
+ STHGestureState *s=registerState(m);if(!s)return;
+ if(s.docked){if(!s.acted){s.acted=YES;STHNativeDock(m);}return;}
  if(s.zone==ZContent)return;
  if(!s||s.zone==ZOriginal||s.zone==ZReturnPortrait){
   if(s.acted)return;

@@ -24,12 +24,13 @@ private struct CenterGlyph: View {
         .opacity(state.ready ? min(1, max(0, state.scale * 2 - 1)) : 0).offset(y: state.lift * CGFloat(state.scale)).position(state.origin)
         .zIndex(state.hover ? 1 : 0)
         .accessibilityLabel("选择其他应用")
+        .ignoresSafeArea()
     }
 }
 private final class CenterSurface: UIView {
     var hitArea = CGRect.zero
     override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
-        !isHidden && hitArea.contains(point)
+        !isHidden && UIBezierPath(ovalIn: hitArea).contains(point)
     }
 }
 private final class ChooserPanelWindow: UIWindow {
@@ -201,6 +202,7 @@ private final class CenterController: NSObject {
     weak var ringView: UIView?
     weak var gestureView: UIView?
     var scanAt = 0.0
+    var needsHostScan = true
     var suppressedUntil = 0.0
     var session = CenterSelectionSession()
     var panStartPoint = CGPoint.zero
@@ -208,6 +210,10 @@ private final class CenterController: NSObject {
     var placementReady = false
     var ringWasVisible = false
     var presentationGeneration: UInt64 = 0
+    var catalogRetry = 0
+    var collapseUntil = 0.0
+    var lastValidAt = 0.0
+    var hasValidSnapshot = false
     override init() {
         super.init()
         host = UIHostingController(rootView: CenterGlyph(state: state) { [weak self] in self?.selectCenter() })
@@ -235,11 +241,11 @@ private final class CenterController: NSObject {
         return nil
     }
     private func setGlyphVisible(_ visible: Bool) {
-        state.ready = visible
-        if !visible { state.lift = 0 }
+        if state.ready != visible { state.ready = visible }
+        if !visible && state.lift != 0 { state.lift = 0 }
         let interactive = visible && panelWindow == nil && state.scale > 0.5
-        surface.isUserInteractionEnabled = interactive
-        host.view.isUserInteractionEnabled = interactive
+        if surface.isUserInteractionEnabled != interactive { surface.isUserInteractionEnabled = interactive }
+        if host.view.isUserInteractionEnabled != interactive { host.view.isUserInteractionEnabled = interactive }
     }
     private func attach(to window: UIWindow, hostView: UIView) {
         targetWindow = window
@@ -252,11 +258,20 @@ private final class CenterController: NSObject {
         window.addSubview(surface)
         setGlyphVisible(false)
         surface.isUserInteractionEnabled = false
+        needsHostScan = false
+        hasValidSnapshot = false
+        lastValidAt = 0
         placementReady = false
         ringWasVisible = false
         state.ready = false
         state.scale = 0
         state.lift = 0
+        collapseUntil = 0
+    }
+    private func renderedCenter(_ native: CGPoint, in window: UIWindow) -> CGPoint {
+        // RingEnv P+offset is in the display fixed portrait coordinate space.
+        let screen = window.screen
+        return surface.convert(native, from: screen.fixedCoordinateSpace)
     }
     private func sceneRank(_ scene: UIWindowScene) -> Int {
         switch scene.activationState {
@@ -268,21 +283,29 @@ private final class CenterController: NSObject {
         }
     }
     private func findWindow(_ now: Double) {
-        if let w = targetWindow, !w.isHidden {
-            let hostAttached = ringView?.window === w
-            let carrierAttached = surface.window === w
-            guard now - scanAt > 0.15 || !carrierAttached || !hostAttached else { return }
-            scanAt = now
-            if let currentHost = findHost(w) {
-                let hostChanged = ringView.map { $0 !== currentHost } ?? true
-                if hostChanged || !carrierAttached { attach(to: w, hostView: currentHost) }
-                return
+        if let w = targetWindow, !w.isHidden,
+           let scene = w.windowScene,
+           (scene.activationState == .foregroundActive || scene.activationState == .foregroundInactive),
+           surface.window === w {
+            if !needsHostScan && now - scanAt < 0.5 { return }
+            scanAt = now; needsHostScan = false
+            if let currentHost = findHost(w), currentHost !== ringView {
+                attach(to: w, hostView: currentHost)
+            } else if findHost(w) == nil {
+                targetWindow = nil; ringView = nil; session.cancel(); surface.hitArea = .zero
+                setGlyphVisible(false)
             }
+            return
+        }
+        if targetWindow != nil {
+            session.cancel(); surface.hitArea = .zero; setGlyphVisible(false)
+            ringWasVisible = false; placementReady = false
         }
         targetWindow = nil
         ringView = nil
         guard now - scanAt > 0.15 else { return }; scanAt = now
         let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+            .filter { $0.activationState == .foregroundActive || $0.activationState == .foregroundInactive }
             .sorted { sceneRank($0) > sceneRank($1) }
         for scene in scenes {
             for w in scene.windows where w !== panelWindow && !w.isHidden && w.alpha > 0.01 {
@@ -297,8 +320,16 @@ private final class CenterController: NSObject {
         STHRefreshSystemVisibility()
         let now = CACurrentMediaTime(); findWindow(now)
         var snapshot = STHChooserRingSnapshot()
-        let valid = STHSystemActionsEnabled() && STHChooserReadRing(&snapshot)
-        let blocked = !valid || STHSystemUIBlocked() || snapshot.editing != 0 || snapshot.quickSetting != 0 || snapshot.showTab != 0 || now < suppressedUntil
+        let enabled = STHSystemActionsEnabled()
+        let valid = enabled && STHChooserReadRing(&snapshot)
+        let systemBlocked = STHSystemUIBlocked() || now < suppressedUntil
+        if valid { lastValidAt = now; hasValidSnapshot = true }
+        if enabled && !valid && !systemBlocked && ringWasVisible && hasValidSnapshot && now - lastValidAt < 0.35 {
+            surface.isUserInteractionEnabled = false
+            host.view.isUserInteractionEnabled = false
+            return
+        }
+        let blocked = !valid || systemBlocked || snapshot.editing != 0 || snapshot.quickSetting != 0 || snapshot.showTab != 0
         if blocked {
             session.cancel()
             if STHSystemUIBlocked() || now < suppressedUntil { hidePanel() }
@@ -310,16 +341,31 @@ private final class CenterController: NSObject {
         guard let w = targetWindow else { return }
         if surface.isHidden { surface.isHidden = false }
         surface.frame = w.bounds
-        let center = CGPoint(x: snapshot.portraitX + snapshot.offsetX, y: snapshot.portraitY + snapshot.offsetY)
-        // RingEnv and the recognizer use the same host-local portrait space.
-        // Convert from that view instead of applying a second screen rotation.
-        let p = ringView.map { surface.convert(center, from: $0) } ??
-            surface.convert(center, from: UIScreen.main.fixedCoordinateSpace)
+        let nativeCenter = CGPoint(x: snapshot.portraitX + snapshot.offsetX, y: snapshot.portraitY + snapshot.offsetY)
+        // Native P is in the display's fixed portrait coordinate space, not the Container's local space.
+        let p = renderedCenter(nativeCenter, in: w)
         let diameter = min(snapshot.iconWidth, 2 * snapshot.radius - snapshot.iconWidth - 4)
         guard diameter >= 20 else { setGlyphVisible(false); return }
         let open = snapshot.scale > 0.01
-        surface.frame = w.bounds
-        surface.hitArea = CGRect(x: p.x - diameter / 2, y: p.y - diameter / 2, width: diameter, height: diameter)
+        if !open {
+            if ringWasVisible {
+                collapseUntil = now + 0.15
+                STHCenterRunAnimation({ self.state.scale = 0 }, 1)
+                ringWasVisible = false
+                setGlyphVisible(true)
+            } else if now < collapseUntil {
+                setGlyphVisible(true)
+            } else {
+                collapseUntil = 0
+                setGlyphVisible(false)
+                surface.hitArea = .zero
+            }
+            surface.isUserInteractionEnabled = false
+            host.view.isUserInteractionEnabled = false
+            return
+        }
+        collapseUntil = 0
+        surface.hitArea = open ? CenterGlyphGeometry.visibleHitArea(center: p, diameter: diameter, ringScale: max(CGFloat(state.scale), CGFloat(snapshot.scale)), liftedY: state.lift, hover: state.hover) : .zero
         let scaleChanged = abs(state.scale - snapshot.scale) > 0.0001
         let positionChanged = hypot(state.origin.x - p.x, state.origin.y - p.y) > 0.1
         // Place before showing; start the native-parameter spring in this pan callback.
@@ -328,8 +374,9 @@ private final class CenterController: NSObject {
             withTransaction(transaction) {
                 state.origin = p; state.diameter = diameter
             }
+            if scaleChanged { STHCenterRunAnimation({ self.state.scale = snapshot.scale }, 0) }
             setGlyphVisible(true)
-        } else if !placementReady || (!open && positionChanged) || (open && !ringWasVisible) {
+        } else if !placementReady || (open && !ringWasVisible) {
             var transaction = Transaction(); transaction.disablesAnimations = true
             withTransaction(transaction) {
                 state.origin = p; state.diameter = diameter; state.scale = 0; state.ready = false
@@ -371,31 +418,33 @@ private final class CenterController: NSObject {
         }
         guard let ring, let recognizer, !STHSystemUIBlocked() else { session.cancel(); return }
         let pan = Unmanaged<UIPanGestureRecognizer>.fromOpaque(recognizer).takeUnretainedValue()
-        if let sourceView = pan.view {
-            gestureView = sourceView
-            if let window = sourceView.window, targetWindow !== window {
-                attach(to: window, hostView: findHost(window) ?? sourceView)
-            }
+        guard let sourceView = pan.view else { session.cancel(); updateHover(false); return }
+        gestureView = sourceView
+        if let window = sourceView.window, targetWindow !== window,
+           let hostView = findHost(window) {
+            attach(to: window, hostView: hostView)
         }
         if phase == 0 { session.begin(); tick() }
         var s = STHChooserRingSnapshot()
         guard STHChooserReadRing(&s), s.editing == 0, s.quickSetting == 0, s.showTab == 0 else { session.cancel(); updateHover(false); return }
         last = s
-        // The original RingEnv samples in recognizer.view's portrait space.
-        // An additional fixed-screen conversion changes the hit coordinates.
-        let point = pan.location(in: pan.view)
+        let nativeCenter = CGPoint(x: s.portraitX + s.offsetX, y: s.portraitY + s.offsetY)
+        guard let sourceWindow = sourceView.window else { session.cancel(); updateHover(false); return }
+        let screen = sourceWindow.screen
+        let centerInPan = sourceView.convert(nativeCenter, from: screen.fixedCoordinateSpace)
+        let point = pan.location(in: sourceView)
         if phase == 0 { panStartPoint = point }
         let moved = hypot(point.x - panStartPoint.x, point.y - panStartPoint.y) >= 8
         let gap = max(0, s.radius - 0.6 * s.iconWidth)
-        let inside = hypot(point.x - s.portraitX - s.offsetX, point.y - s.portraitY - s.offsetY) <= gap
+        let inside = hypot(point.x - centerInPan.x, point.y - centerInPan.y) <= gap
         let selected = STHCenterRingSelected(ring)
-        let candidate = inside && selected == 999 && s.scale > 0.5
+        let eligible = selected == 999 && s.scale > 0.5 && gap > 0
         let cancelled = pan.state == .cancelled || pan.state == .failed
         if phase == 2 {
-            session.update(candidate: candidate && !cancelled, moved: moved)
-            session.willFinish(candidate: candidate, cancelled: cancelled)
+            session.update(inside: inside && !cancelled, eligible: eligible, moved: moved)
+            session.willFinish(inside: inside, eligible: eligible, cancelled: cancelled)
         } else {
-            session.update(candidate: candidate && !cancelled, moved: moved)
+            session.update(inside: inside && !cancelled, eligible: eligible, moved: moved)
         }
         updateHover(session.hovered)
         tick()
@@ -405,8 +454,16 @@ private final class CenterController: NSObject {
         _ = STHChooserSubmitCenterSelection()
     }
     func openPanel() {
-        guard panelWindow == nil, !STHSystemUIBlocked(), CACurrentMediaTime() >= suppressedUntil else { return }
-        let rows = STHChooserSnapshotUnpinned() ?? []
+        guard panelWindow == nil, !STHSystemUIBlocked(), CACurrentMediaTime() >= suppressedUntil else { catalogRetry = 0; return }
+        findWindow(CACurrentMediaTime())
+        guard let rows = STHChooserSnapshotUnpinned() else {
+            catalogRetry += 1
+            if catalogRetry <= 5 {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in self?.openPanel() }
+            } else { catalogRetry = 0 }
+            return
+        }
+        catalogRetry = 0
         let items = rows.compactMap { row -> AppRow? in
             guard let id = row["identifier"], let name = row["name"] else { return nil }
             return AppRow(id: id, name: name)
@@ -454,12 +511,14 @@ private final class CenterController: NSObject {
     }
     @objc func systemChanged() {
         scanAt = 0
+        needsHostScan = true
         if STHSystemUIBlocked() {
             hidePanel(); setGlyphVisible(false); session.cancel(); ringWasVisible = false; placementReady = false; updateHover(false)
         }
     }
     @objc func lifecycleChanged() {
         scanAt = 0
+        needsHostScan = true
         if targetWindow == nil || surface.window == nil { setGlyphVisible(false) }
     }
     func beforeCapture() {

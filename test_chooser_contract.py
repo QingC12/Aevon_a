@@ -10,8 +10,10 @@ assert 'callcore 0x65af4' not in native # Original signed closure, not a normal 
 assert 'mov x17,#0x720f' in native and 'callcore 0xaf19c' in native and 'callcore 0x4e024' in native
 assert 'callcore 0x53e7c' in native and 'callcore 0x53f10' in native
 assert 'STHCenterRunAnimation' in ui and 'selected == 999' in ui
-assert 'hitArea.contains(point)' in ui and 'w.addSubview(surface)' in ui
-assert 'fixedCoordinateSpace' in ui and 's.portraitX - s.offsetX' in ui
+assert 'UIBezierPath(ovalIn: hitArea).contains(point)' in ui and 'w.addSubview(surface)' in ui
+assert 'surface.convert(native, from: screen.fixedCoordinateSpace)' in ui and 'renderedCenter(nativeCenter, in: w)' in ui
+assert 'CenterGlyphGeometry.visibleHitArea' in ui and 'liftedY: state.lift' in ui
+assert 'state.scale = snapshot.scale' in ui
 assert 'resultsHeight(matches.count, available: available)' in ui and '.frame(maxWidth: 360)' in ui
 assert '@State private var searchWantsFocus = false' in ui
 assert 'SearchField(text: $query' in ui and '.onChange(of: motion.visible)' in ui
@@ -21,7 +23,7 @@ assert 'becomeFirstResponder()' in ui and 'field.window?.isKeyWindow == true' in
 assert 'private final class ChooserPanelWindow: UIWindow' in ui and 'override var canBecomeKey: Bool { true }' in ui
 assert 'scene.activationState == .foregroundActive' in ui and 'w.makeKeyAndVisible()' in ui and 'w.makeKey()' in ui
 assert 'private func attach(to window: UIWindow, hostView: UIView)' in ui
-assert 'carrierAttached' in ui and 'hostChanged' in ui and 'lifecycleChanged' in ui
+assert 'surface.window === w' in ui and 'sceneRank' in ui and 'lifecycleChanged' in ui
 assert 'host.view.isHidden = !visible' not in ui
 assert 'state.ready = visible' in ui and 'if surface.isHidden { surface.isHidden = false }' in ui
 assert 'ringView = sourceView' not in ui and 'gestureView = sourceView' in ui
@@ -35,7 +37,7 @@ assert 'phase == 2' in center and 'bl \\original' in center
 assert 'STHCenterRunAnimation({ self.state.hover = hovered; self.state.lift = lift }, 0)' in ui
 assert '.offset(y: state.lift * CGFloat(state.scale))' in ui
 assert 'STHChooserSubmitCenterSelection()' in ui and 'session.didFinish()' in ui
-assert 'pan.location(in: pan.view)' in ui and 'gap * s.scale' not in ui
+assert 'pan.location(in: sourceView)' in ui and 'sourceView.convert(nativeCenter, from: screen.fixedCoordinateSpace)' in ui
 assert 'callcore 0x5421c' not in native # NOT a rings-array rebuild getter.
 assert 'STHChooserHideBeforeCapture();' in (R/'SystemActions.m').read_text()
 raw=(R/'inputs/base.deb').read_bytes();p=8;blob=None

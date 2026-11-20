@@ -70,7 +70,7 @@ void STHKeyboardShow(void *frameBox) {
  id input=(__bridge id)frameBox;
  CGRect keyboard=CGRectNull;
  BOOL ownerMismatch=currentOwner&&currentOwner!=focus;
- if(ownerMismatch){candidate=nil;candidateAt=0;focus=nil;}
+ if(ownerMismatch){restoreCard();currentOwner=nil;}
  if ([input isKindOfClass:NSValue.class]) {
 #if defined(STH_KEYBOARD_TEST)
   if ([input respondsToSelector:@selector(rectValue)]) keyboard=[input rectValue];
@@ -123,6 +123,7 @@ void STHKeyboardShow(void *frameBox) {
   owner=focus;changed=YES;
   STHNativeSetKeyboardGeometry((__bridge void *)focus,target);
  }
+ if(!eligible){candidate=nil;candidateAt=0;}
 #if !defined(STH_KEYBOARD_TEST)
  STHUpdateLayout();
 #endif
@@ -134,4 +135,6 @@ void STHKeyboardHide(void) {
 #endif
  STHNativeKeyboardHide(); // Both restore operations stay in the original spring.
  if ([NSThread isMainThread]) restoreCard();
+ candidate=nil;
+ candidateAt=0;
 }

@@ -16,6 +16,7 @@ extern void STHDockNativeAnimate(void);
 static NSMutableArray<NSValue *> *models;
 static BOOL reflowing;
 static double originY,top,bottom;
+static unsigned blockedSides;
 static NSArray *lastMembers;
 static UIWindow *hostWindow(void){
  for(UIScene *s in UIApplication.sharedApplication.connectedScenes)if([s isKindOfClass:UIWindowScene.class])
@@ -30,7 +31,9 @@ BOOL STHDockRead(int64_t index,uintptr_t *key,int32_t *side,double *height){
  *key=(uintptr_t)m;*side=offset.width<0?0:1;*height=frame.size.height;return YES;
 }
 void STHDockApply(uintptr_t key,double centerY){
- void *m=(void *)key;CGSize p=STHDockNativeOffset(m);double y=centerY-originY;
+ void *m=(void *)key;CGSize p=STHDockNativeOffset(m);
+ if(!STHDockMayApply(blockedSides,p.width,(unsigned)STHDockNativeOrientation(m)))return;
+ double y=centerY-originY;
  if(fabs(y-p.height)>.25)STHDockNativeSetOffset(m,p.width,y);
 }
 double STHDockTop(void){return top;}
@@ -40,19 +43,20 @@ void STHDockReflow(void){
  void *array=STHDockCopyFloating();
  if(!array){reflowing=NO;return;}
  models=[NSMutableArray array];
+ blockedSides=0;
  @try{
   size_t n=STHChooserManagersCount(array);if(n>4096)return;
-  BOOL portraitOnly=YES;
   for(size_t i=0;i<n;i++){
    void *m=STHChooserCopyManagerAt(i,array);
    if(STHDockNativeMinimized(m)){
-    if(!STHDockUsesNativeReflow((unsigned)STHDockNativeOrientation(m)))portraitOnly=NO;
+    CGSize offset=STHDockNativeOffset(m);
+    if(!STHDockUsesNativeReflow((unsigned)STHDockNativeOrientation(m)))blockedSides|=offset.width<0?1u:2u;
     [models addObject:[NSValue valueWithPointer:m]];
    }else STHChooserReleaseSwift(m);
   }
   UIScreen *s=UIScreen.mainScreen;CGFloat h=MAX(s.bounds.size.width,s.bounds.size.height);UIEdgeInsets safe=hostWindow().safeAreaInsets;
   originY=h/2;top=MAX(28,safe.top)+8;bottom=h-MAX(20,safe.bottom)-8;
-  if(portraitOnly)STHDockSwiftReflow();
+  if(models.count)STHDockSwiftReflow();
   lastMembers=[models copy];
  }@finally{
   for(NSValue *v in models)STHChooserReleaseSwift(v.pointerValue);

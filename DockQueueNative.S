@@ -61,7 +61,7 @@ enter STHDockNativeOrientation
  add x0,x0,#0x830
  callcore 0xb091c
  mov x21,x0
- mov x8,sp
+ add x8,sp,#32
  mov x0,x20
  mov x1,x19
  mov x2,x21
@@ -70,7 +70,7 @@ enter STHDockNativeOrientation
  callcore 0xb0a0c
  mov x0,x21
  callcore 0xb0a0c
- ldr x0,[sp]
+ ldr x0,[sp,#32]
  ldp x21,x22,[sp,#16]
  ldp x19,x20,[sp]
  add sp,sp,#48

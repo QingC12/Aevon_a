@@ -1,6 +1,8 @@
 #import <Foundation/Foundation.h>
 extern void STHNativePresent(void *);
 extern void STHNativeInitialSize(void *);
+extern BOOL STHNativeMinimized(void *);
+extern void STHNativeSetMinimized(void *,BOOL);
 #if !defined(STH_DEFAULT_SIZE_TEST)
 #import "LayoutBus.h"
 #endif
@@ -12,7 +14,8 @@ void STHFirstPresentation(void *model) {
  BOOL first=![initializedModels containsObject:strong];
  if(first)[initializedModels addObject:strong];
  // The scene and all model fields exist at this point, unlike in init.
- // Retain native entry and its original spring/launch transition.
+ // Reopening a minimized model through an App selection restores full-window state.
+ if(STHNativeMinimized(model))STHNativeSetMinimized(model,NO);
  STHNativePresent(model);
  if(first){
   // Call the EXACT same body as bottom-right long-press reset. Do it within

@@ -3,6 +3,8 @@ import subprocess, tempfile
 
 R = Path(__file__).resolve().parent
 script = (R / "installer/postinst").read_text()
+assert script.index('/var/mobile/Library/Preferences/com.nx.stheno.plist') < script.index('/var/jb/usr/local/share/stheno/com.nx.stheno.plist')
+assert 'TMP="$T.tmp.$$"' in script and 'ln "$TMP" "$T"' in script
 start = script.index('      if [ -e "$T" ] || [ -L "$T" ] ; then')
 end = script.index('      N=$((N + 1))', script.index('      chmod 0600 "$T"', start)) + len('      N=$((N + 1))')
 block = script[start:end]
