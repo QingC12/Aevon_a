@@ -15,12 +15,16 @@ assert 'fixedCoordinateSpace' in ui and 's.portraitX - s.offsetX' in ui
 assert 'resultsHeight(matches.count, available: available)' in ui and '.frame(maxWidth: 360)' in ui
 assert '@State private var searchWantsFocus = false' in ui
 assert 'SearchField(text: $query' in ui and '.onChange(of: motion.visible)' in ui
+assert 'ChooserSearch.matches(query: query, name: $0.name, identifier: $0.id)' in ui
+assert 'field.markedTextRange == nil' in ui
 assert 'becomeFirstResponder()' in ui and 'field.window?.isKeyWindow == true' in ui
 assert 'private final class ChooserPanelWindow: UIWindow' in ui and 'override var canBecomeKey: Bool { true }' in ui
 assert 'scene.activationState == .foregroundActive' in ui and 'w.makeKeyAndVisible()' in ui and 'w.makeKey()' in ui
 assert 'private func attach(to window: UIWindow, hostView: UIView)' in ui
 assert 'carrierAttached' in ui and 'hostChanged' in ui and 'lifecycleChanged' in ui
-assert 'surface.isHidden = true' not in ui and 'if surface.isHidden { surface.isHidden = false }' in ui
+assert 'host.view.isHidden = !visible' not in ui
+assert 'state.ready = visible' in ui and 'if surface.isHidden { surface.isHidden = false }' in ui
+assert 'ringView = sourceView' not in ui and 'gestureView = sourceView' in ui
 assert 'host.view.isUserInteractionEnabled = interactive' in ui and 'UIWindowDidBecomeKeyNotification' in ui
 assert 'attempts < 20' in ui and 'previousKey.windowScene === window.windowScene' in ui
 assert 'state.drift' not in ui and 'state.lift' in ui

@@ -45,4 +45,4 @@ for p in R.iterdir():
  for line in text.splitlines():
   if line.lstrip().startswith('//'):assert not re.search('[\u4e00-\u9fff]',line),(p.name,line)
  assert 'NSLog(' not in text and 'STHWriteLayoutLog' not in text,p.name
-print('2.0.22: original ring auto-dismiss unchanged; release captured before collapse then ordinary admission; native App icon style; stateful center hover lift; keyboard-capable chooser panel')
+print('2.0.23: original ring auto-dismiss unchanged; center carrier host stays stable; Unicode app search; key-gated UIKit input')

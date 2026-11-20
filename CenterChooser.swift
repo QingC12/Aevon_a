@@ -55,7 +55,7 @@ private struct SearchField: UIViewRepresentable {
     func updateUIView(_ field: UITextField, context: Context) {
         context.coordinator.text = $text
         context.coordinator.wantsFocus = wantsFocus
-        if field.text != text { field.text = text }
+        if field.markedTextRange == nil && field.text != text { field.text = text }
         if wantsFocus {
             context.coordinator.requestFocus()
         } else {
@@ -129,8 +129,7 @@ private struct AppPanel: View {
         self.items = items; self.state = state; self.select = select; self.motion = state
     }
     private var matches: [AppRow] {
-        let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        return items.filter { q.isEmpty || $0.name.localizedCaseInsensitiveContains(q) || $0.id.localizedCaseInsensitiveContains(q) }
+        items.filter { ChooserSearch.matches(query: query, name: $0.name, identifier: $0.id) }
     }
     private func resultsHeight(_ count: Int, available: CGFloat) -> CGFloat {
         if count == 0 { return 48 }
@@ -200,6 +199,7 @@ private final class CenterController: NSObject {
     var display: CADisplayLink!
     weak var targetWindow: UIWindow?
     weak var ringView: UIView?
+    weak var gestureView: UIView?
     var scanAt = 0.0
     var suppressedUntil = 0.0
     var session = CenterSelectionSession()
@@ -215,7 +215,7 @@ private final class CenterController: NSObject {
         surface.addSubview(host.view)
         surface.backgroundColor = .clear
         surface.isHidden = false
-        host.view.isHidden = true
+        host.view.isHidden = false
         surface.isUserInteractionEnabled = false
         display = CADisplayLink(target: self, selector: #selector(tick))
         display.preferredFramesPerSecond = 30
@@ -235,8 +235,11 @@ private final class CenterController: NSObject {
         return nil
     }
     private func setGlyphVisible(_ visible: Bool) {
-        host.view.isHidden = !visible
-        surface.isUserInteractionEnabled = visible && panelWindow == nil && state.scale > 0.5
+        state.ready = visible
+        if !visible { state.lift = 0 }
+        let interactive = visible && panelWindow == nil && state.scale > 0.5
+        surface.isUserInteractionEnabled = interactive
+        host.view.isUserInteractionEnabled = interactive
     }
     private func attach(to window: UIWindow, hostView: UIView) {
         targetWindow = window
@@ -254,7 +257,15 @@ private final class CenterController: NSObject {
         state.ready = false
         state.scale = 0
         state.lift = 0
-        STHRegisterSthenoSurface(surface)
+    }
+    private func sceneRank(_ scene: UIWindowScene) -> Int {
+        switch scene.activationState {
+        case .foregroundActive: return 4
+        case .foregroundInactive: return 3
+        case .background: return 2
+        case .unattached: return 1
+        @unknown default: return 0
+        }
     }
     private func findWindow(_ now: Double) {
         if let w = targetWindow, !w.isHidden {
@@ -271,9 +282,10 @@ private final class CenterController: NSObject {
         targetWindow = nil
         ringView = nil
         guard now - scanAt > 0.15 else { return }; scanAt = now
-        for case let scene as UIWindowScene in UIApplication.shared.connectedScenes {
-            guard scene.activationState == .foregroundActive || scene.activationState == .foregroundInactive else { continue }
-            for w in scene.windows where w !== panelWindow && !w.isHidden {
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+            .sorted { sceneRank($0) > sceneRank($1) }
+        for scene in scenes {
+            for w in scene.windows where w !== panelWindow && !w.isHidden && w.alpha > 0.01 {
                 if let hostView = findHost(w) {
                     attach(to: w, hostView: hostView)
                     return
@@ -359,7 +371,12 @@ private final class CenterController: NSObject {
         }
         guard let ring, let recognizer, !STHSystemUIBlocked() else { session.cancel(); return }
         let pan = Unmanaged<UIPanGestureRecognizer>.fromOpaque(recognizer).takeUnretainedValue()
-        if let sourceView = pan.view { ringView = sourceView }
+        if let sourceView = pan.view {
+            gestureView = sourceView
+            if let window = sourceView.window, targetWindow !== window {
+                attach(to: window, hostView: findHost(window) ?? sourceView)
+            }
+        }
         if phase == 0 { session.begin(); tick() }
         var s = STHChooserRingSnapshot()
         guard STHChooserReadRing(&s), s.editing == 0, s.quickSetting == 0, s.showTab == 0 else { session.cancel(); updateHover(false); return }

@@ -93,6 +93,8 @@ jobs:
           /tmp/stheno-dock-orientation
           xcrun swiftc -D STH_DOCK_TEST DockQueue.swift test_dock_queue.swift -o /tmp/stheno-dock-queue
           /tmp/stheno-dock-queue
+          xcrun swiftc ChooserSearch.swift test_chooser_search.swift -o /tmp/stheno-chooser-search
+          /tmp/stheno-chooser-search
           python3 test_update18_contract.py
           python3 test_chooser_contract.py
           python3 test_installer_preferences.py
