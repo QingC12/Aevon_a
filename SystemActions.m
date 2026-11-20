@@ -9,6 +9,8 @@ extern BOOL STHInstallSystemActionIconHook(void);
 extern void *STHSystemCopyModelIdentifier(void *);
 extern BOOL STHSystemActionDismissRingNative(void);
 extern BOOL STHSystemActionHideQuickSettingNative(void);
+extern void STHInstallCenterChooser(void);
+extern void STHChooserHideBeforeCapture(void);
 static STHSystemActionGate gate;
 static UIWindow *errorWindow;
 
@@ -31,6 +33,7 @@ static void execute(STHSystemAction action){
  if(!STHSystemActionsEnabled())return;
  if(!STHSystemActionBegin(&gate,CACurrentMediaTime()))return;
  uint64_t generation=gate.generation;
+ STHChooserHideBeforeCapture();
  STHSystemActionDismissRingNative();
  STHSystemActionHideQuickSettingNative();
  // Original collapse animation is 0.15s. Capture only AFTER it is off-screen,
@@ -60,5 +63,6 @@ __attribute__((constructor)) static void installSystemActions(void){
  if(![NSBundle.mainBundle.bundleIdentifier isEqualToString:@"com.apple.springboard"])return;
  if(!STHSystemActionRuntimeReady())return;
  BOOL icon=STHInstallSystemActionIconHook();
- NSLog(@"[Stheno 2.0.16] system actions ready: screenshot/screen-recording; original icon container; icon hook=%d",icon);
+ STHInstallCenterChooser();
+ NSLog(@"[Stheno 2.0.17] colored action icons and center app chooser ready; icon hook=%d",icon);
 }

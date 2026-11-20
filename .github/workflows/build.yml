@@ -78,6 +78,18 @@ jobs:
         run: |
           xcrun --sdk macosx clang -fobjc-arc -DSTH_CAPTURE_TEST -Wall -Wextra -Werror test_system_capture.m SystemCapture.m -framework Foundation -o /tmp/stheno-system-capture
           /tmp/stheno-system-capture
+      - name: Test colored icon assets and int or wide factory signatures
+        run: |
+          python3 test_icon_assets.py
+          xcrun --sdk macosx clang -fobjc-arc -DSTH_ICON_HOOK_TEST -Wall -Wextra -Werror test_icon_hooks.m SystemActionHooks.m -framework Foundation -o /tmp/stheno-icon-hooks
+          /tmp/stheno-icon-hooks
+      - name: Test center chooser filtering, ownership and native launch seams
+        run: |
+          xcrun --sdk macosx clang -fobjc-arc -DSTH_CHOOSER_TEST -Wall -Wextra -Werror test_chooser_catalog.m ChooserCatalog.m -framework Foundation -o /tmp/stheno-chooser-catalog
+          /tmp/stheno-chooser-catalog
+          xcrun --sdk macosx clang -std=c11 -Wall -Wextra -Werror test_chooser_motion.c -o /tmp/stheno-chooser-motion
+          /tmp/stheno-chooser-motion
+          python3 test_chooser_contract.py
       - name: Verify private Orion ABI and isolation
         run: python3 test_embed_orion.py
       - name: Build and verify arm64e binaries and Debian archive

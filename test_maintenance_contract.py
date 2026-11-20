@@ -44,6 +44,12 @@ added={
 }
 if manifest.get('system_actions'):
  added.add('./Library/MobileSubstrate/DynamicLibraries/SthenoSystemActions.dylib')
+if manifest.get('icon_resources'):
+ assert len(manifest['icon_resources'])==9
+ for filename,digest in manifest['icon_resources'].items():
+  assert '/' not in filename and filename.endswith('.png')
+  path='./Library/Application Support/Stheno/SystemActions/'+filename
+  added.add(path);assert hashlib.sha256(new[path]).hexdigest()==digest
 assert set(new)==set(old)|added,(set(old)-set(new),set(new)-set(old)-added)
 changed={path for path in old if old[path]!=new[path]}
 allowed={'./Library/MobileSubstrate/DynamicLibraries/Stheno.dylib','./Library/MobileSubstrate/DynamicLibraries/SthenoKeyboard.dylib'}

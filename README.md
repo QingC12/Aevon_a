@@ -2,6 +2,16 @@
 
 This private project reconstructs the requested portrait-gesture dispatch from the supplied Stheno binary. It is a replacement gesture module with ABI bridges, **not a recovery of the original full Swift source tree**.
 
+## 2.0.17 colored icons and center app chooser
+
+The user confirmed 2.0.16 screenshot and SYSTEM screen-recording triggers work on-device, but reported white icons. The icon factory's signature gate now accepts both int (i/I) and 64-bit (q/Q) format arguments, using matching adapters and preserving every ordinary App request. Nine real RGBA PNGs (60/120/180px each) ship for blue screenshot, red recording and purple app-grid chooser, with white pictograms. RootHide resource paths resolve from the loaded dylib. Assets use AlwaysOriginal; vector fallbacks remain visible if the image directory is damaged.
+
+A center control is attached to the existing Stheno Container host window; its full-screen overlay is touch-transparent except for the actual button. It reads original RingEnv getters for center/scale, follows the original portrait-coordinate offset using UIKit fixed-screen conversion, derives opacity from scale, and uses native-parameter spring/ease timing. It never inserts a new ring item or changes the ring count, radii, shape choice or ordinary icon geometry. Its diameter is bounded by the available center hole; an unusably small hole hides it instead of pushing other icons. Editing/quick-settings/collapsed states hide the button. Model-driven UIKit timing approximates the original SwiftUI rendering; exact frame synchronization and landscape hit-testing still need device acceptance.
+
+Tap the purple app-grid icon for a compact, searchable application list. The catalog is copied from native user/system App arrays and subtracts the current pinned-manager IDs; duplicates and virtual system actions are excluded. Tap revalidates membership, dismisses the sheet, collapses the carrier and submits an ephemeral model through the ORIGINAL selected-launch SwiftUI withAnimation closure. **Selecting opens a floating App; it does not add the App to Apps/favorites or rewrite any preference.** The panel has spring entry/exit, keyboard-aware sizing, cancellation and prior key-window restoration. The center control is hidden explicitly before screenshot/record actions. SystemCapture.m is unchanged.
+
+Host tests cover both UIImage integer signatures, actual PNG pixels, native snapshot ownership, unpinned filtering, stale selection revalidation, temporary native launch and center-hole/motion mathematics. UIKit interaction and the new resource rendering remain pending on-device checks; consult the final release notes for CI and artifact verification status.
+
 ## 2.0.16 native system-action slots
 
 Adds **截图 / 录屏** at the top of the existing System app picker, in that order. The original AppCell Toggle, saved `Apps` list, ReflectManager icon cache and ring layout are reused. These are opt-in action identifiers, not installed app bundles. Both icons are full-color 60pt application tiles; the existing row/ring supplies the exact same frame, circular carrier, hit target, radius and geometry as ordinary applications. All four existing carrier shapes remain native.

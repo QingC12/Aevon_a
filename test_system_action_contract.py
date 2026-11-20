@@ -24,7 +24,8 @@ for forbidden in ('LSApplicationWorkspace','LSApplicationProxy','SettingMask','s
  assert forbidden not in picker,forbidden
 icons=(R/'SystemActionIcons.m').read_text();hooks=(R/'SystemActionHooks.m').read_text()
 assert 'CGSizeMake(60,60)' in icons and 'UIImageRenderingModeAlwaysOriginal' in icons
-assert 'originalApplicationIcon(cls,cmd,identifier,format,scale)' in hooks
+assert 'original32(cls,cmd,identifier,format,scale)' in hooks and 'original64(cls,cmd,identifier,format,scale)' in hooks
+assert "format[0]=='i'" in hooks and "format[0]=='q'" in hooks
 backend=(R/'SystemCapture.m').read_text()
 for forbidden in ('setHasUserConsent','setSystemRecording:','setMicrophoneEnabled:','startRecordingWithHandler:', 'NSURLSession'):
  assert forbidden not in backend,forbidden
