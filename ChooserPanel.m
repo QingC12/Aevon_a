@@ -62,7 +62,7 @@ extern UIImage *STHAppChooserIcon(CGFloat);
  for(NSDictionary *row in self.items){
   if(!query.length||[row[@"name"] localizedCaseInsensitiveContainsString:query]||[row[@"identifier"] localizedCaseInsensitiveContainsString:query])[rows addObject:row];
  }
- self.visible=[rows sortedArrayUsingComparator:^NSComparisonResult(NSDictionary *a,NSDictionary *b){return [a[@"name"] localizedStandardCompare:b[@"name"];}];
+ self.visible=[rows sortedArrayUsingComparator:^NSComparisonResult(NSDictionary *a,NSDictionary *b){return [a[@"name"] localizedStandardCompare:b[@"name"]];}];
  self.empty.text=self.visible.count?@"":(self.items?(query.length?@"没有匹配的应用":@"所有应用都已加入圆盘"):@"暂时无法读取应用列表");
  [self.table reloadData];
 }
