@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <stddef.h>
 #include "SystemActionGate.h"
 int main(void){
  STHSystemActionGate gate={0};
