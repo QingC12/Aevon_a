@@ -45,7 +45,7 @@ void STHGestureInputFocusChanged(void *p){interruptions++;}
 uint64_t STHVKey(NSString *b){return [b isEqual:@"a"]?11:([b isEqual:@"b"]?22:33);}
 uint64_t STHVRequestOwner(void){if(unavailable)return 0;for(NSString *b in requests)if(STHVKey(b)==offeredKey&&requests[b].active)return offeredKey;return 0;}
 BOOL STHVReadRequest(NSString *b,STHVSnapshot *s){Packet *p=requests[b];if(unavailable||!p)return NO;if(s)*s=(STHVSnapshot){.active=p.active,.keyboard=p.keyboard,.owner=STHVKey(b),.event=p.event};return YES;}
-BOOL STHVPublishLayoutState(NSString *b,BOOL active,STHVRect card,STHVRect physical,uint64_t generation,BOOL visible){assert(!active||(visible&&generation));Packet *p=[Packet new];p.active=active;p.card=card;p.keyboard=physical;p.physicalGeneration=generation;p.keyboardVisible=visible;p.hosted=STHVValid(card);layouts[b]=p;return YES;}
+BOOL STHVPublishLayoutPolicyState(NSString *b,BOOL active,STHVRect card,STHVRect physical,uint64_t generation,BOOL visible,BOOL reflow){assert(!active||(visible&&generation));Packet *p=[Packet new];p.active=active;p.card=card;p.keyboard=physical;p.physicalGeneration=generation;p.keyboardVisible=visible;p.hosted=STHVValid(card);layouts[b]=p;return YES;}
 BOOL STHVReadClientFrames(NSString *b,STHVSnapshot *out){return NO;}
 BOOL STHVReadProbe(NSString *b,STHVRect *a,STHVRect *p){return NO;}
 NSDictionary *STHVRectJSON(STHVRect r){return @{@"x":@(r.x),@"y":@(r.y),@"w":@(r.w),@"h":@(r.h)};}

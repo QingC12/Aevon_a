@@ -69,7 +69,9 @@ static double hostNow(void){
 static NSString *modelBundle(void *model){return CFBridgingRelease(STHSystemCopyModelIdentifier(model));}
 static void publishHostLayout(NSString *bundle,BOOL active,STHVRect card,STHVRect unused){
  // This is the only producer of layout physical facts. Requests never enter it.
- STHVPublishLayoutState(bundle,active,card,physicalKeyboard,sbPhysicalGeneration,sbKeyboardVisible);
+ id mask=[NSUserDefaults.standardUserDefaults persistentDomainForName:@"com.nx.stheno"][@"SettingMask"];
+ BOOL reflow=[mask isKindOfClass:NSNumber.class]&&([mask unsignedLongLongValue]&(1ULL<<31));
+ STHVPublishLayoutPolicyState(bundle,active,card,physicalKeyboard,sbPhysicalGeneration,sbKeyboardVisible,reflow);
 }
 static void writeCard(void *model,const double geometry[3],BOOL nativeTransaction){
  if(nativeTransaction){STHNativeSetViewportGeometry(model,geometry);STHNativeRefreshGeometry(model);}

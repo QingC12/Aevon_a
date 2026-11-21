@@ -6,6 +6,7 @@
 #import <objc/runtime.h>
 #import <string.h>
 extern BOOL STHVSceneIsHosted(void);
+extern BOOL STHVSceneReflowPolicy(BOOL *);
 static CGRect (*nativeBounds)(id,SEL);
 static void (*nativeSceneUpdate)(id,SEL,id,id,id,id);
 static BOOL hooksInstalled,injectEnabled,maskPresent,bit31,hostedLayout;
@@ -18,6 +19,7 @@ static void refreshPolicy(void){
  injectEnabled=![inject isKindOfClass:NSNumber.class]||[inject boolValue];
  maskPresent=[mask isKindOfClass:NSNumber.class];
  bit31=maskPresent&&([mask unsignedLongLongValue]&(1ULL<<31))!=0;
+ BOOL sharedPolicy=NO;if(STHVSceneReflowPolicy(&sharedPolicy)){injectEnabled=YES;maskPresent=YES;bit31=sharedPolicy;}
  hostedLayout=STHVSceneIsHosted();hostedCheckedAt=NSProcessInfo.processInfo.systemUptime;
 }
 CGRect STHVUnmodifiedScreenBounds(UIScreen *screen){

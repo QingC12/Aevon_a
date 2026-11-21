@@ -196,9 +196,9 @@ static BOOL readSnapshotWithAge(Stream stream, uint64_t key, STHVSnapshot *out, 
         STHVSnapshot value = {stream==Request?(STHVRect){0}:STHVUnpackRect(a), STHVUnpackRect(b), actualKey,
                              first & SERIAL_MASK, (first & ACTIVE) != 0,
                              (double)stamp / 1000.0,stream==Request?a:0,
-                             (stream==Layout||stream==FrameProbe)?authority>>2:0,
+                             (stream==Layout||stream==FrameProbe)?authority>>3:0,
                              stream==Layout&&(authority&1),
-                             stream==Layout&&(authority&2)};
+                             stream==Layout&&(authority&2),stream==Layout&&(authority&4)};
         if (out) *out = value;
         return YES;
     }
@@ -250,11 +250,12 @@ BOOL STHVPublishLayout(NSString *bundle, BOOL active, STHVRect card, STHVRect ph
     return onMain() && publish(Layout, STHVKey(bundle), active, NO, card, physical,STHVValid(card)?2:0);
 }
 
-BOOL STHVPublishLayoutState(NSString *bundle,BOOL active,STHVRect card,STHVRect physical,uint64_t generation,BOOL visible){
-    if(!onMain()||generation>(UINT64_MAX>>2)||((visible||active)&&(!generation||!visible||!STHVValid(physical))))return NO;
-    uint64_t metadata=(generation<<2)|(visible?1:0)|(STHVValid(card)?2:0);
+BOOL STHVPublishLayoutPolicyState(NSString *bundle,BOOL active,STHVRect card,STHVRect physical,uint64_t generation,BOOL visible,BOOL reflow){
+    if(!onMain()||generation>(UINT64_MAX>>3)||((visible||active)&&(!generation||!visible||!STHVValid(physical))))return NO;
+    uint64_t metadata=(generation<<3)|(visible?1:0)|(STHVValid(card)?2:0)|(reflow?4:0);
     return publish(Layout,STHVKey(bundle),active,NO,card,physical,metadata);
 }
+BOOL STHVPublishLayoutState(NSString *bundle,BOOL active,STHVRect card,STHVRect physical,uint64_t generation,BOOL visible){return STHVPublishLayoutPolicyState(bundle,active,card,physical,generation,visible,NO);}
 
 BOOL STHVReadLayout(NSString *bundle, STHVSnapshot *out) {
     uint64_t key;
@@ -284,7 +285,7 @@ BOOL STHVReadProbe(NSString *bundle, STHVRect *responder, STHVRect *parent) {
 }
 
 void STHVPublishClientFrames(NSString *bundle,STHVRect raw,STHVRect mapped,uint64_t generation){
- if(onMain()&&generation<=(UINT64_MAX>>2))publish(FrameProbe,STHVKey(bundle),YES,NO,raw,mapped,generation<<2);
+ if(onMain()&&generation<=(UINT64_MAX>>3))publish(FrameProbe,STHVKey(bundle),YES,NO,raw,mapped,generation<<3);
 }
 BOOL STHVReadClientFrames(NSString *bundle,STHVSnapshot *out){
  return onMain()&&STHVKey(bundle)&&readSnapshot(FrameProbe,STHVKey(bundle),out);

@@ -66,7 +66,7 @@
     "ChooserInputNative.m": "eb87da9fbcf548afcc3b5e183e5eccb61c4834188e736f6533722bfa9b54bac3",
     "ChooserMotion.h": "3d9b0b4bd077837cbc61adb03cba216fc1d7d3f74d4a47ee6742d2aa07462934",
     "Chooser.h": "97165449c352c53ea65c0a97d7d2a7a2480543f003494ac28f428bb8d5665489",
-    "ViewportBus.h": "eab25bab7996b48c23d17376dc54325e86f6cf4f41d0dff83c3ed3b8ec9cb932",
+    "ViewportBus.h": "02eebdabae7c3a9bcbb219eb68c5482e850fc2742ec1fee1c6310d3e10b5d7d6",
     "ChooserFocusRouting.inc": "d4a9c215de608a8422cf1bb0ff438cb457ef9fcc4a6f29f786fce6cf1ccf5a48",
     "SystemActionHooks.m": "43805e27c209569e9040eace61a31a1f80a15e94db49c50e37fadfda0553b07e",
     "ChooserNative.S": "97f0d225bdf40dadc30d9ca14e8ac5b8d66d1404c8596a592312e8bef4cdb63f",
@@ -89,9 +89,9 @@
     "native.S": "aa2f55ffbaeb10ae835bb94d6963d6249f1236fc1c0c45ea06c08a9eb30c7f83",
     "SystemVisibilityBridge.m": "6ba1a4f309a364432dbf5caca152ed922884e4e18dbd9adacfab0d948a7106ad",
     "SystemActionPicker.m": "8f22cd7ffc37412a559d2afc2d0db7123deb34ba12f0786a6e68c9a403cba92b",
-    "AppSceneReflow.m": "f44ef5a5421e622715b046dcaa12356d97e3719a68c6d827444c411530f79220",
+    "AppSceneReflow.m": "17973dddfe2dbe0e5c9e179cd5b0b07b63edb14b9ff41d8fa50fc4f074a1c181",
     "SystemActionRuntime.m": "25724d8d766e24c902974dec45f0f17675dc599d49eff5b8508da361604ab13f",
-    "ViewportBus.m": "869633a8949beb41c0ce0c183df0ff9a12b9001440dac2e957445a9d62b7b252",
+    "ViewportBus.m": "0d38c49330481b165cb70f9d0038ada86a43065a6291a732833d4dfe03959643",
     "DockDispatch.S": "f90e68b9c66188da83899eb8035a03d54c09751ba1119e2f1e3dd4d75df4a23e",
     "ChooserCatalog.m": "429716ae68bb8b1322699b9aa1144d29465b32bfb58839ccc584a5242440a1d8",
     "CenterChooser.swift": "8565a9871fa1a8a93a2a7d2e6311b33105a1f368c219d614d928ed151648aabe",
@@ -102,10 +102,10 @@
     "CenterChooserBridge.h": "9b0e8b9f28d4465dcc0c390e713a2823753ec3900939c243882c311155a9fd89",
     "ChooserSearch.swift": "68c64cf1794fc0179d9a76ebba5cc63e199f4314fa7bea37bb0e7c85546fbc1a",
     "ChooserState.m": "86b39d0cc710f2010187584cb641665d2b0ccf335ffb3b22033f40481260ed44",
-    "ViewportClient.m": "0ac8f9a393aa434627c370800e7c9cfb492f4fe2d88ee61b5acb58b89ba50c5f",
+    "ViewportClient.m": "d43bb54c60fbe327a0dafae7ff0f754a251589b1a285ffd3fa328647a2e5620d",
     "AppSceneReflowPolicy.h": "d3e462c6560973ebe257d5ef1828bcf749bc7fff2a774ec7ff511f3b49c6c525",
     "ChooserSelection.h": "062bdcd8ab3d46aef85ba57dacf603b1ba11431b9ce8dc663c7ae58f4eee1107",
-    "ViewportHost.m": "db9de2d8833dc69ba8fb57b3960ad56f2832a0740642bb546bfc8c65a97da3fc"
+    "ViewportHost.m": "fc8112e013ef731cbe56887c58b27749b4e966e14dfda9b44d0bbca313ad158d"
   },
   "retired_production": [
     "CompositeRows.inc",

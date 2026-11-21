@@ -25,5 +25,5 @@ for image in [action,client]:
   assert old not in names,('Legacy callback exported',old)
 assert {'_STHViewportPhysicalWill','_STHViewportSetLocalInput','_STHViewportModelMinimized','_STHGestureInputFocusChanged'}<=exports(action.data)
 assert {'_STHVPublishRequest','_STHVResumeRequest','_STHVReadLayout','_STHVUnmodifiedScreenBounds','_STHVInstallAppSceneReflow'}<=exports(client.data)
-assert '_STHVPublishLayoutState' in exports(action.data)
+assert '_STHVPublishLayoutPolicyState' in exports(action.data)
 print('Viewport32 ARM64e ABI: original avoidance observers skipped, old callbacks absent, 21 utility bridges, physical hit filter replaces stale legacy cache, original spring targets unchanged, standalone new client exports complete')

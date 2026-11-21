@@ -55,6 +55,7 @@ static UIView *responder(void){
  }
  return nil;
 }
+BOOL STHVSceneReflowPolicy(BOOL *enabled){STHVSnapshot host={0};if(!NSThread.isMainThread||!STHVReadLayout(bundle(),&host)||!host.hosted)return NO;if(enabled)*enabled=host.reflowEnabled;return YES;}
 BOOL STHVSceneIsHosted(void){
  STHVSnapshot host={0};return NSThread.isMainThread&&STHVReadLayout(bundle(),&host)&&host.hosted&&STHVValid(host.card);
 }

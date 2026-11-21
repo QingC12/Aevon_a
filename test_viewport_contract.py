@@ -23,7 +23,7 @@ assert 'firstWill' in client and 'predictionSerial' in client and 'client-host-i
 assert 'STHVResumeRequest' in client and 'STHVPublishRequest(bundle(),YES' in client
 assert 'manualOverride' in host and host.index('maintainOwner(nativeTransaction)')<host.index('void *array=STHDockCopyFloating()')
 assert 'sbPhysicalGeneration' in host and 'request.event' in host and 'request.keyboard' not in host
-assert 'appRawDiagnostic' in client and 'noDockedKeyboard' in host and 'STHVPublishLayoutState' in host
+assert 'appRawDiagnostic' in client and 'noDockedKeyboard' in host and 'STHVPublishLayoutPolicyState' in host
 assert 'STHVClientHidden' in client and 'explicitHidden' in client and 'return 0;' in client
 assert 'STHGestureInputFocusChanged' in host
 assert 'STHVViewport' not in host

@@ -403,17 +403,17 @@ static int fakeMain(void) {
     freshnessAndProbes();
     safeResumeAndEvent();
     STHVSnapshot authority={0};
-    assert(STHVPublishLayoutState(A,YES,cardFor(2),keyFor(2),456,YES));
-    assert(STHVReadLayout(A,&authority)&&authority.hosted&&authority.keyboardVisible&&authority.physicalGeneration==456);
+    assert(STHVPublishLayoutPolicyState(A,YES,cardFor(2),keyFor(2),456,YES,YES));
+    assert(STHVReadLayout(A,&authority)&&authority.hosted&&authority.keyboardVisible&&authority.physicalGeneration==456&&authority.reflowEnabled);
     uint64_t previous=field(A,"layout","commit");
     for(unsigned step=1;step<=5;step++){
         failSet=sets+step;
         assert(!STHVPublishLayoutState(A,NO,cardFor(3),(STHVRect){0},457,NO));
         assert(field(A,"layout","commit")==previous);
-        assert(STHVReadLayout(A,&authority)&&authority.keyboardVisible&&authority.physicalGeneration==456);
+        assert(STHVReadLayout(A,&authority)&&authority.keyboardVisible&&authority.physicalGeneration==456&&authority.reflowEnabled);
     }
     assert(STHVPublishLayoutState(A,NO,cardFor(3),(STHVRect){0},457,NO));
-    assert(STHVReadLayout(A,&authority)&&authority.hosted&&!authority.keyboardVisible&&authority.physicalGeneration==457);
+    assert(STHVReadLayout(A,&authority)&&authority.hosted&&!authority.keyboardVisible&&authority.physicalGeneration==457&&!authority.reflowEnabled);
     assert(!STHVPublishLayoutState(A,YES,cardFor(3),keyFor(3),0,YES));
     mainThreadAndGeneration();
     puts("ViewportBus fake: 200 round trips, torn writes, owner/commit retries, inactive baselines, safe renewal, freshness and probe isolation passed");

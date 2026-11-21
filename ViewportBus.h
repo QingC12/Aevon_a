@@ -30,7 +30,7 @@ typedef struct {
     double at;                 /* Continuous boot-time seconds, not wall time. */
     uint64_t event;             /* Request claim generation; renewals preserve it. */
     uint64_t physicalGeneration;
-    BOOL keyboardVisible, hosted;
+    BOOL keyboardVisible, hosted, reflowEnabled;
 } STHVSnapshot;
 
 /* All transport/observation APIs are main-thread-only, otherwise fail/no-op.
@@ -64,6 +64,8 @@ BOOL STHVPublishLayout(NSString *bundle, BOOL active,
 /* Only the SB producer supplies these authority facts; app requests are diagnostic. */
 BOOL STHVPublishLayoutState(NSString *bundle,BOOL active,STHVRect card,STHVRect physical,
                            uint64_t physicalGeneration,BOOL keyboardVisible);
+BOOL STHVPublishLayoutPolicyState(NSString *bundle,BOOL active,STHVRect card,STHVRect physical,
+ uint64_t physicalGeneration,BOOL keyboardVisible,BOOL reflowEnabled);
 BOOL STHVReadLayout(NSString *bundle, STHVSnapshot *out);
 void STHVObserveLayout(NSString *bundle, dispatch_block_t block);
 

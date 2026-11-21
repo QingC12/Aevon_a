@@ -52,6 +52,8 @@ int main(void){@autoreleasepool{
  received=[NSMutableArray new];systemPost=receiver;systemPostName=receiverName;systemInset=nativeInset;
  layout=(STHVSnapshot){.card={0,100.5,430,731},.keyboard={0,590,430,342},.active=YES,.hosted=YES,.keyboardVisible=YES,.physicalGeneration=1,.serial=1};
  editingView=field;editingScene=scene;inputOwner=123;
+ layout.reflowEnabled=YES;BOOL reflowFlag=NO;assert(STHVSceneReflowPolicy(&reflowFlag)&&reflowFlag);
+ layout.reflowEnabled=NO;assert(STHVSceneReflowPolicy(&reflowFlag)&&!reflowFlag);
  CGRect raw[]={ {0,774,430,158},{0,804.6666666667,430,127.3333333333},{0,835.3333333333,430,96.6666666667},{0,932,430,97} };
  for(unsigned cycle=0;cycle<200;cycle++){
   layout.active=YES;layout.keyboardVisible=YES;layout.keyboard=(STHVRect){0,590,430,342};layout.physicalGeneration++;layout.serial++;
