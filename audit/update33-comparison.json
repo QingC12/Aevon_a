@@ -1,0 +1,47 @@
+{
+  "artifact": "stheno_2.0.33_iphoneos-arm64e.deb",
+  "artifact_sha256": "fae44c589c822a4ea9aaf5b941f5330d10c8f1e29d7ccf819305085faf92318d",
+  "artifact_size": 491444,
+  "baseline_version": "2.0.32",
+  "baseline_sha256": "1fe1ff0e50a21062ff234f73314b865e14c3d10161d269e056d5c455106beb40",
+  "baseline_size": 489600,
+  "package_bytes_delta": 1844,
+  "installed_logical_bytes": 2139408,
+  "baseline_installed_logical_bytes": 2138272,
+  "payload_files": 29,
+  "changed_files": [
+    {
+      "path": "./Library/MobileSubstrate/DynamicLibraries/SthenoSystemActions.dylib",
+      "before": 315664,
+      "after": 315664
+    },
+    {
+      "path": "./Library/MobileSubstrate/DynamicLibraries/SthenoViewport.dylib",
+      "before": 111088,
+      "after": 112224
+    }
+  ],
+  "unchanged_files": 27,
+  "added_files": [],
+  "removed_files": [],
+  "core_entire_file_unchanged": true,
+  "springboard_actions_text_section_byte_identical": true,
+  "installer_resources_orion_filter_unchanged": true,
+  "widgets_extensions_and_services_install_no_client_or_reflow_hooks": true,
+  "client_install_requires_observed_launch_then_async_main": true,
+  "reflow_constructor_and_private_scene_hook_removed": true,
+  "screen_getter_uses_expiring_cache_without_scene_queries": true,
+  "all_keyboard_consumer_function_text_unchanged": true,
+  "physical_host_bus_authority_and_geometry_unchanged": true,
+  "original_animation_unchanged": true,
+  "preserved_files_checked": 54,
+  "active_sources_reviewed": 57,
+  "build_commit": "3ef1991b7a12b2b815cfb41721ff8ded2af8b9e7",
+  "ci_run": 44929105937,
+  "ci_job": 136921594455,
+  "ci_artifact": 14716897109,
+  "all_ci_steps_success": 23,
+  "tracked_blobs_checked": 199,
+  "local_source_drift": [],
+  "device_tested": false
+}
