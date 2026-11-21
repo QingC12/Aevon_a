@@ -72,6 +72,8 @@ int main(void){@autoreleasepool{
   claim(@"b",YES,(STHVRect){0,550,400,300});runRegistry();assert(viewportOwner==b&&a.scale==.8&&b.scale==1);
   // A late old-owner end and an unowned native hide cannot tear down B.
   claim(@"a",NO,(STHVRect){0});before=writes;physical(YES);assert(viewportOwner==b&&writes==before);
+  runRegistry();assert(!STHViewportKeyboardExcludes(CGPointMake(100,600))&&writes==before);
+  claim(@"b",YES,(STHVRect){0,550,400,300});runRegistry();assert(STHViewportKeyboardExcludes(CGPointMake(100,600))&&writes==before);
   claim(@"b",NO,(STHVRect){0});runRegistry();assert(!viewportOwner&&b.scale==.8);
   // Manual geometry is not overwritten by automatic restoration.
   claim(@"a",YES,(STHVRect){0,550,400,300});runRegistry();a.offset=CGSizeMake(55,66);a.scale=.93;

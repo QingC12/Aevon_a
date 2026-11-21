@@ -23,6 +23,7 @@ assert 'firstWill' in client and 'predictionSerial' in client and 'client-host-i
 assert 'STHVResumeRequest' in client and 'STHVPublishRequest(bundle(),YES' in client
 assert 'manualOverride' in host and host.index('maintainOwner(nativeTransaction)')<host.index('void *array=STHDockCopyFloating()')
 assert 'hiddenRequestEvent' in host and 'request.event' in host
+assert 'client-native-keyboard-context' in client and 'noDockedKeyboard' in host
 assert 'STHGestureInputFocusChanged' in host
 assert 'STHVViewport' not in host
 print('Viewport31 contract: 36 legacy production sources retired; original avoidance registration disabled; no editor transforms; canonical scene/screen bridge; original spring; bounded cleanup; fresh owner and real-event fencing')

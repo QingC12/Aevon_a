@@ -130,7 +130,11 @@ static BOOL intercept(NSNotificationCenter *center,NSNotification *note){
   STHVRect bounds=vr(scene.coordinateSpace.bounds);canonical=(STHVRect){bounds.x,bounds.y+bounds.h,bounds.w,0};
   mapped=was;
  }else{
-  if(!ready(view)||!STHVKeyboard(physical,vr(scene.screen.bounds)))return NO;
+  if(!ready(view))return NO;
+  if(!STHVKeyboard(physical,vr(scene.screen.fixedCoordinateSpace.bounds))){
+   if(visible||mappedSession){visible=NO;mappedSession=NO;predictionPending=NO;physicalFrame=(STHVRect){0};stopLease();STHVPublishRequest(bundle(),NO,(STHVRect){0});probe(@"client-native-keyboard-context",nil);}
+   return NO;
+  }
   editingView=view;editingScene=scene;physicalFrame=physical;visible=YES;startLease();
   if(will)STHVPublishRequest(bundle(),YES,physical);
   mapped=mapFrame(scene,physical,will&&!mappedSession,&canonical);

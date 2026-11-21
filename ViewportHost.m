@@ -208,8 +208,8 @@ __attribute__((constructor)) static void installViewportHost(void){dispatch_asyn
    if([note.object isKindOfClass:UIScreen.class]&&note.object!=UIScreen.mainScreen)return;
    CGRect frame=[value isKindOfClass:NSValue.class]?[value CGRectValue]:CGRectNull;
    if(!CGRectIsNull(frame))frame=[UIScreen.mainScreen.coordinateSpace convertRect:frame toCoordinateSpace:UIScreen.mainScreen.fixedCoordinateSpace];
-   if(!hide&&!STHVKeyboard(vr(frame),viewportScreen()))return;
-   STHCenterRunAnimation(^{STHViewportPhysicalWill(frame,hide);},0);
+   BOOL noDockedKeyboard=hide||!STHVKeyboard(vr(frame),viewportScreen());
+   STHCenterRunAnimation(^{STHViewportPhysicalWill(frame,noDockedKeyboard);},0);
   }];
  }
  static dispatch_source_t registryTimer;registryTimer=dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER,0,0,dispatch_get_main_queue());
