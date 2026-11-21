@@ -33,85 +33,6 @@ private final class CenterSurface: UIView {
         !isHidden && UIBezierPath(ovalIn: hitArea).contains(point)
     }
 }
-private final class ChooserPanelWindow: UIWindow {
-    override var canBecomeKey: Bool { true }
-}
-private struct SearchField: UIViewRepresentable {
-    @Binding var text: String
-    let wantsFocus: Bool
-    func makeCoordinator() -> Coordinator { Coordinator(text: $text, wantsFocus: wantsFocus) }
-    func makeUIView(context: Context) -> UITextField {
-        let field = UITextField()
-        field.placeholder = "搜索应用"
-        field.autocorrectionType = .no
-        field.autocapitalizationType = .none
-        field.returnKeyType = .search
-        field.backgroundColor = .clear
-        field.delegate = context.coordinator
-        field.addTarget(context.coordinator, action: #selector(Coordinator.changed(_:)), for: .editingChanged)
-        context.coordinator.field = field
-        context.coordinator.observeKeyWindow()
-        return field
-    }
-    func updateUIView(_ field: UITextField, context: Context) {
-        context.coordinator.text = $text
-        context.coordinator.wantsFocus = wantsFocus
-        if field.markedTextRange == nil && field.text != text { field.text = text }
-        if wantsFocus {
-            context.coordinator.requestFocus()
-        } else {
-            context.coordinator.cancelFocus()
-            if field.isFirstResponder { field.resignFirstResponder() }
-        }
-    }
-    final class Coordinator: NSObject, UITextFieldDelegate {
-        var text: Binding<String>
-        var wantsFocus: Bool
-        weak var field: UITextField?
-        private var attempts = 0
-        private var keyObserver: NSObjectProtocol?
-        init(text: Binding<String>, wantsFocus: Bool) {
-            self.text = text; self.wantsFocus = wantsFocus
-        }
-        func observeKeyWindow() {
-            keyObserver = NotificationCenter.default.addObserver(forName: Notification.Name("UIWindowDidBecomeKeyNotification"), object: nil, queue: .main) { [weak self] note in
-                guard let self, let window = note.object as? UIWindow, window === self.field?.window, self.wantsFocus else { return }
-                self.attempts = 0
-                self.requestFocus()
-            }
-        }
-        deinit {
-            if let keyObserver { NotificationCenter.default.removeObserver(keyObserver) }
-        }
-        @objc func changed(_ sender: UITextField) { text.wrappedValue = sender.text ?? "" }
-        func cancelFocus() { attempts = 0 }
-        func requestFocus() {
-            guard wantsFocus, field?.isFirstResponder != true, attempts == 0 else { return }
-            attempts = 1
-            focusAttempt()
-        }
-        private func focusAttempt() {
-            guard wantsFocus, let field else { attempts = -1; return }
-            guard attempts >= 0 && attempts < 20 else { attempts = -1; return }
-            attempts += 1
-            DispatchQueue.main.async { [weak self, weak field] in
-                guard let self, self.wantsFocus, let field else { return }
-                guard field.window?.isKeyWindow == true else {
-                    self.retryFocus()
-                    return
-                }
-                if !field.isFirstResponder { field.becomeFirstResponder() }
-                if field.isFirstResponder { self.attempts = 0 }
-                else { self.retryFocus() }
-            }
-        }
-        private func retryFocus() {
-            guard wantsFocus, attempts >= 0, attempts < 20 else { attempts = -1; return }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in self?.focusAttempt() }
-        }
-        func textFieldDidBeginEditing(_ textField: UITextField) { attempts = 0 }
-    }
-}
 private struct AppRow: Identifiable {
     let id: String
     let name: String
@@ -124,10 +45,10 @@ private struct AppPanel: View {
     let state: PanelState
     let select: (String?) -> Void
     @State private var query = ""
-    @State private var searchWantsFocus = false
+    let input: ChooserInputSession
     @ObservedObject private var motion: PanelState
-    init(items: [AppRow], state: PanelState, select: @escaping (String?) -> Void) {
-        self.items = items; self.state = state; self.select = select; self.motion = state
+    init(items: [AppRow], state: PanelState, input: ChooserInputSession, select: @escaping (String?) -> Void) {
+        self.items = items; self.state = state; self.input = input; self.select = select; self.motion = state
     }
     private var matches: [AppRow] {
         items.filter { ChooserSearch.matches(query: query, name: $0.name, identifier: $0.id) }
@@ -155,7 +76,7 @@ private struct AppPanel: View {
                     }
                     HStack {
                         Image(systemName: "magnifyingglass").foregroundColor(.secondary)
-                        SearchField(text: $query, wantsFocus: motion.visible || searchWantsFocus)
+                        ChooserSearchField(text: $query, input: input)
                             .frame(minHeight: 20)
                     }.padding(12).background(Color.primary.opacity(0.06)).cornerRadius(12)
                     if matches.isEmpty {
@@ -183,9 +104,6 @@ private struct AppPanel: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity).padding(.horizontal, 16).padding(.vertical, 12)
             }
         }
-        .onChange(of: motion.visible) { visible in
-            DispatchQueue.main.async { searchWantsFocus = visible }
-        }
     }
 }
 
@@ -197,6 +115,7 @@ private final class CenterController: NSObject {
     var panelWindow: UIWindow?
     weak var previousKey: UIWindow?
     var panelState: PanelState?
+    var panelInput: ChooserInputSession?
     var display: CADisplayLink!
     weak var targetWindow: UIWindow?
     weak var ringView: UIView?
@@ -473,23 +392,29 @@ private final class CenterController: NSObject {
         presentationGeneration &+= 1
         let generation = presentationGeneration
         previousKey = scene.windows.first(where: \.isKeyWindow)
-        let w = ChooserPanelWindow(windowScene: scene)
-        w.frame = scene.coordinateSpace.bounds
-        w.windowLevel = max((targetWindow?.windowLevel ?? .normal) + 1, .normal + 2)
-        let controller = UIHostingController(rootView: AppPanel(items: items, state: motion) { [weak self] id in self?.closePanel(selecting: id) })
+        guard let w = STHCreateChooserInputWindow(scene) else { panelState = nil; return }
+        let input = ChooserInputSession(); panelInput = input
+        input.invalidated = { [weak self] in self?.hidePanel() }
+        let controller = ChooserHostingController(rootView: AppPanel(items: items, state: motion, input: input) { [weak self] id in self?.closePanel(selecting: id) }, input: input)
         controller.view.backgroundColor = .clear; w.rootViewController = controller
-        panelWindow = w; w.isHidden = false; w.makeKeyAndVisible(); controller.view.layoutIfNeeded()
+        panelWindow = w; input.bind(w)
+        w.makeKeyAndVisible()
+        guard panelWindow === w, panelState === motion, !input.closing else { return }
+        controller.view.layoutIfNeeded()
         DispatchQueue.main.async {
             guard self.presentationGeneration == generation, self.panelState === motion, !STHSystemUIBlocked() else { return }
-            if !w.isKeyWindow { w.makeKey() }
+            guard self.panelWindow === w, !input.closing else { return }
             STHCenterRunAnimation({ motion.visible = true }, 0)
+            input.open()
         }
     }
     func closePanel(selecting id: String?) {
-        guard let motion = panelState else { return }
+        guard let motion = panelState, panelInput?.closing == false else { return }
+        panelInput?.close()
+        let generation = presentationGeneration
         STHCenterRunAnimation({ motion.visible = false }, 1)
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-            guard self.panelState === motion else { return }
+            guard self.panelState === motion, self.presentationGeneration == generation else { return }
             self.hidePanel()
             if let id, !STHSystemUIBlocked() {
                 STHSystemActionDismissRingNative(); STHSystemActionHideQuickSettingNative()
@@ -499,14 +424,18 @@ private final class CenterController: NSObject {
     }
     func hidePanel() {
         guard let window = panelWindow else { return }
+        panelInput?.close()
+        presentationGeneration &+= 1
         panelState = nil; panelWindow = nil
+        let input = panelInput; panelInput = nil
         let restore = window.isKeyWindow
         window.endEditing(true); window.isHidden = true; window.rootViewController = nil
         if restore, let previousKey, !previousKey.isHidden,
            previousKey.windowScene === window.windowScene,
            previousKey.windowScene?.activationState == .foregroundActive {
-            previousKey.makeKey()
+            if window.windowScene?.windows.contains(where: { $0 !== window && $0.isKeyWindow }) != true { previousKey.makeKey() }
         }
+        input?.finish()
         self.previousKey = nil
     }
     @objc func systemChanged() {

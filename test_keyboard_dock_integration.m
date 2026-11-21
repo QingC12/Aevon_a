@@ -54,7 +54,7 @@ int main(void){@autoreleasepool{
  for(int cycle=0;cycle<200;cycle++){
   DockTestModel *model=[DockTestModel new];void *m=(__bridge void *)model;
   model.scale=.8;model.offset=CGSizeMake(0,20);
-  STHKeyboardFocus(m);STHKeyboardShow((__bridge void *)frame);
+  STHKeyboardInputFocus(m);STHKeyboardShow((__bridge void *)frame);
   assert(owner==model&&model.scale>.8);
   STHNativeDock(m); // The original native transaction notifies dock reconciliation.
   assert(model.minimized&&!owner&&!candidate&&fabs(model.scale-.8)<.001);

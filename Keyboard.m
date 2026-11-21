@@ -8,6 +8,12 @@
 #import <math.h>
 #import "KeyboardGeometry.h"
 #if !defined(STH_KEYBOARD_TEST)
+#import "KeyboardFocusBus.h"
+extern void *STHCopyInputFocusedModel(void);
+extern void STHChooserReleaseSwift(void *);
+extern void STHCenterRunAnimation(void (^block)(void),int);
+#endif
+#if !defined(STH_KEYBOARD_TEST)
 extern void STHStartLayout(void *,CGRect);
 extern void STHPrepareLayoutFocus(void *);
 extern void STHUpdateLayout(void);
@@ -26,9 +32,14 @@ extern void STHNativeKeyboardHide(void);
 
 static __weak id candidate;
 static CFTimeInterval candidateAt;
+static BOOL candidateConfirmed;
 static __weak id owner;
 static double saved[3], applied[3];
 static BOOL changed;
+static BOOL localInput;
+static id latestKeyboardFrame;
+static CFTimeInterval latestKeyboardAt;
+void STHKeyboardShow(void *frameBox);
 
 static CGRect viewport(void) {
 #if defined(STH_KEYBOARD_TEST)
@@ -38,15 +49,18 @@ static CGRect viewport(void) {
 #endif
 }
 
-void STHKeyboardFocus(void *model) {
+static void focusModel(void *model,BOOL confirmed) {
  if (![NSThread isMainThread] || !model) return;
  if(STHNativeMinimized(model)){STHKeyboardModelDidMinimize(model);return;}
- candidate=(__bridge id)model;
+ if(!confirmed)return; // A scene hit or drag is not evidence of text-input ownership.
+ candidate=(__bridge id)model;candidateConfirmed=YES;
  candidateAt=CACurrentMediaTime();
 #if !defined(STH_KEYBOARD_TEST)
  STHPrepareLayoutFocus(model);
 #endif
 }
+void STHKeyboardFocus(void *model){focusModel(model,NO);}
+void STHKeyboardInputFocus(void *model){focusModel(model,YES);}
 
 static void restoreCard(void) {
  id strongOwner=owner;
@@ -76,12 +90,49 @@ void STHKeyboardModelDidMinimize(void *model) {
  if(owns||(pending&&!owner))STHStopLayout();
 #endif
  if(owns)restoreCard();
- if(pending){candidate=nil;candidateAt=0;}
+ if(pending){candidate=nil;candidateAt=0;candidateConfirmed=NO;}
 }
 
+// SpringBoard-local search must never reuse an application's keyboard owner.
+void STHKeyboardSetLocalInput(BOOL active){
+ if(!NSThread.isMainThread)return;
+ localInput=active;
+ if(active){
+#if !defined(STH_KEYBOARD_TEST)
+  STHStopLayout();
+#endif
+  restoreCard();candidate=nil;candidateAt=0;candidateConfirmed=NO;latestKeyboardFrame=nil;latestKeyboardAt=0;
+ }
+}
+#if !defined(STH_KEYBOARD_TEST)
+static void inputOwnerChanged(void){
+ if(localInput)return;
+ void *model=STHCopyInputFocusedModel();
+ if(!model)return;
+ STHKeyboardInputFocus(model);
+ STHChooserReleaseSwift(model);
+ if(latestKeyboardFrame&&CACurrentMediaTime()-latestKeyboardAt<1.0){
+  id frame=latestKeyboardFrame;
+  STHCenterRunAnimation(^{if(!localInput)STHKeyboardShow((__bridge void *)frame);},0);
+ }
+}
+__attribute__((constructor)) static void observeKeyboardOwner(void){
+ dispatch_async(dispatch_get_main_queue(),^{STHObserveInputFocus(^{inputOwnerChanged();});});
+}
+#endif
+
 void STHKeyboardShow(void *frameBox) {
+ if(localInput){STHNativeKeyboardShow(frameBox);return;}
+#if !defined(STH_KEYBOARD_TEST)
+ void *confirmed=STHCopyInputFocusedModel();
+ if(confirmed){
+  if(candidate!=(__bridge id)confirmed)STHKeyboardInputFocus(confirmed);
+  STHChooserReleaseSwift(confirmed);
+ }
+#endif
+ latestKeyboardFrame=(__bridge id)frameBox;latestKeyboardAt=CACurrentMediaTime();
  // Strong locals keep the weak model valid for this synchronous transaction.
- id focus=candidate;
+ id focus=candidateConfirmed?candidate:owner;
  id currentOwner=owner;
  CGRect screen=viewport();
  id input=(__bridge id)frameBox;
@@ -140,18 +191,19 @@ void STHKeyboardShow(void *frameBox) {
   owner=focus;changed=YES;
   STHNativeSetKeyboardGeometry((__bridge void *)focus,target);
  }
- if(!eligible){candidate=nil;candidateAt=0;}
+ if(!eligible){candidate=nil;candidateAt=0;candidateConfirmed=NO;}
 #if !defined(STH_KEYBOARD_TEST)
  STHUpdateLayout();
 #endif
 }
 
 void STHKeyboardHide(void) {
+ latestKeyboardFrame=nil;latestKeyboardAt=0;
 #if !defined(STH_KEYBOARD_TEST)
  STHStopLayout();
 #endif
  STHNativeKeyboardHide(); // Both restore operations stay in the original spring.
  if ([NSThread isMainThread]) restoreCard();
  candidate=nil;
- candidateAt=0;
+ candidateAt=0;candidateConfirmed=NO;
 }

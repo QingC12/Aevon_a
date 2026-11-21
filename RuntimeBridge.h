@@ -15,3 +15,8 @@ BOOL STHDockRead(int64_t index,uintptr_t *key,int32_t *side,double *height);
 void STHDockApply(uintptr_t key,double center);
 double STHDockTop(void);
 double STHDockBottom(void);
+
+UIWindow * _Nullable STHCreateChooserInputWindow(UIWindowScene *scene);
+NSObject * _Nullable STHAcquireChooserKeyboardFocus(UIWindow *window);
+void STHReleaseChooserKeyboardFocus(NSObject *assertion);
+void STHKeyboardSetLocalInput(BOOL active);

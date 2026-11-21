@@ -8,6 +8,7 @@
 #import "KeyboardSession.h"
 #import "EditorSession.h"
 #import "LayoutBus.h"
+#import "KeyboardFocusBus.h"
 extern BOOL STHFloatingKeyboardScope(UIWindowScene *);
 extern UIWindow *STHTargetKeyboardWindow(UIWindowScene *,UIWindow *);
 extern void STHEditorVisibilityEvent(BOOL);
@@ -115,6 +116,18 @@ static BOOL sceneHasFocus(UIView *view,int depth,int *budget){
  if(view.isFirstResponder)return YES;
  for(UIView *child in view.subviews)if(sceneHasFocus(child,depth+1,budget))return YES;
  return NO;
+}
+// Focus is an app-side fact, independent of whether the host already has a layout.
+static void publishActualInputFocus(BOOL ending){
+ NSString *bundle=NSBundle.mainBundle.bundleIdentifier;
+ if(ending){STHPublishInputFocus(bundle,NO);return;}
+ for(UIScene *candidate in UIApplication.sharedApplication.connectedScenes){
+  if(![candidate isKindOfClass:UIWindowScene.class]||candidate.activationState==UISceneActivationStateBackground||candidate.activationState==UISceneActivationStateUnattached)continue;
+  for(UIWindow *window in ((UIWindowScene *)candidate).windows){
+   if([NSStringFromClass(window.class) containsString:@"Keyboard"])continue;
+   int budget=1600;if(sceneHasFocus(window,0,&budget)){STHPublishInputFocus(bundle,YES);return;}
+  }
+ }
 }
 static BOOL resolveScene(CGRect physical,UIWindowScene **found,CGRect *frame,double *inset) {
  NSMutableArray<UIWindowScene *> *ordered=[NSMutableArray new];
@@ -272,6 +285,11 @@ void STHInstallKeyboardNotifications(void) {
  IMP old=method_getImplementation(m);if(old==(IMP)normalizedInfo)return;
  originalInfo=(void *)old;method_setImplementation(m,(IMP)normalizedInfo);
  installDelivery();
+ for(NSString *name in @[UITextFieldTextDidBeginEditingNotification,UITextViewTextDidBeginEditingNotification]){
+  [NSNotificationCenter.defaultCenter addObserverForName:name object:nil queue:NSOperationQueue.mainQueue usingBlock:^(NSNotification *note){
+   if([note.object isKindOfClass:UIView.class]&&((UIView *)note.object).isFirstResponder)publishActualInputFocus(NO);
+  }];
+ }
  STHObserveLayout(NSBundle.mainBundle.bundleIdentifier,^{
   if(refreshQueued)return;refreshQueued=YES;
   dispatch_async(dispatch_get_main_queue(),^{refreshQueued=NO;refreshHostedLayout();});

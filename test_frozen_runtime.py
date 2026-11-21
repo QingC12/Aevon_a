@@ -8,21 +8,17 @@ reviewed.update(json.loads((R/'inputs/reviewed-runtime-2.0.19.json').read_text()
 reviewed.update(json.loads((R/'inputs/reviewed-runtime-2.0.20.json').read_text()))
 reviewed.update(json.loads((R/'inputs/reviewed-runtime-2.0.24.json').read_text()))
 reviewed.update(json.loads((R/'inputs/reviewed-runtime-2.0.25.json').read_text()))
+reviewed.update(json.loads((R/'inputs/reviewed-runtime-2.0.26.json').read_text()))
 for name,digest in frozen.items():
  if name in ('LayoutProbe.m','LayoutProbe.h','NotificationPolicy.m'):
   assert not (R/name).exists();continue
  expected=reviewed.get(name,digest)
  assert hashlib.sha256((R/name).read_bytes()).hexdigest()==expected,('unreviewed runtime source change',name)
-# New actions use an isolated helper; neither old compiler command receives a
-# system-action source or new flags, so inherited behavior is not relinked in.
-tree=ast.parse((R/'build.py').read_text())
-commands=[]
-for node in ast.walk(tree):
- if isinstance(node,ast.Call) and isinstance(node.func,ast.Name) and node.func.id=='run':
-  strings=[a.value for a in node.args if isinstance(a,ast.Constant) and isinstance(a.value,str)]
-  if '-dynamiclib' in strings:commands.append(strings)
-for first in ('Gesture.m','KeyboardInset.m'):
- cmd=next(c for c in commands if first in c)
- assert not any(v.startswith('System') for v in cmd),cmd
- assert '-O2' in cmd and '-fobjc-arc' in cmd
-print('Original geometry remains frozen; explicit diagnostic/touch changes reviewed:',len(frozen),'files; existing helper compile paths unchanged')
+# Structural changes are explicit: one SpringBoard runtime, separate app adapter.
+build=(R/'build.py').read_text()
+assert 'migrate_native_bridge(img,OUT' in build
+assert "'Gesture.m','Keyboard.m','DefaultSize.m','LayoutPublisher.m','LayoutBus.m'" in build
+assert "'-Oz','-dynamiclib','KeyboardInset.m'" in build
+assert "'KeyboardFocusBus.m'" in build and 'compact_signature(p)' in build
+assert "OUT/'SthenoGesture.dylib'" not in build
+print('Runtime audit lock passed; merged host and separate app focus/geometry path retained')

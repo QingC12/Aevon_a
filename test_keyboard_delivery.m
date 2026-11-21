@@ -33,6 +33,8 @@ static BOOL prepareKeyboardLifecycle(NSString *name,int state){
  }
  return YES;
 }
+static int focusOffers,focusEnds;
+static void publishActualInputFocus(BOOL ending){if(ending)focusEnds++;else focusOffers++;}
 #include "KeyboardDelivery.inc"
 static void send(NSString *name,double top){
  [NSNotificationCenter.defaultCenter postNotificationName:name object:nil userInfo:@{@"top":@(top)}];
@@ -73,7 +75,9 @@ int main(void){@autoreleasepool{
  [NSNotificationCenter.defaultCenter removeObserver:a];[NSNotificationCenter.defaultCenter removeObserver:b];
  __block double fullscreen=0;
  id c=[NSNotificationCenter.defaultCenter addObserverForName:@"UIKeyboardWillShowNotification" object:nil queue:nil usingBlock:^(NSNotification *n){fullscreen=[n.userInfo[@"top"] doubleValue];}];
- phase=0;send(@"UIKeyboardWillShowNotification",612);assert(fullscreen==612);
+ int offeredBefore=focusOffers;
+ phase=0;send(@"UIKeyboardWillShowNotification",612);assert(fullscreen==612&&focusOffers>offeredBefore);
+ assert(focusEnds>0);
  [NSNotificationCenter.defaultCenter removeObserver:c];
  printf("Production delivery tests passed: immediate Will delivery, immutable observer frame, hide lifecycle, fullscreen passthrough (%d preparations)\n",preparations);
 }return 0;}

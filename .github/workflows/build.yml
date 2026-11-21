@@ -21,6 +21,8 @@ jobs:
           /tmp/stheno-keyboard-geometry
           xcrun --sdk macosx clang -fobjc-arc -Wall -Wextra -Wno-unused-parameter test_keyboard_routing.m -framework Foundation -framework CoreGraphics -framework QuartzCore -o /tmp/stheno-keyboard-routing
           /tmp/stheno-keyboard-routing
+          xcrun --sdk macosx clang -fobjc-arc -Wall -Wextra -Wno-unused-parameter test_keyboard_focus_owner.m KeyboardFocusBus.m KeyboardOwner.m -framework Foundation -o /tmp/stheno-focus-owner
+          /tmp/stheno-focus-owner
           xcrun --sdk macosx clang -fobjc-arc -Wall -Wextra -Wno-unused-parameter test_keyboard_dock_integration.m -framework Foundation -framework CoreGraphics -framework QuartzCore -o /tmp/stheno-keyboard-dock
           /tmp/stheno-keyboard-dock
       - name: Test editor visibility and keyboard lifecycle
@@ -69,6 +71,7 @@ jobs:
       - name: Test system-action native picker, ordering, and frozen runtime
         run: |
           python3 test_frozen_runtime.py
+          python3 test_core_native_bridge.py
           python3 test_system_action_contract.py
           for name in catalog gate order; do
             xcrun --sdk macosx clang -std=c11 -Wall -Wextra -Werror test_system_action_${name}.c -o /tmp/stheno-system-${name}
@@ -98,6 +101,8 @@ jobs:
           /tmp/stheno-dock-queue
           xcrun swiftc ChooserSearch.swift test_chooser_search.swift -o /tmp/stheno-chooser-search
           /tmp/stheno-chooser-search
+          xcrun swiftc ChooserFocusPolicy.swift test_chooser_focus.swift -o /tmp/stheno-chooser-focus
+          /tmp/stheno-chooser-focus
           xcrun swiftc CenterGlyphGeometry.swift test_center_glyph_geometry.swift -o /tmp/stheno-center-glyph-geometry
           /tmp/stheno-center-glyph-geometry
           python3 test_global_logic_contract.py

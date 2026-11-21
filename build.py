@@ -3,8 +3,10 @@ import hashlib,struct,subprocess,json,tarfile,io,copy,os,re,lzma
 from embed_orion import prepare
 from system_action_patch import patch_system_actions
 from update18_patch import patch_update18
+from core_native_bridge import migrate_native_bridge
+from compact_sign import compact_signature
 ROOT=Path(__file__).resolve().parent
-VERSION='2.0.25'
+VERSION='2.0.26'
 os.chdir(ROOT)
 OUT=ROOT/'build';OUT.mkdir(exist_ok=True)
 def run(*args,**kw): return subprocess.check_output([str(x) for x in args],**kw)
@@ -106,14 +108,7 @@ assert img[0x9c4c:0x9c50]==bytes.fromhex('0015889a');img[0x9c4c:0x9c50]=code[4:8
 # Always visit the end bridge so it can clear active-touch state even after a hold.
 assert struct.unpack_from('<I',img,0xaa18)[0]&0x7e000000==0x36000000
 img[0xaa18:0xaa1c]=bytes.fromhex('1f2003d5')
-# Dependency loads before any of the patched entry points.
-name=b'@loader_path/SthenoGesture.dylib\0';sz=(24+len(name)+7)&~7
-lc=struct.pack('<6I',0xc,sz,24,2,0x10000,0x10000)+name;lc+=bytes(sz-len(lc))
-n,nbytes=struct.unpack_from('<II',img,16);at=32+nbytes
-assert at+sz<0x4000 and img[at:at+sz]==bytes(sz)
-img[at:at+sz]=lc;struct.pack_into('<II',img,16,n+1,nbytes+sz)
-# A separate dependency owns ONLY the two opt-in system actions. Existing
-# helpers and old dispatch bytes remain unchanged.
+# One source-linked SpringBoard runtime; all native callbacks remain exported.
 name=b'@loader_path/SthenoSystemActions.dylib\0';sz=(24+len(name)+7)&~7
 lc=struct.pack('<6I',0xc,sz,24,2,0x10000,0x10000)+name;lc+=bytes(sz-len(lc))
 n,nbytes=struct.unpack_from('<II',img,16);at=32+nbytes
@@ -129,10 +124,9 @@ for start,stop in [(0x4c368,0x4c8a8),(0x507bc,0x50a58),(0x4473c,0x447d4),(0x447d
                    (0x4994c,0x4ad44),(0x4ad48,0x4b82c),(0x4d3dc,0x4d4e0),(0x51454,0x51588)]:
  assert img[start:stop]==rows[mi][1][start:stop],(hex(start),hex(stop))
 img,orion_image,orion_manifest=prepare(img,(ROOT/'inputs/Orion.arm64e').read_bytes())
+img,native_bridges,native_stubs=migrate_native_bridge(img,OUT,['xcrun','clang'])
 core=OUT/'Stheno.dylib';core.write_bytes(img)
 orion=OUT/'Orion';orion.write_bytes(orion_image)
-# Compile recovered dispatch source, not the proprietary original project.
-run('xcrun','clang','-target','arm64e-apple-ios16.1','-isysroot',run('xcrun','--sdk','iphoneos','--show-sdk-path').decode().strip(),'-fobjc-arc','-O2','-dynamiclib','Gesture.m','Keyboard.m','DefaultSize.m','LayoutPublisher.m','LayoutBus.m','native.S','-framework','UIKit','-framework','Foundation','-framework','QuartzCore','-framework','CoreGraphics','-install_name','@loader_path/SthenoGesture.dylib','-o',OUT/'SthenoGesture.dylib')
 # Privately load a scoped application-side inset adapter after the original keyboard hooks.
 ki=next(i for i,(m,b) in enumerate(rows) if m.name.endswith('/SthenoKeyboard.dylib'))
 keyboard_image=bytearray(rows[ki][1]);keyboard_original=bytes(keyboard_image)
@@ -146,27 +140,37 @@ keyboard_image[start:start+size]=command
 struct.pack_into('<II',keyboard_image,16,count+1,command_size+size)
 assert keyboard_image[0x4000:]==keyboard_original[0x4000:]
 keyboard_binary=OUT/'SthenoKeyboard.dylib';keyboard_binary.write_bytes(keyboard_image)
-run('xcrun','clang','-target','arm64e-apple-ios16.1','-isysroot',run('xcrun','--sdk','iphoneos','--show-sdk-path').decode().strip(),'-fobjc-arc','-O2','-dynamiclib','KeyboardInset.m','KeyboardCoordinates.m','EditorGuard.m','EditorPolicy.m','EditorRefinedGuard.m','EditorCompositeGuard.m','KeyboardMeasurement.m','KeyboardRefinedMeasurement.m','KeyboardCompositeMeasurement.m','LayoutBus.m','-framework','UIKit','-framework','Foundation','-framework','CoreGraphics','-framework','QuartzCore','-install_name','@loader_path/SthenoKeyboardInset.dylib','-o',OUT/'SthenoKeyboardInset.dylib')
+run('xcrun','clang','-target','arm64e-apple-ios16.1','-isysroot',run('xcrun','--sdk','iphoneos','--show-sdk-path').decode().strip(),'-fobjc-arc','-Oz','-dynamiclib','KeyboardInset.m','KeyboardCoordinates.m','EditorGuard.m','EditorPolicy.m','EditorRefinedGuard.m','EditorCompositeGuard.m','KeyboardMeasurement.m','KeyboardRefinedMeasurement.m','KeyboardCompositeMeasurement.m','LayoutBus.m','KeyboardFocusBus.m','-framework','UIKit','-framework','Foundation','-framework','CoreGraphics','-framework','QuartzCore','-install_name','@loader_path/SthenoKeyboardInset.dylib','-o',OUT/'SthenoKeyboardInset.dylib')
 action_binary=OUT/'SthenoSystemActions.dylib'
 sdk=run('xcrun','--sdk','iphoneos','--show-sdk-path').decode().strip()
 action_objects=[]
-for source in ['SystemActions.m','SystemActionRuntime.m','SystemActionPicker.m','SystemActionIcons.m','SystemActionHooks.m','SystemCapture.m','SystemActionNative.S','ChooserCatalog.m','ChooserState.m','ChooserNative.S','CenterChooserBridge.m','CenterChooserNative.S','SystemVisibilityBridge.m','DockQueueBridge.m','DockQueueNative.S']:
+for source in ['SystemActions.m','SystemActionRuntime.m','SystemActionPicker.m','SystemActionIcons.m','SystemActionHooks.m','SystemCapture.m','SystemActionNative.S','ChooserCatalog.m','ChooserState.m','ChooserNative.S','CenterChooserBridge.m','CenterChooserNative.S','SystemVisibilityBridge.m','DockQueueBridge.m','DockQueueNative.S','Gesture.m','Keyboard.m','DefaultSize.m','LayoutPublisher.m','LayoutBus.m','KeyboardFocusBus.m','KeyboardOwner.m','ChooserInputNative.m',native_stubs]:
  obj=OUT/(Path(source).stem+'.o')
- args=['xcrun','clang','-target','arm64e-apple-ios16.1','-isysroot',sdk,'-Os','-c',source,'-o',obj]
- if source.endswith('.m'):args.insert(7,'-fobjc-arc')
+ args=['xcrun','clang','-target','arm64e-apple-ios16.1','-isysroot',sdk,'-Oz','-c',source,'-o',obj]
+ if str(source).endswith('.m'):args.insert(7,'-fobjc-arc')
  run(*args);action_objects.append(obj)
-run('xcrun','swiftc','-swift-version','5','-target','arm64e-apple-ios16.1','-sdk',sdk,'-Osize','-emit-library','-import-objc-header','RuntimeBridge.h','-module-name','SthenoRuntime','CenterChooser.swift','CenterSelection.swift','DockQueue.swift','ChooserSearch.swift','CenterGlyphGeometry.swift',*action_objects,'-Xlinker','-install_name','-Xlinker','@loader_path/SthenoSystemActions.dylib','-Xlinker','-rpath','-Xlinker','/usr/lib/swift','-o',action_binary)
+action_link=['xcrun','swiftc','-swift-version','5','-target','arm64e-apple-ios16.1','-sdk',sdk,'-Osize','-emit-library','-import-objc-header','RuntimeBridge.h','-module-name','SthenoRuntime','CenterChooser.swift','CenterSelection.swift','DockQueue.swift','ChooserSearch.swift','CenterGlyphGeometry.swift','ChooserInput.swift','ChooserFocusPolicy.swift',*action_objects,'-Xlinker','-install_name','-Xlinker','@loader_path/SthenoSystemActions.dylib','-Xlinker','-rpath','-Xlinker','/usr/lib/swift','-o',action_binary]
+run(*action_link)
+exported=run('xcrun','nm','-gjU',action_binary).decode().splitlines()
+keep=sorted({v for v in exported if v.startswith(('_STH','_sth_','_OBJC_CLASS_$_','_OBJC_METACLASS_$_'))})
+assert '_STHCenterRingPan' in keep and '_STHKeyboardShow' in keep
+export_list=OUT/'runtime-exports.txt';export_list.write_text('\n'.join(keep)+'\n')
+run(*action_link,'-Xlinker','-exported_symbols_list','-Xlinker',export_list)
+for binary in [action_binary,OUT/'SthenoKeyboardInset.dylib',orion]:
+ run('xcrun','strip','-S','-x',binary)
 quiet_companions=[]
 for filename,address,marker in [('CameraFix.dylib',0x40e4,b'CameraFixDiag.txt'),('KeyboardFix.dylib',0x4068,b'KeyboardFixDiag.txt')]:
  index=next(i for i,(m,b) in enumerate(rows) if m.name.endswith('/'+filename));image=bytearray(rows[index][1])
  assert marker in image and image[address:address+4]==bytes.fromhex('7f2303d5')
  image[address:address+4]=bytes.fromhex('c0035fd6');path=OUT/filename;path.write_bytes(image);quiet_companions.append((index,path))
-for p in [core,OUT/'SthenoGesture.dylib',orion,keyboard_binary,OUT/'SthenoKeyboardInset.dylib',action_binary]+[p for _,p in quiet_companions]:
+signature_savings={}
+for p in [core,orion,keyboard_binary,OUT/'SthenoKeyboardInset.dylib',action_binary]+[p for _,p in quiet_companions]:
  run('codesign','--force','--sign','-','--timestamp=none',p,stderr=subprocess.STDOUT)
+ signature_savings[p.name]=compact_signature(p)
  run('codesign','--verify','--strict',p,stderr=subprocess.STDOUT)
  rows[mi]=(rows[mi][0],core.read_bytes())
 for index,path in quiet_companions:rows[index]=(rows[index][0],path.read_bytes())
-helper=copy.copy(rows[mi][0]);helper.name='./Library/MobileSubstrate/DynamicLibraries/SthenoGesture.dylib';rows.append((helper,(OUT/'SthenoGesture.dylib').read_bytes()))
+helper=copy.copy(rows[mi][0]);helper.name='./Library/MobileSubstrate/DynamicLibraries/SthenoSystemActions.dylib'
 rows[ki]=(rows[ki][0],keyboard_binary.read_bytes())
 inset_entry=copy.copy(helper);inset_entry.name='./Library/MobileSubstrate/DynamicLibraries/SthenoKeyboardInset.dylib'
 rows.append((inset_entry,(OUT/'SthenoKeyboardInset.dylib').read_bytes()))
@@ -217,5 +221,5 @@ result=OUT/f'stheno_{VERSION}_iphoneos-arm64e.deb'
 result.write_bytes(arwrite([(n,(OUT/n).read_bytes()) for n in ('debian-binary','control.tar.xz','data.tar.xz')]))
 verify=tarread(arread(result.read_bytes())['data.tar.xz']);assert len(verify)==len(rows)
 for (a,b),(c,d) in zip(rows,verify):assert a.name==c.name and b==d
-manifest={'artifact':result.name,'sha256':hashlib.sha256(result.read_bytes()).hexdigest(),'size':result.stat().st_size,'data_tar_default_xz_bytes':len(default_data_archive),'data_tar_optimized_xz_bytes':len(data_archive),'data_tar_bytes_saved':len(default_data_archive)-len(data_archive),'data_tar_uncompressed_bytes':len(data_tar_uncompressed),'data_tar_uncompressed_sha256':hashlib.sha256(data_tar_uncompressed).hexdigest(),'patch_entries':{hex(a):hex(t) for a,(_,t) in changes.items()},'device_tested':False,'bundled_orion':orion_manifest,'keyboard_inset_adapter':True,'system_actions':system_actions_manifest,'center_app_chooser':{'version':3,'pins_apps':False,'native_catalog':True,'native_animated_launch':True,'native_pan_trigger':True,'release_admission':True,'ring_auto_dismiss_preserved':True,'ring_geometry_modified':False},'visibility_restores_from_observed_state':True,'initial_model_position':'native_screen_center','icon_resources':icon_resources,'update18':update18_manifest,'diagnostic_logging_removed':True}
+manifest={'artifact':result.name,'sha256':hashlib.sha256(result.read_bytes()).hexdigest(),'size':result.stat().st_size,'data_tar_default_xz_bytes':len(default_data_archive),'data_tar_optimized_xz_bytes':len(data_archive),'data_tar_bytes_saved':len(default_data_archive)-len(data_archive),'data_tar_uncompressed_bytes':len(data_tar_uncompressed),'data_tar_uncompressed_sha256':hashlib.sha256(data_tar_uncompressed).hexdigest(),'patch_entries':{hex(a):hex(t) for a,(_,t) in changes.items()},'device_tested':False,'merged_springboard_runtime':True,'native_bridges':native_bridges,'signature_compaction':signature_savings,'runtime_export_count':len(keep),'bundled_orion':orion_manifest,'keyboard_inset_adapter':True,'system_actions':system_actions_manifest,'center_app_chooser':{'version':3,'pins_apps':False,'native_catalog':True,'native_animated_launch':True,'native_pan_trigger':True,'release_admission':True,'ring_auto_dismiss_preserved':True,'ring_geometry_modified':False},'visibility_restores_from_observed_state':True,'initial_model_position':'native_screen_center','icon_resources':icon_resources,'update18':update18_manifest,'diagnostic_logging_removed':True}
 (OUT/'build-manifest.json').write_text(json.dumps(manifest,indent=2));print(json.dumps(manifest))

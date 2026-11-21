@@ -37,11 +37,12 @@ assert lzma.decompress(ordinary)==data_raw
 # Exact file allowlist: no inherited file may disappear and no accidental
 # source, cache, debug output or extra payload may enter the package.
 added={
- './Library/MobileSubstrate/DynamicLibraries/SthenoGesture.dylib',
  './Library/MobileSubstrate/DynamicLibraries/SthenoKeyboardInset.dylib',
  './Library/MobileSubstrate/DynamicLibraries/.stheno/Orion',
  './Library/MobileSubstrate/DynamicLibraries/.stheno/Orion-LICENSE.txt',
 }
+if not manifest.get('merged_springboard_runtime'):
+ added.add('./Library/MobileSubstrate/DynamicLibraries/SthenoGesture.dylib')
 if manifest.get('system_actions'):
  added.add('./Library/MobileSubstrate/DynamicLibraries/SthenoSystemActions.dylib')
 if manifest.get('icon_resources'):

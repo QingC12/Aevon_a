@@ -6,6 +6,7 @@ existing STHDockNativeSetOffset bridge. Getter arguments remain borrowed.
 """
 from pathlib import Path
 import struct
+import json
 import sys
 
 ROOT = Path(__file__).resolve().parent
@@ -48,9 +49,13 @@ class Image:
                 return words
         raise AssertionError(('Missing bounded bridge return', name))
 
-def calls(words):
+def calls(words, base=0):
     result = []
     for i, w in enumerate(words):
+        if w & 0xfc000000 == 0x94000000:
+            imm=w & 0x3ffffff
+            if imm & (1<<25): imm-=1<<26
+            result.append((base+4*i+4*imm,i));continue
         if w != 0xd63f0120:  # blr x9, the core-entry macro
             continue
         assert i >= 3 and words[i-1] == 0x8b0a0129, 'Unexpected call target register'
@@ -62,13 +67,15 @@ def calls(words):
 
 def setter(image, name):
     words = image.words(name)
-    ops = calls(words)
+    ops = calls(words, image.symbols[name])
     targets = [op for op, _ in ops]
     assert targets == [0xb091c, 0xb091c, 0xb0a2c, 0xaeedc], (name, 'consuming setter ownership violation', [hex(x) for x in targets])
     retain_i, setter_i = ops[2][1], ops[3][1]
-    assert words[retain_i-6] == 0xaa1403e0, (name, 'retain must receive borrowed model x20')
+    retain_back = 1 if words[retain_i] & 0xfc000000 == 0x94000000 else 6
+    assert words[retain_i-retain_back] == 0xaa1403e0, (name, 'retain must receive borrowed model x20')
     # The setter receives the stack Bool, retained self, and both +1 key paths.
-    assert words[setter_i-9:setter_i-5] == [0x910003e0, 0xaa1403e1, 0xa9410fe2, 0xd2800015]
+    args_end = setter_i if words[setter_i] & 0xfc000000 == 0x94000000 else setter_i-5
+    assert words[args_end-4:args_end] == [0x910003e0, 0xaa1403e1, 0xa9410fe2, 0xd2800015]
     assert 0xa9bf57f4 in words or 0xa9be57f4 in words, 'Missing saved Swift context'
     # Derive the net transfer from the calls actually found in this bridge.
     assert targets.count(0xb0a2c) - targets.count(0xaeedc) == 0
@@ -76,20 +83,25 @@ def setter(image, name):
     print(image.path.name, name, 'retained self + consumed paths; caller ownership preserved')
 
 def getter(image, name):
-    targets = [op for op, _ in calls(image.words(name))]
+    targets = [op for op, _ in calls(image.words(name),image.symbols[name])]
     assert targets == [0xb091c, 0xb091c, 0xaeecc, 0xb0a0c, 0xb0a0c], (name, targets)
 
 
 def main():
     folder = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT/'build'
-    gesture = Image(folder/'SthenoGesture.dylib')
+    manifest=json.loads((folder/'build-manifest.json').read_text()) if (folder/'build-manifest.json').exists() else {}
     actions = Image(folder/'SthenoSystemActions.dylib')
+    if manifest.get('merged_springboard_runtime'):
+        gesture=Image(folder/'Stheno.dylib')
+        meta=manifest['native_bridges'];gesture.symbols.update(meta['exports'])
+        assert __import__('hashlib').sha256(gesture.data[meta['base']:meta['end']]).hexdigest()==meta['code_sha256']
+    else: gesture = Image(folder/'SthenoGesture.dylib')
     setter(gesture, '_STHNativeSetMinimized')
     setter(actions, '_STHChooserClearMinimized')
     getter(gesture, '_STHNativeMinimized')
     getter(actions, '_STHDockNativeMinimized')
     from embed_orion import exports
-    assert '_STHKeyboardModelDidMinimize' in exports(gesture.data), 'Dock cleanup callback must be dynamically visible'
+    assert '_STHKeyboardModelDidMinimize' in exports(actions.data if manifest.get('merged_springboard_runtime') else gesture.data), 'Dock cleanup callback must be dynamically visible'
     orient = actions.words('_STHDockNativeOrientation')
     assert 0x910083e8 in orient, 'Orientation result must use sp+32, outside saved x19'
     assert 0xf94013e0 in orient, 'Orientation result must be read from sp+32'

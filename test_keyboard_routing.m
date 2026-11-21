@@ -31,7 +31,7 @@ static Model *make(void) {
  m.card=CGRectMake(40,150,320,500);m.offset=CGSizeMake(0,20);return m;
 }
 static void show(Model *m,NSValue *frame) {
- STHKeyboardFocus((__bridge void *)m);
+ STHKeyboardInputFocus((__bridge void *)m);
  STHKeyboardShow((__bridge void *)frame);
 }
 int main(void) {
@@ -52,6 +52,8 @@ int main(void) {
 
   Model *b=make();a=make();show(a,frame);
   STHKeyboardFocus((__bridge void *)b);STHKeyboardShow((__bridge void *)frame);
+  assert(owner==a&&fabs(b.scale-.8)<.001);
+  STHKeyboardInputFocus((__bridge void *)b);STHKeyboardShow((__bridge void *)frame);
   assert(owner==b&&fabs(a.scale-.8)<.001&&b.scale>.8);
   STHKeyboardHide();
 
@@ -80,7 +82,7 @@ int main(void) {
   assert(owner==nil&&writes==before+1&&fabs(sameOwner.scale-.8)<.001);
   assert(fabs(sameOwner.offset.width)<.001&&fabs(sameOwner.offset.height-20)<.001);
   b.orientation=3;show(b,frame);assert(writes==before+1);
-  b.orientation=1;STHKeyboardFocus((__bridge void *)b);candidateAt-=3;
+  b.orientation=1;STHKeyboardInputFocus((__bridge void *)b);candidateAt-=3;
   STHKeyboardShow((__bridge void *)frame);assert(writes==before+1);
   STHKeyboardHide();
   Model *docked=make();show(docked,frame);assert(owner==docked);
