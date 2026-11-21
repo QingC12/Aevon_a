@@ -35,6 +35,10 @@ for cmd,pos,length in commands(client.data):
  count=struct.unpack_from('<I',client.data,pos+64)[0]
  for index in range(count):
   section=pos+72+index*80
-  if client.data[section:section+16].split(b'\0')[0]==b'__mod_init_func':initializer_slots+=struct.unpack_from('<Q',client.data,section+40)[0]//8
+  kind=struct.unpack_from('<I',client.data,section+64)[0]&255
+  if kind in (9,22):
+   stride=8 if kind==9 else 4 # S_MOD_INIT_FUNC_POINTERS / S_INIT_FUNC_OFFSETS
+   size=struct.unpack_from('<Q',client.data,section+40)[0];assert size%stride==0
+   initializer_slots+=size//stride
 assert initializer_slots==1,('Unexpected extra prelaunch initializer',initializer_slots)
 print('Viewport33 ARM64e ABI: original avoidance observers skipped, old callbacks absent, 21 utility bridges, physical hit filter replaces stale legacy cache, original spring targets unchanged, standalone new client exports complete')
