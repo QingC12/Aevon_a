@@ -9,6 +9,8 @@
 #import "ViewportBus.h"
 #import "ViewportAuthority.h"
 #import "AppSceneReflow.h"
+#import "ViewportProcess.h"
+#import "ViewportStartup.h"
 #import <mach-o/dyld.h>
 #import "ViewportDiagnostics.h"
 static __weak UIView *editingView;
@@ -248,9 +250,10 @@ static void editingEnded(NSNotification *note){
  });
 }
 #if !defined(STH_VIEWPORT_CLIENT_TEST)
-__attribute__((constructor)) static void installClient(void){
- NSString *name=bundle();if(!name.length||[name isEqualToString:@"com.apple.springboard"]||[name isEqualToString:@"com.apple.UIKit.remote-keyboard"]||[name isEqualToString:@"com.apple.Spotlight"])return;
- dispatch_async(dispatch_get_main_queue(),^{
+static void activateClient(void){
+ static BOOL installed;
+ if(!NSThread.isMainThread||installed||!STHVApplicationBundleAllowed(NSBundle.mainBundle))return;
+ installed=YES;NSString *name=bundle();
   Method p=class_getInstanceMethod(NSNotificationCenter.class,@selector(postNotification:));
   Method n=class_getInstanceMethod(NSNotificationCenter.class,@selector(postNotificationName:object:userInfo:));
   if(!p||!n)return;
@@ -269,8 +272,13 @@ __attribute__((constructor)) static void installClient(void){
   NSSet *retired=[NSSet setWithArray:@[@"SthenoKeyboard.dylib",@"SthenoKb.dylib",@"KeyboardFix.dylib",@"SthenoKeyboardInset.dylib"]];
   for(uint32_t i=0;i<_dyld_image_count();i++){const char *image=_dyld_get_image_name(i);if(!image)continue;NSString *leaf=[NSString stringWithUTF8String:image].lastPathComponent;if([retired containsObject:leaf])[legacy addObject:leaf];}
   STHVLog(@"client-loaded-images",name,@{@"legacyKeyboardImages":legacy});
-  STHVLog(@"client-start",name,@{@"architecture":@"viewport32",@"insetHookAvailable":@(systemInset!=NULL),@"editorTransforms":@NO,@"legacyLibraryRequired":@NO});
- });
+  STHVLog(@"client-start",name,@{@"architecture":@"viewport33",@"activation":@"observed-post-launch",@"insetHookAvailable":@(systemInset!=NULL),@"editorTransforms":@NO,@"legacyLibraryRequired":@NO});
+  STHVInstallAppSceneReflow();
 }
-
+__attribute__((constructor)) static void installClient(void){
+ @autoreleasepool{
+  STHVObserveApplicationLaunch(NSBundle.mainBundle,NSNotificationCenter.defaultCenter,
+   @[UIApplicationDidFinishLaunchingNotification,UIApplicationDidBecomeActiveNotification,UISceneDidActivateNotification],^{activateClient();});
+ }
+}
 #endif

@@ -26,4 +26,7 @@ for image in [action,client]:
 assert {'_STHViewportPhysicalWill','_STHViewportSetLocalInput','_STHViewportModelMinimized','_STHGestureInputFocusChanged'}<=exports(action.data)
 assert {'_STHVPublishRequest','_STHVResumeRequest','_STHVReadLayout','_STHVUnmodifiedScreenBounds','_STHVInstallAppSceneReflow'}<=exports(client.data)
 assert '_STHVPublishLayoutPolicyState' in exports(action.data)
-print('Viewport32 ARM64e ABI: original avoidance observers skipped, old callbacks absent, 21 utility bridges, physical hit filter replaces stale legacy cache, original spring targets unchanged, standalone new client exports complete')
+assert '_STHVObserveApplicationLaunch' in exports(client.data)
+for removed in [b'FBSWorkspaceScenesClient',b'sceneID:updateWithSettingsDiff:transitionContext:completion:',b'_boundsForInterfaceOrientation:',b'NSUserDefaultsDidChangeNotification']:
+ assert removed not in client.data,('Global startup-sensitive hook still linked',removed)
+print('Viewport33 ARM64e ABI: original avoidance observers skipped, old callbacks absent, 21 utility bridges, physical hit filter replaces stale legacy cache, original spring targets unchanged, standalone new client exports complete')

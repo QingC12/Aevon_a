@@ -25,6 +25,13 @@ jobs:
           /tmp/stheno-viewport-bus
           xcrun --sdk macosx clang -fobjc-arc -Wall -Wextra -Werror test_viewport_bus.m ViewportBus.m -framework Foundation -o /tmp/stheno-viewport-process
           /tmp/stheno-viewport-process
+      - name: Test application startup scope and cached reflow runtime
+        run: |
+          xcrun --sdk macosx clang -fobjc-arc -Wall -Wextra -Wno-unused-parameter test_viewport_startup.m ViewportStartup.m -framework Foundation -o /tmp/stheno-startup
+          /tmp/stheno-startup
+          python3 test_scene_reflow_red.py
+          xcrun --sdk macosx clang -fobjc-arc -Wall -Wextra -Wno-unused-parameter test_scene_reflow_runtime.m -framework Foundation -framework CoreGraphics -framework QuartzCore -o /tmp/stheno-scene-runtime
+          /tmp/stheno-scene-runtime
       - name: Test new viewport ownership and original-transaction lifecycle
         run: |
           xcrun --sdk macosx clang -fobjc-arc -Wall -Wextra -Wno-unused-parameter test_viewport_host.m -framework Foundation -framework CoreGraphics -o /tmp/stheno-viewport-host

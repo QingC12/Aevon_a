@@ -34,6 +34,7 @@ typedef NS_ENUM(NSInteger,UIInterfaceOrientation){UIInterfaceOrientationUnknown,
 -(CGRect)convertRect:(CGRect)r toCoordinateSpace:(id)space;
 @end
 @interface UIWindow:UIView
+@property BOOL isKeyWindow;
 @property(strong) UIWindowScene *windowScene;
 @end
 @interface UIApplication:NSObject
@@ -55,4 +56,11 @@ typedef NS_ENUM(NSInteger,UIInterfaceOrientation){UIInterfaceOrientationUnknown,
 #define UIKeyboardIsLocalUserInfoKey @"local"
 #define UIKeyboardAnimationDurationUserInfoKey @"duration"
 #define UIKeyboardAnimationCurveUserInfoKey @"curve"
+#define UIApplicationDidFinishLaunchingNotification @"app.launch.finished"
+#define UIApplicationDidBecomeActiveNotification @"app.active"
+#define UISceneDidActivateNotification @"scene.active"
+#define UISceneWillDeactivateNotification @"scene.inactive"
+#define UISceneDidDisconnectNotification @"scene.disconnected"
+#define UIWindowDidBecomeKeyNotification @"window.key"
+#define UIWindowDidResignKeyNotification @"window.notkey"
 #endif

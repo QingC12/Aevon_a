@@ -1,7 +1,7 @@
 #ifndef APP_SCENE_REFLOW_H
 #define APP_SCENE_REFLOW_H
 
-#if !defined(STH_VIEWPORT_CLIENT_TEST)
+#if !defined(STH_VIEWPORT_CLIENT_TEST) && !defined(STH_SCENE_REFLOW_TEST)
 #import <UIKit/UIKit.h>
 #endif
 
@@ -12,7 +12,7 @@ extern "C" {
 /* Reads the saved UIKit implementation even after UIScreen.bounds is hooked. */
 CGRect STHVUnmodifiedScreenBounds(UIScreen *screen);
 
-/* Idempotent; also invoked automatically when the module is loaded. */
+/* Idempotent. Call only after observing application launch/activation. */
 void STHVInstallAppSceneReflow(void);
 
 #ifdef __cplusplus

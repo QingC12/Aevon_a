@@ -11,16 +11,16 @@ void STHVLog(NSString *event,NSString *bundle,NSDictionary *values){
  if(!NSThread.isMainThread||count++>16000)return;
  NSMutableDictionary *record=[NSMutableDictionary dictionaryWithDictionary:values?:@{}];
  record[@"event"]=event?:@"unknown";record[@"bundle"]=bundle?:@"unknown";
- record[@"build"]=@"2.0.32";record[@"uptime"]=@(NSProcessInfo.processInfo.systemUptime);
+ record[@"build"]=@"2.0.33";record[@"uptime"]=@(NSProcessInfo.processInfo.systemUptime);
  NSError *error=nil;NSData *json=[NSJSONSerialization dataWithJSONObject:record options:0 error:&error];
  if(!json||error)return;
  NSMutableData *line=[json mutableCopy];[line appendBytes:"\n" length:1];
  static dispatch_queue_t writer;static dispatch_once_t once;
- dispatch_once(&once,^{writer=dispatch_queue_create("com.nx.stheno.viewport32.geometry-log",DISPATCH_QUEUE_SERIAL);});
+ dispatch_once(&once,^{writer=dispatch_queue_create("com.nx.stheno.viewport33.geometry-log",DISPATCH_QUEUE_SERIAL);});
  dispatch_async(writer,^{
- NSArray *paths=@[@"/var/mobile/Documents/SthenoViewport32.log",
-  [NSHomeDirectory() stringByAppendingPathComponent:@"Documents/SthenoViewport32.log"],
-  [NSTemporaryDirectory() stringByAppendingPathComponent:@"SthenoViewport32.log"]];
+ NSArray *paths=@[@"/var/mobile/Documents/SthenoViewport33.log",
+  [NSHomeDirectory() stringByAppendingPathComponent:@"Documents/SthenoViewport33.log"],
+  [NSTemporaryDirectory() stringByAppendingPathComponent:@"SthenoViewport33.log"]];
  NSMutableSet *written=[NSMutableSet new];
  for(NSString *path in paths){
   if([written containsObject:path])continue;[written addObject:path];
