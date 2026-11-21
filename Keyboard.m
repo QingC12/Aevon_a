@@ -39,7 +39,7 @@ static __weak id owner;
 static double saved[3], applied[3];
 static BOOL changed;
 static BOOL localInput;
-static void reconcileKeyboard(void *frameBox,BOOL nativeDelivery);
+static void reconcileKeyboard(void *frameBox,BOOL nativeDelivery,void *verifiedModel);
 void STHKeyboardShow(void *frameBox);
 
 static CGRect viewport(void) {
@@ -54,10 +54,11 @@ static void focusModel(void *model,BOOL confirmed) {
  if (![NSThread isMainThread] || !model || localInput) return;
  if(STHNativeMinimized(model)){STHKeyboardModelDidMinimize(model);return;}
  if(!confirmed)return; // A scene hit or drag is not evidence of text-input ownership.
+ BOOL same=candidateConfirmed&&candidate==(__bridge id)model;
  candidate=(__bridge id)model;candidateConfirmed=YES;
  candidateAt=CACurrentMediaTime();
 #if !defined(STH_KEYBOARD_TEST) || defined(STH_KEYBOARD_INPUT_TEST)
- STHPrepareLayoutFocus(model);
+ if(!same)STHPrepareLayoutFocus(model);
 #endif
 }
 void STHKeyboardFocus(void *model){focusModel(model,NO);}
@@ -129,7 +130,7 @@ static void inputOwnerChanged(void){
 #endif
   // Apply only geometry from this verified Will. Native notification delivery
   // retains its own one-shot callback and must not be replayed by an IPC wakeup.
-  STHCenterRunAnimation(^{if(!localInput)reconcileKeyboard((__bridge void *)frame,NO);},0);
+  STHCenterRunAnimation(^{if(!localInput)reconcileKeyboard((__bridge void *)frame,NO,model);},0);
  }
  STHChooserReleaseSwift(model);
 }
@@ -140,17 +141,19 @@ __attribute__((constructor)) static void observeKeyboardOwner(void){
 #endif
 #endif
 
-static void reconcileKeyboard(void *frameBox,BOOL nativeDelivery) {
+static void reconcileKeyboard(void *frameBox,BOOL nativeDelivery,void *verifiedModel) {
  if(localInput){if(nativeDelivery)STHNativeKeyboardShow(frameBox);return;}
 #if !defined(STH_KEYBOARD_TEST) || defined(STH_KEYBOARD_INPUT_TEST)
  if(!STHSystemActionsEnabled()){
   STHStopLayout();restoreCard();candidate=nil;candidateAt=0;candidateConfirmed=NO;
   if(nativeDelivery)STHNativeKeyboardShow(frameBox);return;
  }
- void *confirmed=STHCopyInputFocusedModel();
+ // The IPC caller already owns a model from one consistent snapshot. Reuse
+ // that borrow only for this synchronous call; native delivery always rechecks.
+ void *confirmed=verifiedModel?:STHCopyInputFocusedModel();
  if(confirmed){
   if(candidate!=(__bridge id)confirmed)STHKeyboardInputFocus(confirmed);
-  STHChooserReleaseSwift(confirmed);
+  if(!verifiedModel)STHChooserReleaseSwift(confirmed);
  }
 #endif
  // Strong locals keep the weak model valid for this synchronous transaction.
@@ -219,7 +222,7 @@ static void reconcileKeyboard(void *frameBox,BOOL nativeDelivery) {
 #endif
 }
 
-void STHKeyboardShow(void *frameBox){reconcileKeyboard(frameBox,YES);}
+void STHKeyboardShow(void *frameBox){reconcileKeyboard(frameBox,YES,NULL);}
 
 void STHKeyboardHide(void) {
 #if !defined(STH_KEYBOARD_TEST) || defined(STH_KEYBOARD_INPUT_TEST)

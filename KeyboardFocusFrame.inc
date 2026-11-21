@@ -24,6 +24,7 @@ static BOOL publishSnapshot(NSString *bundle,BOOL active,BOOL hasFrame,STHRect f
  return notify_post(changed.UTF8String)==NOTIFY_STATUS_OK;
 }
 static BOOL readSnapshot(NSString *bundle,BOOL requireFrame,STHRect *frame){
+ if(frame)*frame=(STHRect){0,0,0,0};
  if(!NSThread.isMainThread||!bundle.length)return NO;
  int global=token(changed),commit=token(leaseName(bundle));if(global<0||commit<0)return NO;
  for(int attempt=0;attempt<3;attempt++){
@@ -33,16 +34,17 @@ static BOOL readSnapshot(NSString *bundle,BOOL requireFrame,STHRect *frame){
   if(now<at||at<inputReadFloor||now-at>(requireFrame?750:3000))return NO;
   BOOL hasFrame=(first&(1ULL<<61))!=0;
   if(requireFrame&&!hasFrame)return NO;
-  if(hasFrame){
+  if(hasFrame&&(frame||requireFrame)){
    int data=frameToken(bundle,(first&(1ULL<<62))?@"frame1":@"frame0");
    if(data<0||notify_get_state(data,&packed))return NO;
   }
   if(notify_get_state(commit,&last)||notify_get_state(global,&ownerAfter))return NO;
   if(first!=last||ownerBefore!=ownerAfter)continue;
-  if(frame&&hasFrame)*frame=STHUnpackRect(packed);
+  if(frame&&hasFrame&&now-at<=750)*frame=STHUnpackRect(packed);
   return YES;
  }
  return NO;
 }
 BOOL STHPublishInputKeyboard(NSString *bundle,STHRect frame){return publishSnapshot(bundle,YES,YES,frame);}
 BOOL STHReadInputKeyboard(NSString *bundle,STHRect *frame){return readSnapshot(bundle,YES,frame);}
+BOOL STHReadInputFocusSnapshot(NSString *bundle,STHRect *frame){return readSnapshot(bundle,NO,frame);}

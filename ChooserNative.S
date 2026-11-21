@@ -112,8 +112,9 @@ enter STHChooserOpenModelAnimated
  leave
 
 // C: int STHChooserCopyCatalogs(void *ownedArraysOut[2]);
-// Output: user +1, system +1. Main thread. Failure: two zeroes.
-// Never starts GlobalEnv initialization: its init can restore preferences.
+// Enumerate using the original filtered LS routine, not GlobalEnv's initially
+// empty UI cache. This does not initialize GlobalEnv or restore preferences.
+// Output: user +1, system +1. Failure: two zeroes; balance partial results.
 enter STHChooserCopyCatalogs
  sub sp,sp,#32
  str x0,[sp]
@@ -121,25 +122,22 @@ enter STHChooserCopyCatalogs
  adrp x9,_sth_action_core_base@PAGE
  ldr x9,[x9,_sth_action_core_base@PAGEOFF]
  cbz x9,LCatalogNo
- add x10,x9,#0xe9,lsl #12
- ldr x10,[x10,#0x590]
- cmn x10,#1
- b.ne LCatalogNo
- add x9,x9,#0xf7,lsl #12
- ldr x20,[x9,#0xac0]
- cbz x20,LCatalogNo
- ldp x0,x1,[x20,#0x18]
+ mov x21,#0
+ mov w0,#0
+ callcore 0x24fe8
  cbz x0,LCatalogNo
- cbz x1,LCatalogNo
- stp x0,x1,[sp,#8]
- callcore 0xb081c
- ldr x0,[sp,#16]
- callcore 0xb081c
- ldp x0,x1,[sp,#8]
+ str x0,[sp,#8]
+ mov w0,#1
+ callcore 0x24fe8
+ cbz x0,LCatalogReleaseFirst
+ ldr x1,[sp,#8]
  ldr x8,[sp]
- stp x0,x1,[x8]
+ stp x1,x0,[x8]
  mov w0,#1
  b LCatalogDone
+LCatalogReleaseFirst:
+ ldr x0,[sp,#8]
+ callcore 0xb07fc
 LCatalogNo:
  mov w0,#0
 LCatalogDone:

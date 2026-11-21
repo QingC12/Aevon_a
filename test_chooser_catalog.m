@@ -36,6 +36,17 @@ void STHChooserReleaseArray(void *raw){
 void *STHChooserBuildManagerConsumed(uintptr_t first,uintptr_t second){assert(second==0x1234);models++;return (void *)first;}
 void STHChooserOpenModelAnimated(void *model){opens++;lastOpened=[(__bridge NSString *)model copy];}
 static NSDictionary *row(NSString *id,NSString *name){return @{@"identifier":id,@"name":name};}
+#if defined(STH_CHOOSER_SEARCH_TEST)
+void STHTestPrepareSearchCatalog(BOOL pinFree){
+ assert(!arrays&&!models);ready=YES;
+ if(!buffers)buffers=[NSMutableSet set];
+ pinned=[NSMutableArray arrayWithObject:@"pinned.app"];
+ if(pinFree)[pinned addObject:@"com.tencent.xin"];
+ user=@[row(@"pinned.app",@"已添加"),row(@"com.tencent.xin",@"微信"),row(@"com.openminis.app",@"Minis"),row(@"com.nx.stheno.action.screenshot",@"截图")];
+ systemRows=@[row(@"com.openminis.app",@"重复"),row(@"com.apple.Preferences",@"设置")];
+}
+void STHTestAssertSearchReleased(void){assert(!arrays&&!models);}
+#else
 int main(void){@autoreleasepool{
  buffers=[NSMutableSet set];pinned=[NSMutableArray arrayWithObject:@"pinned.app"];
  user=@[row(@"pinned.app",@"已添加"),row(@"free.app",@"未添加"),row(@"duplicate.app",@"重复"),row(@"com.nx.stheno.action.screenshot",@"截图")];
@@ -53,3 +64,4 @@ int main(void){@autoreleasepool{
  ready=NO;assert(!STHChooserSnapshotUnpinned());assert(!STHChooserSubmitFloating(@"system.free"));assert(!STHChooserSubmitCenterSelection());
  NSLog(@"Chooser catalog passed: unpinned-only, dedup, action exclusion, stale membership recheck, native animated submission, no pin writes, 100 ownership cycles");
 }return 0;}
+#endif

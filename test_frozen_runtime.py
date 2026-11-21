@@ -10,6 +10,10 @@ reviewed.update(json.loads((R/'inputs/reviewed-runtime-2.0.24.json').read_text()
 reviewed.update(json.loads((R/'inputs/reviewed-runtime-2.0.25.json').read_text()))
 reviewed.update(json.loads((R/'inputs/reviewed-runtime-2.0.26.json').read_text()))
 reviewed.update(json.loads((R/'inputs/reviewed-runtime-2.0.27.json').read_text()))
+latest=json.loads((R/'inputs/reviewed-runtime-2.0.28.json').read_text())
+reviewed.update(latest)
+for name,digest in latest.items():
+ assert hashlib.sha256((R/name).read_bytes()).hexdigest()==digest,('unreviewed current source',name)
 for name,digest in frozen.items():
  if name in ('LayoutProbe.m','LayoutProbe.h','NotificationPolicy.m'):
   assert not (R/name).exists();continue

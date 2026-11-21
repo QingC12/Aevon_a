@@ -21,6 +21,8 @@ assert 'latestScreenFrame' not in coordinates
 assert 'STHSessionPhysical(&session' in coordinates
 delivery=(root/'KeyboardDelivery.inc').read_text()
 publisher=(root/'LayoutPublisher.m').read_text()
+assert '#include "LayoutPublisherSample.inc"' in publisher
+publisher+=(root/'LayoutPublisherSample.inc').read_text()
 bus=(root/'LayoutBus.m').read_text()
 gesture=(root/'Gesture.m').read_text()
 assert 'STHKeyboardFocus(m);' in gesture.split('void STHSetup',1)[1].split('void STHUpdate',1)[0]

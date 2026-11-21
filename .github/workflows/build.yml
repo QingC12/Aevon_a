@@ -25,6 +25,8 @@ jobs:
           /tmp/stheno-focus-owner
           xcrun --sdk macosx clang -fobjc-arc -Wall -Wextra -Wno-unused-parameter test_keyboard_input_timing.m -framework Foundation -framework CoreGraphics -framework QuartzCore -o /tmp/stheno-input-timing
           /tmp/stheno-input-timing
+          xcrun --sdk macosx clang -fobjc-arc -Wall -Wextra -Wno-unused-parameter test_layout_publisher_sample.m -framework Foundation -framework CoreGraphics -framework QuartzCore -o /tmp/stheno-layout-sample
+          /tmp/stheno-layout-sample
           xcrun --sdk macosx clang -fobjc-arc -Wall -Wextra -Wno-unused-parameter test_keyboard_focus_snapshot.m -framework Foundation -o /tmp/stheno-input-snapshot
           /tmp/stheno-input-snapshot
           xcrun --sdk macosx clang -fobjc-arc -Wall -Wextra -Wno-unused-parameter test_keyboard_dock_integration.m -framework Foundation -framework CoreGraphics -framework QuartzCore -o /tmp/stheno-keyboard-dock
@@ -105,6 +107,10 @@ jobs:
           /tmp/stheno-dock-queue
           xcrun swiftc ChooserSearch.swift test_chooser_search.swift -o /tmp/stheno-chooser-search
           /tmp/stheno-chooser-search
+          xcrun --sdk macosx clang -fobjc-arc -DSTH_CHOOSER_TEST -DSTH_CHOOSER_SEARCH_TEST -c test_chooser_catalog.m -o /tmp/stheno-search-fixture.o
+          xcrun --sdk macosx clang -fobjc-arc -DSTH_CHOOSER_TEST -c ChooserCatalog.m -o /tmp/stheno-search-catalog.o
+          xcrun swiftc -import-objc-header test_chooser_search_catalog.h ChooserSearch.swift test_chooser_search_catalog.swift /tmp/stheno-search-fixture.o /tmp/stheno-search-catalog.o -framework Foundation -o /tmp/stheno-search-integration
+          /tmp/stheno-search-integration
           xcrun swiftc ChooserFocusPolicy.swift test_chooser_focus.swift -o /tmp/stheno-chooser-focus
           /tmp/stheno-chooser-focus
           xcrun --sdk macosx clang -fobjc-arc -Wall -Wextra -Wno-unused-parameter test_chooser_focus_routing.m -framework Foundation -o /tmp/stheno-chooser-shell
@@ -130,6 +136,8 @@ jobs:
         run: python3 test_runtime_exports.py
       - name: Verify real ARM64e Published ownership and register ABI
         run: python3 test_published_bridge_abi.py
+      - name: Verify fresh native catalog enumeration and partial ownership
+        run: python3 test_chooser_catalog_abi.py
       - name: Verify original code, complete callback surface and lossless resources
         run: python3 test_runtime_package.py
       - name: Verify settings, source cleanup, and byte-identical archive payload

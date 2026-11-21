@@ -83,7 +83,7 @@ private struct AppPanel: View {
                         Text(error).font(.caption).foregroundColor(.secondary).frame(maxWidth: .infinity, alignment: .leading)
                     }
                     if matches.isEmpty {
-                        Text("没有匹配的应用").foregroundColor(.secondary).frame(maxWidth: .infinity).frame(height: 48)
+                        Text(items.isEmpty ? "没有未加入圆盘的应用" : "没有匹配的应用").foregroundColor(.secondary).frame(maxWidth: .infinity).frame(height: 48)
                     } else {
                         ScrollView {
                             LazyVStack(spacing: 0) {

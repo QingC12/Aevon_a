@@ -2,7 +2,12 @@
 #include <assert.h>
 #include <unistd.h>
 #include <string.h>
+#import <notify.h>
+static int stateReads;
+static uint32_t countedStateRead(int token,uint64_t *value){stateReads++;return notify_get_state(token,value);}
+#define notify_get_state countedStateRead
 #import "KeyboardFocusBus.m"
+#undef notify_get_state
 static void same(STHRect a,STHRect b){assert(fabs(a.x-b.x)<.5&&fabs(a.y-b.y)<.5&&fabs(a.w-b.w)<.5&&fabs(a.h-b.h)<.5);}
 int main(int argc,const char **argv){@autoreleasepool{
  if(argc==4&&strcmp(argv[1],"child")==0){
@@ -15,6 +20,12 @@ int main(int argc,const char **argv){@autoreleasepool{
  STHRect f={0,550,400,300},out={0};STHPublishInputFocus(a,YES);assert(STHReadInputFocus(a)&&!STHReadInputKeyboard(a,&out));
  for(int i=0;i<200;i++){
   assert(STHPublishInputKeyboard(a,f));assert(STHReadInputKeyboard(a,&out));same(f,out);
+  stateReads=0;assert(STHReadInputFocusSnapshot(a,&out));same(f,out);assert(stateReads==5);
+  stateReads=0;assert(STHReadInputFocusSnapshot(a,NULL));assert(stateReads==4);
+  uint64_t fresh=0;assert(!notify_get_state(token(leaseName(a)),&fresh));
+  uint64_t aged=(fresh&0xffff000000000000ULL)|((inputNow()-900)&0x0000ffffffffffffULL);
+  assert(!notify_set_state(token(leaseName(a)),aged));assert(STHReadInputFocusSnapshot(a,&out));assert(out.w==0&&out.h==0);
+  assert(!STHReadInputKeyboard(a,&out));assert(!notify_set_state(token(leaseName(a)),fresh));
   inputReadFloor=inputNow()+1;assert(!STHReadInputKeyboard(a,&out));inputReadFloor=0;
   uint64_t commit=0;assert(!notify_get_state(token(leaseName(a)),&commit));
   // An incomplete inactive-slot write must not change the committed pair.

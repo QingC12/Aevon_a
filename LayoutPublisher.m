@@ -119,22 +119,7 @@ void STHStartLayout(void *model,CGRect keyboard){
   dispatch_source_set_event_handler(timer,^{tick();});dispatch_resume(timer);}
  // Do NOT publish the old pre-expansion card from this entry.
 }
-void STHUpdateLayout(void){
- if(![NSThread isMainThread])return;
- id m=observedModel;
- if(m&&settling.active&&!settling.haveCommitted){
-  // Keyboard.m calls here AFTER setting the full-width target, in the same
-  // original WillShow transaction. Publish it immediately, do not wait160ms.
-  STHNativeRefreshGeometry((__bridge void *)m);
-  CGRect card=STHNativeRect((__bridge void *)m),keys=physicalKeys();
-  if(usable(keys,UIScreen.mainScreen.bounds)&&STHFiniteRect(rr(card))&&card.size.width>=40&&card.size.height>=40){
-   settling.haveCommitted=YES;settling.committedCard=rr(card);settling.committedKeys=rr(keys);
-   STHPublishLayout(observedBundle,card,keys,YES);lastHeartbeat=CACurrentMediaTime();
-
-  }
- }
- tick();
-}
+#include "LayoutPublisherSample.inc"
 void STHStopLayout(void){
  prepareGeneration++;
  if(preparedBundle&&![preparedBundle isEqualToString:observedBundle])STHPublishLayout(preparedBundle,CGRectZero,CGRectZero,NO);

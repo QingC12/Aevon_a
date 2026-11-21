@@ -39,11 +39,11 @@ static void show(Model *m,NSValue *frame) {
 static Model *offeredModel;
 static STHRect offeredFrame;
 static BOOL systemEnabled=YES;
-static int preparations,layoutStarts,layoutStops;
+static int preparations,layoutStarts,layoutStops,nativeResolutions,snapshotResolutions;
 void STHResetInputFocusReadEpoch(void){}
 BOOL STHSystemActionsEnabled(void){return systemEnabled;}
-void *STHCopyInputFocusedModel(void){return offeredModel.minimized?NULL:(__bridge void *)offeredModel;}
-void *STHCopyInputFocusedModelWithFrame(STHRect *frame){if(frame)*frame=offeredFrame;return STHCopyInputFocusedModel();}
+void *STHCopyInputFocusedModel(void){nativeResolutions++;return offeredModel.minimized?NULL:(__bridge void *)offeredModel;}
+void *STHCopyInputFocusedModelWithFrame(STHRect *frame){snapshotResolutions++;if(frame)*frame=offeredFrame;return offeredModel.minimized?NULL:(__bridge void *)offeredModel;}
 void STHChooserReleaseSwift(void *value){}
 void STHPrepareLayoutFocus(void *model){preparations++;}
 void STHStartLayout(void *model,CGRect frame){layoutStarts++;}
@@ -57,13 +57,17 @@ int main(void){@autoreleasepool{
  for(int i=0;i<200;i++){
   Model *a=make();offeredModel=nil;offeredFrame=(STHRect){0,0,0,0};
   int before=showCalls;nativeShow(frame);assert(showCalls==before+1&&!owner);
-  offeredModel=a;offeredFrame=(STHRect){0,550,400,300};before=showCalls;inputOwnerChanged();
+  offeredModel=a;offeredFrame=(STHRect){0,550,400,300};before=showCalls;
+  int nativeBefore=nativeResolutions,snapshotBefore=snapshotResolutions;
+  inputOwnerChanged();
   assert(owner==a&&a.scale>.8&&showCalls==before); // No DidShow or second native callback.
-  int targetWrites=writes;inputOwnerChanged();assert(writes==targetWrites&&showCalls==before);
+  assert(nativeResolutions==nativeBefore&&snapshotResolutions==snapshotBefore+1);
+  int targetWrites=writes,preparedBefore=preparations;
+  inputOwnerChanged();assert(writes==targetWrites&&showCalls==before&&preparations==preparedBefore);
   nativeHide();assert(fabs(a.scale-.8)<.001);
   offeredModel=a;offeredFrame=(STHRect){0,0,0,0};targetWrites=writes;inputOwnerChanged();assert(!owner&&writes==targetWrites);
   offeredFrame=(STHRect){0,550,400,300};before=showCalls;inputOwnerChanged();assert(owner==a&&showCalls==before);
-  targetWrites=writes;nativeShow(frame);assert(writes==targetWrites&&showCalls==before+1);
+  targetWrites=writes;nativeBefore=nativeResolutions;nativeShow(frame);assert(writes==targetWrites&&showCalls==before+1&&nativeResolutions==nativeBefore+1);
   nativeHide();assert(fabs(a.scale-.8)<.001&&fabs(a.offset.height-20)<.001);
   inputOwnerChanged();assert(owner==a);inOriginalTransaction=YES;a.minimized=YES;STHKeyboardModelDidMinimize((__bridge void *)a);inOriginalTransaction=NO;
   targetWrites=writes;inputOwnerChanged();assert(!owner&&writes==targetWrites);
@@ -71,5 +75,5 @@ int main(void){@autoreleasepool{
   targetWrites=writes;inputOwnerChanged();assert(!owner&&writes==targetWrites);STHKeyboardSetLocalInput(NO);
   offeredModel=nil;offeredFrame=(STHRect){0,0,0,0};
  }
- puts("Keyboard Will timing: 200 frame-first/claim-first cycles; target set inline, zero native replay, one saved snapshot, dock/local input isolated");
+ puts("Keyboard Will timing: 200 frame-first/claim-first cycles; target set inline, zero native replay, one saved snapshot, one owner resolution per wake, dock/local input isolated");
 }return 0;}

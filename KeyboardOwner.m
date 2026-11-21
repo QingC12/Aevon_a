@@ -20,8 +20,7 @@ void *STHCopyInputFocusedModelWithFrame(STHRect *frame){
    @try{
     if(!STHDockNativeMinimized(model)){
      NSString *bundle=CFBridgingRelease(STHSystemCopyModelIdentifier(model));
-     match=STHReadInputFocus(bundle);
-     if(match&&frame)STHReadInputKeyboard(bundle,frame);
+     match=STHReadInputFocusSnapshot(bundle,frame);
     }
    }@finally{if(!match)STHChooserReleaseSwift(model);}
    if(match){result=model;break;}
