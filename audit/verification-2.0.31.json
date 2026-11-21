@@ -1,0 +1,134 @@
+{
+  "sha256": "004b3bbb6059b24287a75085a3d674f46212125d6c255a08fe24d96b7bbb3a5c",
+  "architecture": "arm64e only",
+  "binary_count": 8,
+  "changed_existing_files": [
+    "./Library/MobileSubstrate/DynamicLibraries/Stheno.dylib",
+    "./Library/MobileSubstrate/DynamicLibraries/CameraFix.dylib"
+  ],
+  "unmodified_install_scripts": false,
+  "binaries": [
+    {
+      "name": "Stheno.dylib",
+      "arm64e": true,
+      "signature_code_pages": [
+        {
+          "algorithm": "sha256",
+          "pages": 268,
+          "valid": true
+        }
+      ],
+      "sha256": "24c0217b81df40a43fece11ec2546a9bfacc543f9b74c1d9d9bbb4cddf4e6e3b"
+    },
+    {
+      "name": "SthenoCamera.dylib",
+      "arm64e": true,
+      "signature_code_pages": [
+        {
+          "algorithm": "sha1",
+          "pages": 17,
+          "valid": true
+        },
+        {
+          "algorithm": "sha256",
+          "pages": 17,
+          "valid": true
+        }
+      ],
+      "sha256": "da7ba28e269b8a829300df34f004bbd2652a4fc990518b97ed0dde32809a7403"
+    },
+    {
+      "name": "SthenoFix.dylib",
+      "arm64e": true,
+      "signature_code_pages": [
+        {
+          "algorithm": "sha256",
+          "pages": 18,
+          "valid": true
+        }
+      ],
+      "sha256": "f24b5bb6d0f41238439e6435619b983a254ca5bbd9db18ef14c931aa3e53c139"
+    },
+    {
+      "name": "SthenoPreference",
+      "arm64e": true,
+      "signature_code_pages": [
+        {
+          "algorithm": "sha1",
+          "pages": 29,
+          "valid": true
+        },
+        {
+          "algorithm": "sha256",
+          "pages": 29,
+          "valid": true
+        }
+      ],
+      "sha256": "511ec4fe8c63e82ab3edd72c27e3cef61b0d7d1920dacd11c6e700b1abf2655b"
+    },
+    {
+      "name": "CameraFix.dylib",
+      "arm64e": true,
+      "signature_code_pages": [
+        {
+          "algorithm": "sha256",
+          "pages": 17,
+          "valid": true
+        }
+      ],
+      "sha256": "2e398887b34f792dab0f3f8e6d00026fc4e38b9d91761a7b437bb15c3fed7b64"
+    },
+    {
+      "name": "SthenoViewport.dylib",
+      "arm64e": true,
+      "signature_code_pages": [
+        {
+          "algorithm": "sha256",
+          "pages": 23,
+          "valid": true
+        }
+      ],
+      "sha256": "45275b2631849f3a912de4ff846097e6327b2d901a0f229b1de68eea77dc887f"
+    },
+    {
+      "name": "SthenoSystemActions.dylib",
+      "arm64e": true,
+      "signature_code_pages": [
+        {
+          "algorithm": "sha256",
+          "pages": 77,
+          "valid": true
+        }
+      ],
+      "sha256": "34988d03dd9f46fdf6827d7aae353e03af5e055abebcfdf8a8e1aedb78db71a4"
+    },
+    {
+      "name": "Orion",
+      "arm64e": true,
+      "signature_code_pages": [
+        {
+          "algorithm": "sha256",
+          "pages": 55,
+          "valid": true
+        }
+      ],
+      "sha256": "ec5b687ca18fa946a9dac2553b8f30b0bf77a747bd9c0df2eaa642637d913d72"
+    }
+  ],
+  "runtime_device_tested": false,
+  "legacy_keyboard_files_absent": [
+    "KeyboardFix.dylib",
+    "KeyboardFix.plist",
+    "SthenoKb.dylib",
+    "SthenoKb.plist",
+    "SthenoKeyboard.dylib",
+    "SthenoKeyboard.plist",
+    "SthenoKeyboardInset.dylib"
+  ],
+  "original_keyboard_observer_registration_disabled": true,
+  "private_orion": true,
+  "resolved_imports": 79,
+  "external_orion_package_required": false,
+  "depends": "Depends: mobilesubstrate, firmware (>= 16.0), firmware (<= 17.3.1)",
+  "license_preserved": true
+}
