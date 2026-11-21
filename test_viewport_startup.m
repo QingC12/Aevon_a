@@ -38,7 +38,7 @@ int main(void){@autoreleasepool{
   STHVObserveApplicationLaunch(b,center,@[@"launch",@"active"],^{assert(NSThread.isMainThread&&!delivering);installs++;});
   assert(!installs);delivering=YES;
   for(int i=0;i<20;i++){[center postNotificationName:@"launch" object:nil];[center postNotificationName:@"active" object:nil];}
-  assert(!installs);delivering=NO;drainUntil(^{return installs==1;});
+  assert(!installs);delivering=NO;drainUntil(^BOOL{return installs==1;});
   [center postNotificationName:@"active" object:nil];assert(installs==1);
  }
  assert(blockedInstalls==0);
