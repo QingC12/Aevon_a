@@ -6,12 +6,12 @@ typedef NS_ENUM(NSInteger,UISceneActivationState){UISceneActivationStateForegrou
 typedef NS_ENUM(NSInteger,UIInterfaceOrientation){UIInterfaceOrientationUnknown,UIInterfaceOrientationPortrait};
 @class UIWindow,UIWindowScene;
 @interface TestSpace:NSObject
-@property CGRect bounds;
+@property(nonatomic) CGRect bounds;
 -(CGRect)convertRect:(CGRect)r toCoordinateSpace:(id)space;
 @end
 @interface UIScreen:NSObject
 @property(strong) TestSpace *coordinateSpace,*fixedCoordinateSpace;
-@property CGRect bounds;
+@property(nonatomic) CGRect bounds;
 +(UIScreen *)mainScreen;
 @end
 @interface UIScene:NSObject
@@ -26,7 +26,7 @@ typedef NS_ENUM(NSInteger,UIInterfaceOrientation){UIInterfaceOrientationUnknown,
 @interface UIView:NSObject
 @property BOOL hidden,isFirstResponder,clipsToBounds;
 @property CGFloat alpha;
-@property CGRect bounds;
+@property(nonatomic) CGRect bounds;
 @property CGAffineTransform transform;
 @property(strong) UIWindow *window;
 @property(strong) UIView *superview;
@@ -38,7 +38,7 @@ typedef NS_ENUM(NSInteger,UIInterfaceOrientation){UIInterfaceOrientationUnknown,
 @property(strong) UIWindowScene *windowScene;
 @end
 @interface UIApplication:NSObject
-@property(strong) NSSet<UIScene *> *connectedScenes;
+@property(nonatomic,strong) NSSet<UIScene *> *connectedScenes;
 +(UIApplication *)sharedApplication;
 @end
 @interface NSValue (STHVTestRect)

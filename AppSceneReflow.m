@@ -35,6 +35,7 @@ CGRect STHVUnmodifiedScreenBounds(UIScreen *screen){
 static CGRect screenBounds(id screen,SEL selector){
  // Deliberately no mainScreen, connectedScenes, window, preferences, IPC,
  // notification or logging call here. UIKit may already hold a scene lock.
+ if(readingNative)return screen==primaryDisplay?cachedPhysicalBounds:CGRectZero;
  CGRect original=STHVUnmodifiedScreenBounds(screen);
  if(!NSThread.isMainThread||screen!=primaryDisplay||!cacheEnabled||reflowNow()>cacheExpires)return original;
  return cachedSceneBounds;

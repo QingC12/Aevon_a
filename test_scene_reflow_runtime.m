@@ -31,14 +31,18 @@ double STHVReflowTestNow(void){return clockValue;}
 @end
 static TestBundle *mainBundle;
 static id bundleReplacement(id self,SEL selector){return mainBundle;}
-@implementation TestSpace @end
+@implementation TestSpace
+-(CGRect)convertRect:(CGRect)r toCoordinateSpace:(id)space{return r;}
+@end
 @implementation UIScreen
 +(UIScreen *)mainScreen{screenQueries++;assert(!prohibitUIKit);return display;}
 -(CGRect)bounds{if(chainReentry){chainReentry=NO;return self.bounds;}return _bounds;}
 @end
 @implementation UIScene @end
 @implementation UIWindowScene @end
-@implementation UIView @end
+@implementation UIView
+-(CGRect)convertRect:(CGRect)r toCoordinateSpace:(id)space{return r;}
+@end
 @implementation UIWindow @end
 @implementation UIApplication
 +(UIApplication *)sharedApplication{appQueries++;assert(!prohibitUIKit);return application;}
