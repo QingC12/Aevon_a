@@ -31,7 +31,7 @@ static STHVRect originalCard,currentTarget,physicalKeyboard;
 static double originalGeometry[3],writtenGeometry[3],lastOwnerAt;
 static BOOL hasWrittenGeometry,localInput,manualOverride;
 static BOOL physicallyHidden;
-static uint64_t hiddenOwnerKey,hiddenRequestEvent;
+static uint64_t hiddenOwnerKey,hiddenRequestEvent,localBarrierKey,localBarrierEvent;
 static STHVRect ownerKeyboard;
 static NSSet<NSString *> *publishedBundles;
 static BOOL processing;
@@ -84,6 +84,7 @@ static void restoreOwner(BOOL nativeTransaction,NSString *reason){
 }
 static void applyOwner(void *pointer,NSString *bundle,STHVRect keyboard,uint64_t event,BOOL nativeTransaction){
  id model=(__bridge id)pointer;
+ if(localBarrierKey==STHVKey(bundle)&&event<=localBarrierEvent)return;
  if(physicallyHidden&&hiddenOwnerKey==STHVKey(bundle)&&event<=hiddenRequestEvent)return;
  if(localInput||STHNativeMinimized(pointer)||STHNativeOrientation(pointer)!=1)return;
  STHVRect screen=viewportScreen();if(!STHVKeyboard(keyboard,screen))return;
@@ -173,7 +174,11 @@ static void updateRegistry(BOOL nativeTransaction){
 }
 void STHViewportSetLocalInput(BOOL active){
  if(!NSThread.isMainThread)return;localInput=active;
- if(active)restoreOwner(NO,@"local-input");
+ if(active){
+  localBarrierKey=STHVRequestOwner();localBarrierEvent=0;
+  for(NSString *bundle in publishedBundles)if(STHVKey(bundle)==localBarrierKey){STHVSnapshot request={0};if(STHVReadRequest(bundle,&request))localBarrierEvent=request.event;break;}
+  restoreOwner(NO,@"local-input");
+ }
 }
 void STHViewportModelMinimized(void *model){
  if(NSThread.isMainThread&&viewportOwner==(__bridge id)model)restoreOwner(YES,@"dock");

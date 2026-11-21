@@ -19,7 +19,7 @@
 @implementation Packet @end
 static NSArray<Card *> *cards;
 static NSMutableDictionary<NSString *,Packet *> *requests,*layouts;
-static uint64_t offeredKey;
+static uint64_t offeredKey,claimEvents;
 static double timeValue;
 static BOOL enabled=YES,unavailable,registryUnavailable,registryOversized;
 static int writes,animations,transaction,releases,interruptions,refreshes,logs;
@@ -49,7 +49,7 @@ BOOL STHVReadProbe(NSString *b,STHVRect *a,STHVRect *p){return NO;}
 NSDictionary *STHVRectJSON(STHVRect r){return @{@"x":@(r.x),@"y":@(r.y),@"w":@(r.w),@"h":@(r.h)};}
 void STHVLog(NSString *event,NSString *b,NSDictionary *values){logs++;}
 static Card *make(NSString *bundle){Card *c=[Card new];c.bundle=bundle;c.scale=.8;c.offset=CGSizeMake(0,20);return c;}
-static void claim(NSString *bundle,BOOL active,STHVRect keyboard){Packet *p=[Packet new];p.active=active;p.event=requests[bundle].event+1;p.keyboard=keyboard;requests[bundle]=p;if(active)offeredKey=STHVKey(bundle);}
+static void claim(NSString *bundle,BOOL active,STHVRect keyboard){Packet *p=[Packet new];p.active=active;p.event=++claimEvents;p.keyboard=keyboard;requests[bundle]=p;if(active)offeredKey=STHVKey(bundle);}
 static void runRegistry(void){STHCenterRunAnimation(^{updateRegistry(YES);},0);}
 static void physical(BOOL hide){STHCenterRunAnimation(^{STHViewportPhysicalWill(CGRectMake(0,550,400,300),hide);},0);}
 int main(void){@autoreleasepool{
@@ -81,7 +81,7 @@ int main(void){@autoreleasepool{
   transaction=1;a.minimized=YES;STHViewportModelMinimized((__bridge void *)a);transaction=0;
   assert(!viewportOwner&&a.scale==.8);runRegistry();assert(!viewportOwner);a.minimized=NO;
   claim(@"b",YES,(STHVRect){0,550,400,300});runRegistry();STHViewportSetLocalInput(YES);assert(!viewportOwner&&b.scale==.8);
-  runRegistry();assert(!viewportOwner);STHViewportSetLocalInput(NO);
+  runRegistry();assert(!viewportOwner);STHViewportSetLocalInput(NO);runRegistry();assert(!viewportOwner);
   claim(@"b",YES,(STHVRect){0,550,400,300});runRegistry();cards=@[a];runRegistry();assert(!viewportOwner&&b.scale==.8&&!STHVValid(layouts[@"b"].card));
   claim(@"a",YES,(STHVRect){0,550,400,300});runRegistry();unavailable=YES;timeValue+=4;runRegistry();unavailable=NO;assert(!viewportOwner);
   claim(@"a",YES,(STHVRect){0,550,400,300});runRegistry();registryUnavailable=YES;

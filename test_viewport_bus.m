@@ -45,7 +45,7 @@ static char observerNames[32][128];
 static dispatch_block_t observers[32];
 static BOOL pending[32];
 static unsigned observerCount, requestEvents, layoutEvents;
-static uint64_t clockMS = 1000000, gets, sets, registrations, ownerWrites;
+static uint64_t clockMS = 1000000, getCount, sets, registrations, ownerWrites;
 static uint64_t failGet, failSet, failRegister;
 static BOOL mainThread = YES, inHook, denyOwner, tracing;
 static char trace[32][128];
@@ -88,7 +88,7 @@ uint32_t STHVTestGet(int token, uint64_t *value) {
         assert(traceCount < 32);
         snprintf(trace[traceCount++], sizeof(trace[0]), "%s", name);
     }
-    if (++gets == failGet) { failGet = 0; return 1; }
+    if (++getCount == failGet) { failGet = 0; return 1; }
     if (denyOwner && !strcmp(name, PFX ".request.owner")) return 1;
     *value = words[tokenWord[token]].value;
     fire(afterRead, name);
@@ -183,7 +183,7 @@ static void failuresAndEmptyLayouts(void) {
     for (unsigned step = 1; step <= 7; ++step) {
         memset(&after, 0xa5, sizeof(after));
         unsigned char saved[sizeof(after)]; memcpy(saved, &after, sizeof(after));
-        failGet = gets + step;
+        failGet = getCount + step;
         assert(!STHVReadLayout(A, &after) && !failGet);
         assert(!memcmp(saved, &after, sizeof(after)));
     }
@@ -351,7 +351,7 @@ static void freshnessAndProbes(void) {
 }
 
 static void mainThreadAndGeneration(void) {
-    uint64_t r = registrations, g = gets, w = sets;
+    uint64_t r = registrations, g = getCount, w = sets;
     unsigned observersBefore = observerCount;
     STHVSnapshot s;
     STHVRect a = cardFor(1), b = keyFor(1);
@@ -365,7 +365,7 @@ static void mainThreadAndGeneration(void) {
     STHVObserveRequests(CALLBACK(requestEvent));
     STHVObserveLayout(A, CALLBACK(layoutEvent));
     mainThread = YES;
-    assert(registrations == r && gets == g && sets == w && observerCount == observersBefore);
+    assert(registrations == r && getCount == g && sets == w && observerCount == observersBefore);
     sameRect(a, cardFor(1)); sameRect(b, keyFor(1));
     assert(!STHVPublishRequest(NULL, YES, a) && !STHVReadRequest(STR(""), &s));
     /* Adopt the shared generation, not a process-local writer counter. */
