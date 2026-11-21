@@ -109,7 +109,7 @@ int STHClassify(void *m,CGPoint p) {
  }
  int original=STHNativeClassify(m,p);
  CGRect content=STHNativeRect(m);
- BOOL dockedInside=minimized&&!CGRectIsEmpty(content)&&!CGRectIsNull(content)&&CGRectContainsPoint(content,p);
+ BOOL dockedInside=minimized&&original!=7&&!CGRectIsEmpty(content)&&!CGRectIsNull(content)&&CGRectContainsPoint(content,p);
  if(original==10&&!dockedInside)return original;
  BOOL inside=!minimized&&original!=7&&CGRectContainsPoint(CGRectInset(content,4,4),p);
  if(dockedInside)original=4;

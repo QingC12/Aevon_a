@@ -97,7 +97,9 @@ int main(void) {
   assert(docked==1&&!testMinimized);
   testMinimized=NO;
   for(int i=0;i<200;i++){
-   nativeHit=10;testMinimized=YES;drag=(Drag){CGSizeZero,NO};
+   nativeHit=7;testMinimized=YES;drag=(Drag){CGSizeZero,NO};
+   assert(STHClassify(m,CGPointMake(21,21))==7);
+   nativeHit=10;
    assert(STHClassify(m,CGPointMake(10,200))==10);
    // Full thumbnail edges remain clickable; no content inset is applied.
    assert(STHClassify(m,CGPointMake(21,21))==4);
