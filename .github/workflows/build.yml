@@ -25,6 +25,9 @@ jobs:
           /tmp/stheno-focus-owner
           xcrun --sdk macosx clang -fobjc-arc -Wall -Wextra -Wno-unused-parameter test_keyboard_input_timing.m -framework Foundation -framework CoreGraphics -framework QuartzCore -o /tmp/stheno-input-timing
           /tmp/stheno-input-timing
+          python3 test_floating_handoff_red.py
+          xcrun --sdk macosx clang -fobjc-arc -Wall -Wextra -Wno-unused-parameter test_floating_input_handoff.m -framework Foundation -framework CoreGraphics -framework QuartzCore -o /tmp/stheno-floating-handoff
+          /tmp/stheno-floating-handoff
           xcrun --sdk macosx clang -fobjc-arc -Wall -Wextra -Wno-unused-parameter test_layout_publisher_sample.m -framework Foundation -framework CoreGraphics -framework QuartzCore -o /tmp/stheno-layout-sample
           /tmp/stheno-layout-sample
           xcrun --sdk macosx clang -fobjc-arc -Wall -Wextra -Wno-unused-parameter test_keyboard_focus_snapshot.m -framework Foundation -o /tmp/stheno-input-snapshot
@@ -138,6 +141,10 @@ jobs:
         run: python3 test_published_bridge_abi.py
       - name: Verify fresh native catalog enumeration and partial ownership
         run: python3 test_chooser_catalog_abi.py
+      - name: Verify scoped card expansion and unchanged accepted keyboard sources
+        run: |
+          python3 test_card_expansion_abi.py
+          python3 test_update29_preservation.py
       - name: Verify original code, complete callback surface and lossless resources
         run: python3 test_runtime_package.py
       - name: Verify settings, source cleanup, and byte-identical archive payload

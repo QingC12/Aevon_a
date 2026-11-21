@@ -41,6 +41,7 @@ typedef NS_ENUM(int, Zone) { ZOriginal, ZSide, ZCorner, ZRotate, ZReset, ZMove, 
 @property unsigned char lockedHit;
 @property BOOL holdArmed;
 @property BOOL pendingRehit;
+@property BOOL inputInterrupted;
 @property CGPoint pendingPoint;
 @property NSUInteger generation;
 @property double lastTapAt;
@@ -90,6 +91,17 @@ static STHGestureState *registerState(void *m) {
  if (!s) { s=[STHGestureState new]; [states setObject:s forKey:(__bridge id)m]; }
  return s;
 }
+// An input handoff can cancel SwiftUI's gesture without an end callback.
+// Retire only our session; do not replay a native end, move, close or focus event.
+static void interruptForInput(STHGestureState *s){
+ if(!s)return;
+ s.generation++;resetGestureState(s);s.inputInterrupted=YES;s.lastTapAt=0;
+}
+void STHGestureInputFocusChanged(void *m){
+ if(!NSThread.isMainThread||!m)return;
+ STHGestureState *s=state(m);
+ if(s&&(s.active||s.dragActive))interruptForInput(s);
+}
 // Preserve membership in the ORIGINAL hit region. Subdivide it along its length only.
 int STHClassify(void *m,CGPoint p) {
  ensureBase();
@@ -102,7 +114,7 @@ int STHClassify(void *m,CGPoint p) {
    resetGestureState(s);
   } else {
    int native=STHNativeClassify(m,p);
-   if(native==10)return native;
+   if(native==10){interruptForInput(s);return native;}
    s.pendingPoint=p;s.pendingRehit=YES;
    return s.lockedHit;
   }
@@ -110,13 +122,14 @@ int STHClassify(void *m,CGPoint p) {
  int original=STHNativeClassify(m,p);
  CGRect content=STHNativeRect(m);
  BOOL dockedInside=minimized&&original!=7&&!CGRectIsEmpty(content)&&!CGRectIsNull(content)&&CGRectContainsPoint(content,p);
- if(original==10&&!dockedInside)return original;
+ if(original==10&&!dockedInside){interruptForInput(s);return original;}
  BOOL inside=!minimized&&original!=7&&CGRectContainsPoint(CGRectInset(content,4,4),p);
  if(dockedInside)original=4;
  else if(inside)original=6;
  s=registerState(m);
  s.docked=dockedInside;
  s.pendingRehit=NO;
+ s.inputInterrupted=NO;
  s.lockedHit=(unsigned char)original;
  s.zone=original==6?ZContent:ZOriginal;
  s.start=p;
@@ -157,7 +170,7 @@ int STHClassify(void *m,CGPoint p) {
 }
 void STHSetup(void *drag,void *m) {
  STHGestureState *s=registerState(m);
- if(!s)return;
+ if(!s||s.inputInterrupted)return;
  if(s.dragActive&&s.pendingRehit){
   CGPoint start=s.pendingPoint;
   resetGestureState(s);
@@ -181,7 +194,7 @@ void STHSetup(void *drag,void *m) {
 void STHUpdate(void *drag,void *m) {
  ensureBase();
  STHGestureState *s=registerState(m);
- if(!s)return;
+ if(!s||s.inputInterrupted)return;
  s.lastActivity=CACurrentMediaTime();
  if(s.zone==ZContent)return;
  CGSize translation=STHNativeTranslation(drag);
@@ -219,7 +232,7 @@ void STHUpdate(void *drag,void *m) {
 }
 void STHEnd(void *drag,void *m) {
  ensureBase();
- STHGestureState *s=registerState(m);if(!s)return;
+ STHGestureState *s=registerState(m);if(!s||s.inputInterrupted)return;
  s.active=NO;s.dragActive=NO;
  if(s.docked){
   CGSize t=STHNativeTranslation(drag);
@@ -249,7 +262,7 @@ void STHEnd(void *drag,void *m) {
  finishGestureState(s);
 }
 void STHLong(void *m) {
- STHGestureState *s=registerState(m);if(!s)return;
+ STHGestureState *s=registerState(m);if(!s||s.inputInterrupted)return;
  if(s.docked)return;
  if(s.zone==ZContent){*latch(m)=0;return;}
  if (!s||s.zone==ZOriginal) {
@@ -285,7 +298,7 @@ void STHLong(void *m) {
  }
 }
 void STHTap(void *m,NSUInteger count) {
- STHGestureState *s=registerState(m);if(!s)return;
+ STHGestureState *s=registerState(m);if(!s||s.inputInterrupted)return;
  if(s.docked){if(!s.acted){s.acted=YES;STHNativeDock(m);}return;}
  if(s.zone==ZContent)return;
  if(!s||s.zone==ZOriginal||s.zone==ZReturnPortrait){

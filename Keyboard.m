@@ -13,6 +13,8 @@ extern void *STHCopyInputFocusedModel(void);
 extern void *STHCopyInputFocusedModelWithFrame(STHRect *);
 extern void STHChooserReleaseSwift(void *);
 extern void STHCenterRunAnimation(void (^block)(void),int);
+extern void STHCardRunExpansion(void (^block)(void));
+extern void STHGestureInputFocusChanged(void *);
 extern BOOL STHSystemActionsEnabled(void);
 #endif
 #if !defined(STH_KEYBOARD_TEST) || defined(STH_KEYBOARD_INPUT_TEST)
@@ -58,7 +60,7 @@ static void focusModel(void *model,BOOL confirmed) {
  candidate=(__bridge id)model;candidateConfirmed=YES;
  candidateAt=CACurrentMediaTime();
 #if !defined(STH_KEYBOARD_TEST) || defined(STH_KEYBOARD_INPUT_TEST)
- if(!same)STHPrepareLayoutFocus(model);
+ if(!same){STHGestureInputFocusChanged(model);STHPrepareLayoutFocus(model);}
 #endif
 }
 void STHKeyboardFocus(void *model){focusModel(model,NO);}
@@ -214,7 +216,12 @@ static void reconcileKeyboard(void *frameBox,BOOL nativeDelivery,void *verifiedM
  if (enlarge) {
   for (int i=0;i<3;i++) { applied[i]=target[i]; saved[i]=original[i]; }
   owner=focus;changed=YES;
+#if !defined(STH_KEYBOARD_TEST) || defined(STH_KEYBOARD_INPUT_TEST)
+  double scale=target[0],x=target[1],y=target[2];
+  STHCardRunExpansion(^{const double geometry[3]={scale,x,y};STHNativeSetKeyboardGeometry((__bridge void *)focus,geometry);});
+#else
   STHNativeSetKeyboardGeometry((__bridge void *)focus,target);
+#endif
  }
  if(!eligible){candidate=nil;candidateAt=0;candidateConfirmed=NO;}
 #if !defined(STH_KEYBOARD_TEST) || defined(STH_KEYBOARD_INPUT_TEST)

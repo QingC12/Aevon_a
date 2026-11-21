@@ -14,7 +14,13 @@
 @implementation Model
 @end
 static int showCalls,hideCalls,writes;
-static BOOL inOriginalTransaction;
+static BOOL inOriginalTransaction,inCardExpansion;
+static int expansionTransactions,expansionWrites,gestureInterruptions;
+void STHCardRunExpansion(void (^block)(void)){
+ assert(inOriginalTransaction&&!inCardExpansion);
+ inCardExpansion=YES;expansionTransactions++;block();inCardExpansion=NO;
+}
+void STHGestureInputFocusChanged(void *model){gestureInterruptions++;}
 CGRect STHNativeRect(void *p) { return ((__bridge Model *)p).card; }
 NSUInteger STHNativeOrientation(void *p) { return ((__bridge Model *)p).orientation; }
 BOOL STHNativeMinimized(void *p) { return ((__bridge Model *)p).minimized; }
@@ -23,10 +29,10 @@ CGSize STHNativeGetOffset(void *p) { return ((__bridge Model *)p).offset; }
 void STHNativeSetKeyboardGeometry(void *p,const double *v) {
  assert(inOriginalTransaction);
  Model *m=(__bridge Model *)p;
- m.scale=v[0];m.offset=CGSizeMake(v[1],v[2]);writes++;
+ m.scale=v[0];m.offset=CGSizeMake(v[1],v[2]);writes++;if(inCardExpansion)expansionWrites++;
 }
-void STHNativeKeyboardShow(void *p) { assert(inOriginalTransaction);showCalls++; }
-void STHNativeKeyboardHide(void) { assert(inOriginalTransaction);hideCalls++; }
+void STHNativeKeyboardShow(void *p) { assert(inOriginalTransaction&&!inCardExpansion);showCalls++; }
+void STHNativeKeyboardHide(void) { assert(inOriginalTransaction&&!inCardExpansion);hideCalls++; }
 static Model *make(void) {
  Model *m=[Model new];m.scale=.8;m.orientation=1;
  m.card=CGRectMake(40,150,320,500);m.offset=CGSizeMake(0,20);return m;
@@ -62,8 +68,10 @@ int main(void){@autoreleasepool{
   inputOwnerChanged();
   assert(owner==a&&a.scale>.8&&showCalls==before); // No DidShow or second native callback.
   assert(nativeResolutions==nativeBefore&&snapshotResolutions==snapshotBefore+1);
-  int targetWrites=writes,preparedBefore=preparations;
+  assert(expansionWrites==expansionTransactions);
+  int targetWrites=writes,preparedBefore=preparations,expansionsBefore=expansionTransactions,interruptsBefore=gestureInterruptions;
   inputOwnerChanged();assert(writes==targetWrites&&showCalls==before&&preparations==preparedBefore);
+  assert(expansionTransactions==expansionsBefore&&gestureInterruptions==interruptsBefore);
   nativeHide();assert(fabs(a.scale-.8)<.001);
   offeredModel=a;offeredFrame=(STHRect){0,0,0,0};targetWrites=writes;inputOwnerChanged();assert(!owner&&writes==targetWrites);
   offeredFrame=(STHRect){0,550,400,300};before=showCalls;inputOwnerChanged();assert(owner==a&&showCalls==before);

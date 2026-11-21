@@ -80,7 +80,10 @@ int main(void) {
   STHSetup(&drag,m);
   nativeHit=10;
   assert(STHClassify(m,CGPointMake(120,120))==10);
+  assert(!state(m).dragActive&&state(m).inputInterrupted);
   nativeHit=4;
+  assert(STHClassify(m,CGPointMake(120,120))==6);
+  STHSetup(&drag,m);
   assert(STHClassify(m,CGPointMake(222,420))==6);
   STHUpdate(&drag,m);STHLong(m);STHTap(m,1);STHEnd(&drag,m);
   assert(docked==0&&updates==0&&setups==3&&ends==3&&longs==0);
