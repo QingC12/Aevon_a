@@ -21,7 +21,9 @@ static void deliverFrozen(NSNotificationCenter *center,NSNotification *note){
 static void discardHeld(void){}
 static BOOL interceptNotification(NSNotificationCenter *center,NSNotification *note){
  if(center!=NSNotificationCenter.defaultCenter||delivering||![NSThread isMainThread]||!keyboardEvent(note.name)||objc_getAssociatedObject(note,&normalizedKey))return NO;
- if(![note.name isEqualToString:UIKeyboardDidHideNotification])publishActualInputFocus(hideEvent(note.name));
+ BOOL will=[note.name isEqualToString:UIKeyboardWillShowNotification]||[note.name isEqualToString:UIKeyboardWillChangeFrameNotification];
+ if(will){publishActualInputFocus(NO);publishActualKeyboardFrame(note);}
+ else if([note.name isEqualToString:UIKeyboardWillHideNotification])publishActualInputFocus(YES);
  int status=STHLayoutStatus(NSBundle.mainBundle.bundleIdentifier);
  BOOL hide=hideEvent(note.name);
  if(hide){

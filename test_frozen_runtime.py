@@ -9,6 +9,7 @@ reviewed.update(json.loads((R/'inputs/reviewed-runtime-2.0.20.json').read_text()
 reviewed.update(json.loads((R/'inputs/reviewed-runtime-2.0.24.json').read_text()))
 reviewed.update(json.loads((R/'inputs/reviewed-runtime-2.0.25.json').read_text()))
 reviewed.update(json.loads((R/'inputs/reviewed-runtime-2.0.26.json').read_text()))
+reviewed.update(json.loads((R/'inputs/reviewed-runtime-2.0.27.json').read_text()))
 for name,digest in frozen.items():
  if name in ('LayoutProbe.m','LayoutProbe.h','NotificationPolicy.m'):
   assert not (R/name).exists();continue

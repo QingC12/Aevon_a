@@ -8,11 +8,25 @@ static id objectCall(id value,NSString *name){
  if(!s||s.numberOfArguments!=2||s.methodReturnType[0]!='@')return nil;
  return ((id(*)(id,SEL))objc_msgSend)(value,sel);
 }
+#include "ChooserFocusRouting.inc"
+static BOOL inputScene(UIWindowScene *scene,UIScreen *screen){
+ Class shell=NSClassFromString(@"SBWindowScene");
+ return shell&&[scene isKindOfClass:shell]&&scene.activationState==UISceneActivationStateForegroundActive&&scene.screen==screen;
+}
+UIWindowScene *STHChooserInputScene(UIWindowScene *renderScene){
+ if(!NSThread.isMainThread||!renderScene)return nil;
+ id app=UIApplication.sharedApplication,manager=objectCall(app,@"windowSceneManager");
+ id scene=objectCall(manager,@"activeDisplayWindowSceneFollowingUserInteraction");
+ if(inputScene(scene,renderScene.screen))return scene;
+ scene=objectCall(app,@"activeDisplayWindowScene");if(inputScene(scene,renderScene.screen))return scene;
+ scene=objectCall(app,@"embeddedDisplayWindowScene");if(inputScene(scene,renderScene.screen))return scene;
+ return inputScene(renderScene,renderScene.screen)?renderScene:nil;
+}
 UIWindow *STHCreateChooserInputWindow(UIWindowScene *scene){
  if(!NSThread.isMainThread||!scene||scene.activationState!=UISceneActivationStateForegroundActive)return nil;
  static Class windowClass;
  if(!windowClass){
-  Class base=NSClassFromString(@"SBFWindow")?:UIWindow.class;
+  Class base=NSClassFromString(@"SBFWindow");if(!base)return nil;
   windowClass=objc_allocateClassPair(base,"STHChooserInputWindow",0);
   if(windowClass){
    const char *encoding=@encode(BOOL);
@@ -34,12 +48,8 @@ NSObject *STHAcquireChooserKeyboardFocus(UIWindow *window){
  Class workspace=NSClassFromString(@"SBMainWorkspace");
  id instance=objectCall(workspace,@"sharedInstanceIfExists")?:objectCall(workspace,@"sharedInstance");
  id controller=objectCall(instance,@"keyboardFocusController");
- SEL sel=NSSelectorFromString(@"requestFocusStealingForSpringBoardWindow:forReason:");
- NSMethodSignature *signature=[controller methodSignatureForSelector:sel];
- if(!signature||signature.numberOfArguments!=4||signature.methodReturnType[0]!='@')return nil;
- return ((id(*)(id,SEL,id,id))objc_msgSend)(controller,sel,window,@"Stheno application search");
+ return createChooserFocusToken(controller,window.windowScene,window);
 }
 void STHReleaseChooserKeyboardFocus(NSObject *assertion){
- SEL sel=NSSelectorFromString(@"invalidate");
- if(assertion&&[assertion respondsToSelector:sel])((void(*)(id,SEL))objc_msgSend)(assertion,sel);
+ invalidateFocus(assertion);
 }

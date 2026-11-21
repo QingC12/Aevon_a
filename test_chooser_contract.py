@@ -22,10 +22,14 @@ assert 'ChooserSearch.matches(query: query, name: $0.name, identifier: $0.id)' i
 assert 'field.markedTextRange == nil' in inputSource
 assert 'viewDidAppear' in inputSource and 'didMoveToWindow' in inputSource
 assert 'window.isKeyWindow' in inputSource and 'field.window === window' in inputSource
-assert 'requestFocusStealingForSpringBoardWindow:forReason:' in inputNative
+routing=(R/'ChooserFocusRouting.inc').read_text()
+assert 'requestFocusStealingForSpringBoardWindow:forReason:' in routing and 'lockFocusToSpringBoardWindowScene:forReason:' in routing
+assert 'STHChooserInputScene(renderScene)' in ui and 'activeDisplayWindowSceneFollowingUserInteraction' in inputNative
 assert 'SBFWindow' in inputNative and 'STHReleaseChooserKeyboardFocus' in inputSource
-assert 'scene.activationState == .foregroundActive' in ui and 'w.makeKeyAndVisible()' in ui
+assert 'scene.activationState == .foregroundActive' in ui and 'if input.prepareRouting() { w.makeKey() }' in ui
 assert 'panelInput?.close()' in ui and 'input.open()' in ui
+assert 'routingReady: assertion != nil' in inputSource and 'assertion != nil, let window' in inputSource
+assert 'reloadInputViews' not in inputSource and 'UIWindow.didResignKeyNotification' in inputSource
 assert 'private func attach(to window: UIWindow, hostView: UIView)' in ui
 assert 'surface.window === w' in ui and 'sceneRank' in ui and 'lifecycleChanged' in ui
 assert 'host.view.isHidden = !visible' not in ui

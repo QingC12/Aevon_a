@@ -7,14 +7,15 @@
 #import <QuartzCore/QuartzCore.h>
 #import <math.h>
 #import "KeyboardGeometry.h"
-#if !defined(STH_KEYBOARD_TEST)
+#if !defined(STH_KEYBOARD_TEST) || defined(STH_KEYBOARD_INPUT_TEST)
 #import "KeyboardFocusBus.h"
 extern void *STHCopyInputFocusedModel(void);
+extern void *STHCopyInputFocusedModelWithFrame(STHRect *);
 extern void STHChooserReleaseSwift(void *);
 extern void STHCenterRunAnimation(void (^block)(void),int);
 extern BOOL STHSystemActionsEnabled(void);
 #endif
-#if !defined(STH_KEYBOARD_TEST)
+#if !defined(STH_KEYBOARD_TEST) || defined(STH_KEYBOARD_INPUT_TEST)
 extern void STHStartLayout(void *,CGRect);
 extern void STHPrepareLayoutFocus(void *);
 extern void STHUpdateLayout(void);
@@ -38,8 +39,7 @@ static __weak id owner;
 static double saved[3], applied[3];
 static BOOL changed;
 static BOOL localInput;
-static id latestKeyboardFrame;
-static CFTimeInterval latestKeyboardAt;
+static void reconcileKeyboard(void *frameBox,BOOL nativeDelivery);
 void STHKeyboardShow(void *frameBox);
 
 static CGRect viewport(void) {
@@ -56,7 +56,7 @@ static void focusModel(void *model,BOOL confirmed) {
  if(!confirmed)return; // A scene hit or drag is not evidence of text-input ownership.
  candidate=(__bridge id)model;candidateConfirmed=YES;
  candidateAt=CACurrentMediaTime();
-#if !defined(STH_KEYBOARD_TEST)
+#if !defined(STH_KEYBOARD_TEST) || defined(STH_KEYBOARD_INPUT_TEST)
  STHPrepareLayoutFocus(model);
 #endif
 }
@@ -87,7 +87,7 @@ void STHKeyboardModelDidMinimize(void *model) {
  BOOL owns=owner==value;
  BOOL pending=candidate==value;
  if(!owns&&!pending)return;
-#if !defined(STH_KEYBOARD_TEST)
+#if !defined(STH_KEYBOARD_TEST) || defined(STH_KEYBOARD_INPUT_TEST)
  if(owns||(pending&&!owner))STHStopLayout();
 #endif
  if(owns)restoreCard();
@@ -98,17 +98,21 @@ void STHKeyboardModelDidMinimize(void *model) {
 void STHKeyboardSetLocalInput(BOOL active){
  if(!NSThread.isMainThread)return;
  localInput=active;
+#if !defined(STH_KEYBOARD_TEST) || defined(STH_KEYBOARD_INPUT_TEST)
+ STHResetInputFocusReadEpoch();
+#endif
  if(active){
-#if !defined(STH_KEYBOARD_TEST)
+#if !defined(STH_KEYBOARD_TEST) || defined(STH_KEYBOARD_INPUT_TEST)
   STHStopLayout();
 #endif
-  restoreCard();candidate=nil;candidateAt=0;candidateConfirmed=NO;latestKeyboardFrame=nil;latestKeyboardAt=0;
+  restoreCard();candidate=nil;candidateAt=0;candidateConfirmed=NO;
  }
 }
-#if !defined(STH_KEYBOARD_TEST)
+#if !defined(STH_KEYBOARD_TEST) || defined(STH_KEYBOARD_INPUT_TEST)
 static void inputOwnerChanged(void){
  if(localInput)return;
- void *model=STHSystemActionsEnabled()?STHCopyInputFocusedModel():NULL;
+ STHRect physical={0,0,0,0};
+ void *model=STHSystemActionsEnabled()?STHCopyInputFocusedModelWithFrame(&physical):NULL;
  if(!model){
   if(owner||candidate)STHCenterRunAnimation(^{
    if(localInput)return;
@@ -117,23 +121,31 @@ static void inputOwnerChanged(void){
   return;
  }
  STHKeyboardInputFocus(model);
- STHChooserReleaseSwift(model);
- if(latestKeyboardFrame&&CACurrentMediaTime()-latestKeyboardAt<1.0){
-  id frame=latestKeyboardFrame;
-  STHCenterRunAnimation(^{if(!localInput)STHKeyboardShow((__bridge void *)frame);},0);
+ if(physical.w>=80&&physical.h>=80&&owner!=(__bridge id)model){
+#if defined(STH_KEYBOARD_TEST)
+  id frame=[NSValue valueWithRect:NSMakeRect(physical.x,physical.y,physical.w,physical.h)];
+#else
+  id frame=[NSValue valueWithCGRect:CGRectMake(physical.x,physical.y,physical.w,physical.h)];
+#endif
+  // Apply only geometry from this verified Will. Native notification delivery
+  // retains its own one-shot callback and must not be replayed by an IPC wakeup.
+  STHCenterRunAnimation(^{if(!localInput)reconcileKeyboard((__bridge void *)frame,NO);},0);
  }
+ STHChooserReleaseSwift(model);
 }
+#if !defined(STH_KEYBOARD_TEST)
 __attribute__((constructor)) static void observeKeyboardOwner(void){
  dispatch_async(dispatch_get_main_queue(),^{STHObserveInputFocus(^{inputOwnerChanged();});});
 }
 #endif
+#endif
 
-void STHKeyboardShow(void *frameBox) {
- if(localInput){STHNativeKeyboardShow(frameBox);return;}
-#if !defined(STH_KEYBOARD_TEST)
+static void reconcileKeyboard(void *frameBox,BOOL nativeDelivery) {
+ if(localInput){if(nativeDelivery)STHNativeKeyboardShow(frameBox);return;}
+#if !defined(STH_KEYBOARD_TEST) || defined(STH_KEYBOARD_INPUT_TEST)
  if(!STHSystemActionsEnabled()){
   STHStopLayout();restoreCard();candidate=nil;candidateAt=0;candidateConfirmed=NO;
-  STHNativeKeyboardShow(frameBox);return;
+  if(nativeDelivery)STHNativeKeyboardShow(frameBox);return;
  }
  void *confirmed=STHCopyInputFocusedModel();
  if(confirmed){
@@ -141,7 +153,6 @@ void STHKeyboardShow(void *frameBox) {
   STHChooserReleaseSwift(confirmed);
  }
 #endif
- latestKeyboardFrame=(__bridge id)frameBox;latestKeyboardAt=CACurrentMediaTime();
  // Strong locals keep the weak model valid for this synchronous transaction.
  id focus=candidateConfirmed?candidate:owner;
  id currentOwner=owner;
@@ -167,8 +178,8 @@ void STHKeyboardShow(void *frameBox) {
  if (eligible && (STHNativeMinimized((__bridge void *)focus)||STHNativeOrientation((__bridge void *)focus)!=1)) eligible=NO;
  // Repeated show/frame changes must never overwrite the original snapshot.
  if (currentOwner && currentOwner==focus && eligible) {
-  STHNativeKeyboardShow(frameBox);
-#if !defined(STH_KEYBOARD_TEST)
+  if(nativeDelivery)STHNativeKeyboardShow(frameBox);
+#if !defined(STH_KEYBOARD_TEST) || defined(STH_KEYBOARD_INPUT_TEST)
   STHStartLayout((__bridge void *)focus,keyboard);
 #endif
   return;
@@ -191,11 +202,11 @@ void STHKeyboardShow(void *frameBox) {
    enlarge=fabs(factor-1.0)>.00001 || fabs(target[1]-position.width)>.01 || fabs(target[2]-position.height)>.01;
   }
  }
-#if !defined(STH_KEYBOARD_TEST)
+#if !defined(STH_KEYBOARD_TEST) || defined(STH_KEYBOARD_INPUT_TEST)
  if(eligible)STHStartLayout((__bridge void *)focus,keyboard);
  else STHStopLayout();
 #endif
- STHNativeKeyboardShow(frameBox); // Original frame publication and avoidance.
+ if(nativeDelivery)STHNativeKeyboardShow(frameBox); // Original frame publication and avoidance.
  if (currentOwner && (currentOwner!=focus || !eligible)) restoreCard();
  if (enlarge) {
   for (int i=0;i<3;i++) { applied[i]=target[i]; saved[i]=original[i]; }
@@ -203,14 +214,15 @@ void STHKeyboardShow(void *frameBox) {
   STHNativeSetKeyboardGeometry((__bridge void *)focus,target);
  }
  if(!eligible){candidate=nil;candidateAt=0;candidateConfirmed=NO;}
-#if !defined(STH_KEYBOARD_TEST)
+#if !defined(STH_KEYBOARD_TEST) || defined(STH_KEYBOARD_INPUT_TEST)
  STHUpdateLayout();
 #endif
 }
 
+void STHKeyboardShow(void *frameBox){reconcileKeyboard(frameBox,YES);}
+
 void STHKeyboardHide(void) {
- latestKeyboardFrame=nil;latestKeyboardAt=0;
-#if !defined(STH_KEYBOARD_TEST)
+#if !defined(STH_KEYBOARD_TEST) || defined(STH_KEYBOARD_INPUT_TEST)
  STHStopLayout();
 #endif
  STHNativeKeyboardHide(); // Both restore operations stay in the original spring.

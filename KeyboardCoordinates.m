@@ -111,23 +111,46 @@ BOOL STHResolveKeyboardScene(UIWindowScene *scene,UIWindow *keyboard,CGRect phys
 }
 
 
+static __weak UIView *inputResponder;
 static BOOL sceneHasFocus(UIView *view,int depth,int *budget){
  if(!view||view.hidden||view.alpha<.01||depth>18||--*budget<0)return NO;
- if(view.isFirstResponder)return YES;
+ if(view.isFirstResponder){
+  if(![NSStringFromClass(view.window.class) containsString:@"Keyboard"])inputResponder=view;
+  return YES;
+ }
  for(UIView *child in view.subviews)if(sceneHasFocus(child,depth+1,budget))return YES;
  return NO;
 }
-// Focus is an app-side fact, independent of whether the host already has a layout.
+// A verified responder is cached only while it still belongs to a live scene.
+static BOOL actualInputClaim;
+static CGRect pendingWillFrame;
+static CFTimeInterval pendingWillAt;
+static BOOL inputReady(UIView *view){
+ UIWindow *window=view.window;UIWindowScene *scene=window.windowScene;
+ return view&&view.isFirstResponder&&window&&!window.hidden&&scene&&
+  scene.activationState!=UISceneActivationStateBackground&&scene.activationState!=UISceneActivationStateUnattached;
+}
 static void publishActualInputFocus(BOOL ending){
- NSString *bundle=NSBundle.mainBundle.bundleIdentifier;
- if(ending){STHPublishInputFocus(bundle,NO);return;}
+ NSString *bundle=NSBundle.mainBundle.bundleIdentifier;actualInputClaim=NO;
+ if(ending){inputResponder=nil;pendingWillAt=0;STHPublishInputFocus(bundle,NO);return;}
+ if(inputReady(inputResponder)){actualInputClaim=YES;return;}
  for(UIScene *candidate in UIApplication.sharedApplication.connectedScenes){
   if(![candidate isKindOfClass:UIWindowScene.class]||candidate.activationState==UISceneActivationStateBackground||candidate.activationState==UISceneActivationStateUnattached)continue;
   for(UIWindow *window in ((UIWindowScene *)candidate).windows){
    if([NSStringFromClass(window.class) containsString:@"Keyboard"])continue;
-   int budget=1600;if(sceneHasFocus(window,0,&budget)){STHPublishInputFocus(bundle,YES);return;}
+   int budget=1600;if(sceneHasFocus(window,0,&budget)){actualInputClaim=YES;return;}
   }
  }
+}
+static void publishActualKeyboardFrame(NSNotification *note){
+ // Only original Will frames may start geometry. Did is not a readiness gate.
+ if(![note.name isEqualToString:UIKeyboardWillShowNotification]&&![note.name isEqualToString:UIKeyboardWillChangeFrameNotification])return;
+ NSDictionary *raw=originalInfo(note,@selector(userInfo));
+ if([raw[UIKeyboardIsLocalUserInfoKey] isEqual:@NO])return;
+ id value=raw[UIKeyboardFrameEndUserInfoKey];if(![value isKindOfClass:NSValue.class])return;
+ CGRect frame=[value CGRectValue];if(!physicalFrame(frame,UIScreen.mainScreen))return;
+ pendingWillFrame=frame;pendingWillAt=CACurrentMediaTime();
+ if(actualInputClaim)STHPublishInputKeyboard(NSBundle.mainBundle.bundleIdentifier,rectValue(frame));
 }
 static BOOL resolveScene(CGRect physical,UIWindowScene **found,CGRect *frame,double *inset) {
  NSMutableArray<UIWindowScene *> *ordered=[NSMutableArray new];
@@ -287,7 +310,11 @@ void STHInstallKeyboardNotifications(void) {
  installDelivery();
  for(NSString *name in @[UITextFieldTextDidBeginEditingNotification,UITextViewTextDidBeginEditingNotification]){
   [NSNotificationCenter.defaultCenter addObserverForName:name object:nil queue:NSOperationQueue.mainQueue usingBlock:^(NSNotification *note){
-   if([note.object isKindOfClass:UIView.class]&&((UIView *)note.object).isFirstResponder)publishActualInputFocus(NO);
+   if([note.object isKindOfClass:UIView.class]&&inputReady(note.object)){
+    inputResponder=note.object;actualInputClaim=YES;
+    if(pendingWillAt>0&&CACurrentMediaTime()-pendingWillAt<.35)STHPublishInputKeyboard(NSBundle.mainBundle.bundleIdentifier,rectValue(pendingWillFrame));
+    else if(!STHReadInputKeyboard(NSBundle.mainBundle.bundleIdentifier,NULL))STHPublishInputFocus(NSBundle.mainBundle.bundleIdentifier,YES);
+   }
   }];
  }
  STHObserveLayout(NSBundle.mainBundle.bundleIdentifier,^{

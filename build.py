@@ -6,7 +6,7 @@ from update18_patch import patch_update18
 from core_native_bridge import migrate_native_bridge
 from compact_sign import compact_signature
 ROOT=Path(__file__).resolve().parent
-VERSION='2.0.26'
+VERSION='2.0.27'
 os.chdir(ROOT)
 OUT=ROOT/'build';OUT.mkdir(exist_ok=True)
 def run(*args,**kw): return subprocess.check_output([str(x) for x in args],**kw)

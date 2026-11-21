@@ -23,6 +23,10 @@ jobs:
           /tmp/stheno-keyboard-routing
           xcrun --sdk macosx clang -fobjc-arc -Wall -Wextra -Wno-unused-parameter test_keyboard_focus_owner.m KeyboardFocusBus.m KeyboardOwner.m -framework Foundation -o /tmp/stheno-focus-owner
           /tmp/stheno-focus-owner
+          xcrun --sdk macosx clang -fobjc-arc -Wall -Wextra -Wno-unused-parameter test_keyboard_input_timing.m -framework Foundation -framework CoreGraphics -framework QuartzCore -o /tmp/stheno-input-timing
+          /tmp/stheno-input-timing
+          xcrun --sdk macosx clang -fobjc-arc -Wall -Wextra -Wno-unused-parameter test_keyboard_focus_snapshot.m -framework Foundation -o /tmp/stheno-input-snapshot
+          /tmp/stheno-input-snapshot
           xcrun --sdk macosx clang -fobjc-arc -Wall -Wextra -Wno-unused-parameter test_keyboard_dock_integration.m -framework Foundation -framework CoreGraphics -framework QuartzCore -o /tmp/stheno-keyboard-dock
           /tmp/stheno-keyboard-dock
       - name: Test editor visibility and keyboard lifecycle
@@ -103,6 +107,8 @@ jobs:
           /tmp/stheno-chooser-search
           xcrun swiftc ChooserFocusPolicy.swift test_chooser_focus.swift -o /tmp/stheno-chooser-focus
           /tmp/stheno-chooser-focus
+          xcrun --sdk macosx clang -fobjc-arc -Wall -Wextra -Wno-unused-parameter test_chooser_focus_routing.m -framework Foundation -o /tmp/stheno-chooser-shell
+          /tmp/stheno-chooser-shell
           xcrun swiftc CenterGlyphGeometry.swift test_center_glyph_geometry.swift -o /tmp/stheno-center-glyph-geometry
           /tmp/stheno-center-glyph-geometry
           python3 test_global_logic_contract.py

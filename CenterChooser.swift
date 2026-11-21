@@ -45,7 +45,7 @@ private struct AppPanel: View {
     let state: PanelState
     let select: (String?) -> Void
     @State private var query = ""
-    let input: ChooserInputSession
+    @ObservedObject var input: ChooserInputSession
     @ObservedObject private var motion: PanelState
     init(items: [AppRow], state: PanelState, input: ChooserInputSession, select: @escaping (String?) -> Void) {
         self.items = items; self.state = state; self.input = input; self.select = select; self.motion = state
@@ -79,6 +79,9 @@ private struct AppPanel: View {
                         ChooserSearchField(text: $query, input: input)
                             .frame(minHeight: 20)
                     }.padding(12).background(Color.primary.opacity(0.06)).cornerRadius(12)
+                    if let error = input.routingError {
+                        Text(error).font(.caption).foregroundColor(.secondary).frame(maxWidth: .infinity, alignment: .leading)
+                    }
                     if matches.isEmpty {
                         Text("没有匹配的应用").foregroundColor(.secondary).frame(maxWidth: .infinity).frame(height: 48)
                     } else {
@@ -387,7 +390,8 @@ private final class CenterController: NSObject {
             guard let id = row["identifier"], let name = row["name"] else { return nil }
             return AppRow(id: id, name: name)
         }.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
-        guard let scene = targetWindow?.windowScene, scene.activationState == .foregroundActive else { return }
+        guard let renderScene = targetWindow?.windowScene,
+              let scene = STHChooserInputScene(renderScene), scene.activationState == .foregroundActive else { return }
         let motion = PanelState(); panelState = motion
         presentationGeneration &+= 1
         let generation = presentationGeneration
@@ -398,7 +402,9 @@ private final class CenterController: NSObject {
         let controller = ChooserHostingController(rootView: AppPanel(items: items, state: motion, input: input) { [weak self] id in self?.closePanel(selecting: id) }, input: input)
         controller.view.backgroundColor = .clear; w.rootViewController = controller
         panelWindow = w; input.bind(w)
-        w.makeKeyAndVisible()
+        w.isHidden = false
+        guard panelWindow === w, !input.closing, !STHSystemUIBlocked() else { return }
+        if input.prepareRouting() { w.makeKey() }
         guard panelWindow === w, panelState === motion, !input.closing else { return }
         controller.view.layoutIfNeeded()
         DispatchQueue.main.async {

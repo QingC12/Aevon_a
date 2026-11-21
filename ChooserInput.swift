@@ -8,6 +8,8 @@ final class ChooserInputSession: NSObject, ObservableObject {
     private weak var window: UIWindow?
     private weak var field: UITextField?
     private var assertion: NSObject?
+    private var routingAttempted = false
+    @Published private(set) var routingError: String?
     private var observations: [NSObjectProtocol] = []
     var invalidated: (() -> Void)?
     private(set) var closing = false
@@ -18,28 +20,39 @@ final class ChooserInputSession: NSObject, ObservableObject {
         STHKeyboardSetLocalInput(true)
         let center = NotificationCenter.default
         observations.append(center.addObserver(forName: UIWindow.didBecomeKeyNotification, object: window, queue: .main) { [weak self] _ in self?.offerFocus() })
+        observations.append(center.addObserver(forName: UIWindow.didResignKeyNotification, object: window, queue: .main) { [weak self] _ in self?.invalidate() })
         observations.append(center.addObserver(forName: UIScene.willDeactivateNotification, object: window.windowScene, queue: .main) { [weak self] _ in self?.invalidate() })
         observations.append(center.addObserver(forName: UIScene.didDisconnectNotification, object: window.windowScene, queue: .main) { [weak self] _ in self?.invalidate() })
     }
     func attach(_ field: UITextField) { self.field = field; offerFocus() }
     func didAppear() { appeared = true; offerFocus() }
     func open() { presented = true; offerFocus() }
+    func prepareRouting() -> Bool {
+        guard !closing else { return false }
+        if routingAttempted { return assertion != nil }
+        guard let window, !window.isHidden,
+              window.windowScene?.activationState == .foregroundActive else { return false }
+        routingAttempted = true
+        assertion = STHAcquireChooserKeyboardFocus(window)
+        if assertion == nil { routingError = "搜索键盘未取得系统输入焦点" }
+        return assertion != nil
+    }
     func allowEditing() -> Bool {
-        guard presented, !closing, let window, let field, field.window === window,
+        guard presented, !closing, assertion != nil, let window, let field, field.window === window,
               window.windowScene?.activationState == .foregroundActive, window.isKeyWindow,
               !window.isHidden, !STHSystemUIBlocked() else { return false }
-        if assertion == nil { assertion = STHAcquireChooserKeyboardFocus(window) }
-        return !closing
+        return true
     }
     private func offerFocus() {
         guard let window, let field else { return }
         guard policy.offer(appeared: appeared && presented, attached: field.window === window,
                            key: window.isKeyWindow, active: window.windowScene?.activationState == .foregroundActive,
-                           blocked: STHSystemUIBlocked()) else { return }
+                           blocked: STHSystemUIBlocked(), routingReady: assertion != nil) else { return }
         guard allowEditing() else { return }
         // SpringBoard's focus assertion is acquired before UIKit requests its input view.
-        if field.isFirstResponder { field.reloadInputViews() }
-        else { _ = field.becomeFirstResponder() }
+        if !field.isFirstResponder && !field.becomeFirstResponder() {
+            routingError = "搜索输入框尚未取得响应焦点"
+        }
     }
     func close() {
         guard !closing else { return }

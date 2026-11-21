@@ -16,6 +16,7 @@ void STHDockApply(uintptr_t key,double center);
 double STHDockTop(void);
 double STHDockBottom(void);
 
+UIWindowScene * _Nullable STHChooserInputScene(UIWindowScene *renderScene);
 UIWindow * _Nullable STHCreateChooserInputWindow(UIWindowScene *scene);
 NSObject * _Nullable STHAcquireChooserKeyboardFocus(UIWindow *window);
 void STHReleaseChooserKeyboardFocus(NSObject *assertion);
