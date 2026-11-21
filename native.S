@@ -126,7 +126,7 @@ begin STHNativeSetMinimized
 
 begin STHNativeClassify
  mov x20, x0
- target 0xd7980
+ target 0xd781c
  finish
 begin STHNativeTranslation
  mov x20, x0
@@ -250,15 +250,6 @@ begin STHNativeTap
  target 0xd9340
  finish
 
-// Keyboard callbacks use normal arguments plus the Swift error/context register.
-begin STHNativeKeyboardShow
- mov x21,#0
- target 0xd9400
- finish
-begin STHNativeKeyboardHide
- mov x21,#0
- target 0xd9410
- finish
 begin STHNativeGetScale
  mov x20,x0
  target 0x9cadc
@@ -268,10 +259,10 @@ begin STHNativeGetOffset
  target 0x3f5e0
  finish
 
-// Apply absolute model geometry inside the caller's existing keyboard spring.
+// Apply absolute viewport geometry inside the caller's original animation.
 // C: (model, [scale, offset.x, offset.y]); no raw UIView transforms.
-.globl _STHNativeSetKeyboardGeometry
-_STHNativeSetKeyboardGeometry:
+.globl _STHNativeSetViewportGeometry
+_STHNativeSetViewportGeometry:
  pacibsp
  sub sp,sp,#64
  stp x29,x30,[sp,#48]

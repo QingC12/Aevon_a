@@ -20,4 +20,4 @@ UIWindowScene * _Nullable STHChooserInputScene(UIWindowScene *renderScene);
 UIWindow * _Nullable STHCreateChooserInputWindow(UIWindowScene *scene);
 NSObject * _Nullable STHAcquireChooserKeyboardFocus(UIWindow *window);
 void STHReleaseChooserKeyboardFocus(NSObject *assertion);
-void STHKeyboardSetLocalInput(BOOL active);
+void STHViewportSetLocalInput(BOOL active);

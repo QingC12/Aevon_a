@@ -116,7 +116,7 @@ class MigrationTests(unittest.TestCase):
     def test_complete_emitted_semantic_equivalence(self):
         reference = normalize(self.reference['code'], 0, self.ref_symbols['LresetSize'], True)
         self.assertEqual(reference, self.normal)
-        self.assertEqual(len(self.meta['exports']), 23)
+        self.assertEqual(len(self.meta['exports']), 21)
         expected = {n for n, t, _, _ in self.reference['symbols'] if t == 0xF}
         self.assertEqual(expected, self.meta['exports'].keys())
         self.assertEqual(hashlib.sha256((ROOT / 'native.S').read_bytes()).hexdigest(), bridge.SOURCE_SHA256)
@@ -133,7 +133,7 @@ class MigrationTests(unittest.TestCase):
         self.assertEqual(len(self.image), len(self.original))
 
     def test_real_direct_targets_and_callback_authentication(self):
-        self.assertEqual(len(self.meta['direct_calls']), 43)
+        self.assertEqual(len(self.meta['direct_calls']), 41)
         decoded = []
         for record in self.meta['direct_calls']:
             word = struct.unpack_from('<I', self.image, record['rva'])[0]

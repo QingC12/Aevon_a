@@ -14,7 +14,7 @@ for value in ['0x51454','0xafb5c','0xaf19c']:
 for value in ['SBControlCenterController','SBCoverSheetPresentationManager','SBLockScreenManager','SthenoSystemVisibilityChanged','STHVisibilitySample']:
  assert value in visibility,value
 assert 'UIStatusBarWindow' not in visibility
-assert 't.commit=registerState(bundle,@"commit")' in (R/'LayoutBus.m').read_text()
+assert 'busSet(c->commit' in (R/'ViewportBus.m').read_text()
 for p in R.iterdir():
  if p.suffix not in ('.m','.h','.inc','.swift','.S') or p.name.startswith('test'):continue
  text=p.read_text()

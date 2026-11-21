@@ -1,31 +1,16 @@
-"""Independent regression lock for the accepted keyboard/gesture modules."""
+"""Explicit reset: preserve unrelated features, retire old keyboard runtime."""
 from pathlib import Path
-import ast,hashlib,json
+import hashlib,json
 R=Path(__file__).resolve().parent
-frozen=json.loads((R/'inputs/frozen-runtime-2.0.15.json').read_text())
-reviewed=json.loads((R/'inputs/reviewed-runtime-2.0.18.json').read_text())
-reviewed.update(json.loads((R/'inputs/reviewed-runtime-2.0.19.json').read_text()))
-reviewed.update(json.loads((R/'inputs/reviewed-runtime-2.0.20.json').read_text()))
-reviewed.update(json.loads((R/'inputs/reviewed-runtime-2.0.24.json').read_text()))
-reviewed.update(json.loads((R/'inputs/reviewed-runtime-2.0.25.json').read_text()))
-reviewed.update(json.loads((R/'inputs/reviewed-runtime-2.0.26.json').read_text()))
-reviewed.update(json.loads((R/'inputs/reviewed-runtime-2.0.27.json').read_text()))
-reviewed.update(json.loads((R/'inputs/reviewed-runtime-2.0.28.json').read_text()))
-reviewed.update(json.loads((R/'inputs/reviewed-runtime-2.0.29.json').read_text()))
-latest=json.loads((R/'inputs/reviewed-runtime-2.0.30.json').read_text())
-reviewed.update(latest)
-for name,digest in latest.items():
- assert hashlib.sha256((R/name).read_bytes()).hexdigest()==digest,('unreviewed current source',name)
-for name,digest in frozen.items():
- if name in ('LayoutProbe.m','LayoutProbe.h','NotificationPolicy.m'):
-  assert not (R/name).exists();continue
- expected=reviewed.get(name,digest)
- assert hashlib.sha256((R/name).read_bytes()).hexdigest()==expected,('unreviewed runtime source change',name)
-# Structural changes are explicit: one SpringBoard runtime, separate app adapter.
+m=json.loads((R/'inputs/reviewed-runtime-2.0.31.json').read_text())
+for collection in ['preserved_nonkeyboard_sources','reviewed_active_production']:
+ for name,digest in m[collection].items():
+  assert hashlib.sha256((R/name).read_bytes()).hexdigest()==digest,('Unreviewed production change',name)
+for name in m['retired_production']:assert not (R/name).exists(),('Legacy source present',name)
 build=(R/'build.py').read_text()
-assert 'migrate_native_bridge(img,OUT' in build
-assert "'Gesture.m','Keyboard.m','DefaultSize.m','LayoutPublisher.m','LayoutBus.m'" in build
-assert "'-Oz','-dynamiclib','KeyboardInset.m'" in build
-assert "'KeyboardFocusBus.m'" in build and 'compact_signature(p)' in build
+for name in ['ViewportHost.m','ViewportClient.m','ViewportBus.m','ViewportDiagnostics.m']:
+ assert "'"+name+"'" in build,name
+for name in m['retired_production']:assert "'"+name+"'" not in build,('Retired compiler input',name)
+assert 'migrate_native_bridge(img,OUT' in build and 'compact_signature(p)' in build
 assert "OUT/'SthenoGesture.dylib'" not in build
-print('Runtime audit lock passed; merged host and separate app focus/geometry path retained')
+print('Runtime31 audit lock passed:',len(m['preserved_nonkeyboard_sources']),'unrelated production files preserved;',len(m['reviewed_active_production']),'active sources reviewed;',len(m['retired_production']),'legacy keyboard files absent')

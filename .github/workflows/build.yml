@@ -15,67 +15,19 @@ jobs:
         run: |
           xcrun --sdk macosx clang -fobjc-arc -Wall -Wextra -Wno-unused-parameter test_gesture_routing.m -framework Foundation -framework CoreGraphics -framework QuartzCore -o /tmp/stheno-gesture-routing
           /tmp/stheno-gesture-routing
-      - name: Test keyboard geometry and production lifecycle
+      - name: Test rebuilt viewport geometry and atomic transport
         run: |
-          xcrun --sdk macosx clang -std=c11 -Wall -Wextra test_keyboard_geometry.c -o /tmp/stheno-keyboard-geometry
-          /tmp/stheno-keyboard-geometry
-          xcrun --sdk macosx clang -fobjc-arc -Wall -Wextra -Wno-unused-parameter test_keyboard_routing.m -framework Foundation -framework CoreGraphics -framework QuartzCore -o /tmp/stheno-keyboard-routing
-          /tmp/stheno-keyboard-routing
-          xcrun --sdk macosx clang -fobjc-arc -Wall -Wextra -Wno-unused-parameter test_keyboard_focus_owner.m KeyboardFocusBus.m KeyboardOwner.m -framework Foundation -o /tmp/stheno-focus-owner
-          /tmp/stheno-focus-owner
-          xcrun --sdk macosx clang -fobjc-arc -Wall -Wextra -Wno-unused-parameter test_keyboard_input_timing.m -framework Foundation -framework CoreGraphics -framework QuartzCore -o /tmp/stheno-input-timing
-          /tmp/stheno-input-timing
-          python3 test_floating_handoff_red.py
-          xcrun --sdk macosx clang -fobjc-arc -Wall -Wextra -Wno-unused-parameter test_floating_input_handoff.m -framework Foundation -framework CoreGraphics -framework QuartzCore -o /tmp/stheno-floating-handoff
-          /tmp/stheno-floating-handoff
-          python3 test_native_transition_red.py
-          xcrun --sdk macosx clang -fobjc-arc -Wall -Wextra -Wno-unused-parameter test_native_card_transition.m -framework Foundation -framework CoreGraphics -framework QuartzCore -o /tmp/stheno-native-transition
-          /tmp/stheno-native-transition
-          xcrun --sdk macosx clang -fobjc-arc -Wall -Wextra -Wno-unused-parameter test_layout_publisher_sample.m -framework Foundation -framework CoreGraphics -framework QuartzCore -o /tmp/stheno-layout-sample
-          /tmp/stheno-layout-sample
-          xcrun --sdk macosx clang -fobjc-arc -Wall -Wextra -Wno-unused-parameter test_keyboard_focus_snapshot.m -framework Foundation -o /tmp/stheno-input-snapshot
-          /tmp/stheno-input-snapshot
-          xcrun --sdk macosx clang -fobjc-arc -Wall -Wextra -Wno-unused-parameter test_keyboard_dock_integration.m -framework Foundation -framework CoreGraphics -framework QuartzCore -o /tmp/stheno-keyboard-dock
-          /tmp/stheno-keyboard-dock
-      - name: Test editor visibility and keyboard lifecycle
+          xcrun --sdk macosx clang -std=c11 -Wall -Wextra -Werror test_viewport_geometry.c -lm -o /tmp/stheno-viewport-math
+          /tmp/stheno-viewport-math
+          xcrun --sdk macosx clang -fobjc-arc -DSTH_VIEWPORT_BUS_TEST -Wall -Wextra -Werror test_viewport_bus.m ViewportBus.m -framework Foundation -o /tmp/stheno-viewport-bus
+          /tmp/stheno-viewport-bus
+          xcrun --sdk macosx clang -fobjc-arc -Wall -Wextra -Werror test_viewport_bus.m ViewportBus.m -framework Foundation -o /tmp/stheno-viewport-process
+          /tmp/stheno-viewport-process
+      - name: Test new viewport ownership and original-transaction lifecycle
         run: |
-          xcrun --sdk macosx clang -std=c11 -Wall -Wextra -Werror test_editor_visibility.c -o /tmp/stheno-editor-visibility
-          /tmp/stheno-editor-visibility
-          xcrun --sdk macosx clang -std=c11 -Wall -Wextra -Werror test_editor_lifecycle.c -o /tmp/stheno-editor-lifecycle
-          /tmp/stheno-editor-lifecycle
-          xcrun --sdk macosx clang -std=c11 -Wall -Wextra -Werror test_keyboard_coordinates.c -o /tmp/stheno-keyboard-coordinates
-          /tmp/stheno-keyboard-coordinates
-      - name: Test focused refinements without changing QQ and Minis
-        run: |
-          python3 test_editor_refined_contract.py
-          xcrun --sdk macosx clang -std=c11 -Wall -Wextra -Werror test_editor_refinement.c -o /tmp/stheno-editor-refinement
-          /tmp/stheno-editor-refinement
-      - name: Test complete composer ownership and preserve normal WeChat route
-        run: |
-          python3 test_editor_composite_contract.py
-          xcrun --sdk macosx clang -std=c11 -Wall -Wextra -Werror test_editor_composite.c -o /tmp/stheno-editor-composite
-          /tmp/stheno-editor-composite
-          xcrun --sdk macosx clang -std=c11 -Wall -Wextra -Werror test_keyboard_plane.c -o /tmp/stheno-keyboard-plane
-          /tmp/stheno-keyboard-plane
-          xcrun --sdk macosx clang -fobjc-arc -Wall -Wextra -Wno-unused-parameter test_composite_layout.m -framework Foundation -framework CoreGraphics -o /tmp/stheno-composite-layout
-          /tmp/stheno-composite-layout
-      - name: Test scene-only keyboard contract and session cache
-        run: |
-          python3 test_keyboard_contract.py
-          xcrun --sdk macosx clang -std=c11 -Wall -Wextra -Werror test_keyboard_session.c -o /tmp/stheno-keyboard-session
-          /tmp/stheno-keyboard-session
-      - name: Replay rapid keyboard cycles and immutable observer delivery
-        run: |
-          xcrun --sdk macosx clang -std=c11 -Wall -Wextra -Werror test_layout_settle.c -o /tmp/stheno-layout-settle
-          /tmp/stheno-layout-settle
-          xcrun --sdk macosx clang -fobjc-arc -Wall -Wextra -Wno-unused-parameter test_keyboard_delivery.m -framework Foundation -o /tmp/stheno-keyboard-delivery
-          /tmp/stheno-keyboard-delivery
-      - name: Test physical card mapping and cross-process geometry transport
-        run: |
-          xcrun --sdk macosx clang -std=c11 -Wall -Wextra -Werror test_layout_math.c -o /tmp/stheno-layout-math
-          /tmp/stheno-layout-math
-          xcrun --sdk macosx clang -fobjc-arc -Wall -Wextra -Wno-unused-parameter test_layout_bus.m LayoutBus.m -framework Foundation -framework QuartzCore -framework CoreGraphics -o /tmp/stheno-layout-bus
-          /tmp/stheno-layout-bus
+          xcrun --sdk macosx clang -fobjc-arc -Wall -Wextra -Wno-unused-parameter test_viewport_host.m -framework Foundation -framework CoreGraphics -o /tmp/stheno-viewport-host
+          /tmp/stheno-viewport-host
+          python3 test_viewport_contract.py
       - name: Test default size only on first presentation
         run: |
           xcrun --sdk macosx clang -fobjc-arc -Wall -Wextra -Wno-unused-parameter test_default_size.m -framework Foundation -o /tmp/stheno-default-size
@@ -144,8 +96,8 @@ jobs:
         run: python3 test_published_bridge_abi.py
       - name: Verify fresh native catalog enumeration and partial ownership
         run: python3 test_chooser_catalog_abi.py
-      - name: Verify original transition, accepted keyboard and retained touch fix
-        run: python3 test_update30_preservation.py build
+      - name: Verify legacy keyboard removal and original native animation ABI
+        run: python3 test_viewport_abi.py
       - name: Verify original code, complete callback surface and lossless resources
         run: python3 test_runtime_package.py
       - name: Verify settings, source cleanup, and byte-identical archive payload

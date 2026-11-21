@@ -37,7 +37,8 @@ assert lzma.decompress(ordinary)==data_raw
 # Exact file allowlist: no inherited file may disappear and no accidental
 # source, cache, debug output or extra payload may enter the package.
 added={
- './Library/MobileSubstrate/DynamicLibraries/SthenoKeyboardInset.dylib',
+ './Library/MobileSubstrate/DynamicLibraries/SthenoViewport.dylib',
+ './Library/MobileSubstrate/DynamicLibraries/SthenoViewport.plist',
  './Library/MobileSubstrate/DynamicLibraries/.stheno/Orion',
  './Library/MobileSubstrate/DynamicLibraries/.stheno/Orion-LICENSE.txt',
 }
@@ -51,9 +52,10 @@ if manifest.get('icon_resources'):
   assert '/' not in filename and filename.endswith('.png')
   path='./Library/Application Support/Stheno/SystemActions/'+filename
   added.add(path);assert hashlib.sha256(new[path]).hexdigest()==digest
-assert set(new)==set(old)|added,(set(old)-set(new),set(new)-set(old)-added)
-changed={path for path in old if old[path]!=new[path]}
-allowed={'./Library/MobileSubstrate/DynamicLibraries/'+n for n in ['Stheno.dylib','SthenoKeyboard.dylib','CameraFix.dylib','KeyboardFix.dylib']}
+retired={'./Library/MobileSubstrate/DynamicLibraries/'+n for n in manifest['viewport_keyboard_rebuild']['legacy_files_removed']}
+assert set(new)==(set(old)-retired)|added,(set(old)-set(new),set(new)-set(old)-added)
+changed={path for path in old if path in new and old[path]!=new[path]}
+allowed={'./Library/MobileSubstrate/DynamicLibraries/'+n for n in ['Stheno.dylib','CameraFix.dylib']}
 assert changed==allowed,changed
 for path in ['./usr/local/share/stheno/com.nx.stheno.plist',
  './Library/PreferenceBundles/SthenoPreference.bundle/Info.plist',
@@ -83,11 +85,11 @@ for key in ['BlockInterceptor','SSInterceptor','SSInterceptorSilence','SSListen'
 # Explicit production compiler closure. Tests, audit notes, probes remain source
 # tools but none enter the DEB as accidental data files.
 build=(R/'build.py').read_text()
-for src in ['Gesture.m','Keyboard.m','DefaultSize.m','LayoutPublisher.m','LayoutBus.m','EditorGuard.m','EditorPolicy.m','EditorRefinedGuard.m','EditorCompositeGuard.m','KeyboardMeasurement.m','KeyboardRefinedMeasurement.m','KeyboardCompositeMeasurement.m']:
+for src in ['Gesture.m','DefaultSize.m','ViewportHost.m','ViewportClient.m','ViewportBus.m','ViewportDiagnostics.m']:
  assert f"'{src}'" in build,src
 for removed in ['GestureRules.h','test_gesture_rules.c','KeyboardInsetMath.h','test_keyboard_inset.c','EditorVisibility.m']:
  assert not (R/removed).exists(),removed
-for live in ['EditorVisibilityMath.h','KeyboardCoordinates.h']:
+for live in ['ViewportGeometry.h','ViewportHost.h','ViewportBus.h']:
  assert (R/live).exists(),live
 assert '.gitignore' in [p.name for p in R.iterdir()]
-print('Maintenance checks passed: all original preference/UI/toggle assets preserved; settings defaults and uninstall script unchanged; quiet installer verified; compression round-trip identical; data XZ savings',manifest['data_tar_bytes_saved'],'bytes; only allowlisted runtime modules added; diagnostic emitters removed')
+print('Maintenance checks passed: all original preference/UI/toggle assets preserved; settings defaults and uninstall script unchanged; quiet installer verified; compression round-trip identical; data XZ savings',manifest['data_tar_bytes_saved'],'bytes; only allowlisted runtime modules added; legacy runtime removed; new geometry-only diagnostics explicitly enabled')

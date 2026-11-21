@@ -3,9 +3,7 @@ extern void STHNativePresent(void *);
 extern void STHNativeInitialSize(void *);
 extern BOOL STHNativeMinimized(void *);
 extern void STHNativeSetMinimized(void *,BOOL);
-#if !defined(STH_DEFAULT_SIZE_TEST)
-#import "LayoutBus.h"
-#endif
+#import "ViewportHost.h"
 static NSHashTable *initializedModels;
 void STHFirstPresentation(void *model) {
  if(!model)return;
@@ -21,8 +19,8 @@ void STHFirstPresentation(void *model) {
   // Call the EXACT same body as bottom-right long-press reset. Do it within
   // the native presentation transaction; do not schedule a second jump/reset.
   STHNativeInitialSize(model);
-#if !defined(STH_DEFAULT_SIZE_TEST)
-
-#endif
  }
+#if !defined(STH_DEFAULT_SIZE_TEST)
+ STHViewportModelChanged(model);
+#endif
 }

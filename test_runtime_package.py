@@ -15,7 +15,7 @@ def entries(pkg):
 old=entries(R/'inputs/base.deb');new=entries(folder/m['artifact'])
 core_path='./Library/MobileSubstrate/DynamicLibraries/Stheno.dylib'
 core=new['data'][core_path];base=old['data'][core_path]
-assert m['merged_springboard_runtime'] and len(new['data'])==34
+assert m['merged_springboard_runtime'] and len(new['data'])==29
 assert not any(k.endswith('/SthenoGesture.dylib') for k in new['data'])
 # All original code and constants remain exact outside documented patch words/padding.
 allowed={int(x,16) for x in m['patch_entries']}
@@ -27,14 +27,17 @@ drift=[i for i in range(0x4000,0xd9000) if base[i]!=core[i] and i not in allowed
 assert not drift,('unreviewed original code/constants drift',drift[:20])
 meta=m['native_bridges'];assert meta['base']==0xda600 and meta['end']<=0xdc000
 assert hashlib.sha256(core[meta['base']:meta['end']]).hexdigest()==meta['code_sha256']
-assert len(meta['exports'])==23
+assert len(meta['exports'])==21
 names=exports(new['data']['./Library/MobileSubstrate/DynamicLibraries/SthenoSystemActions.dylib'])
-required=set(meta['exports'])|{'_STHClassify','_STHSetup','_STHUpdate','_STHEnd','_STHTap','_STHLong','_STHFirstPresentation','_STHKeyboardInputFocus','_STHKeyboardShow','_STHKeyboardHide','_STHKeyboardSetLocalInput','_STHCopyInputFocusedModel','_STHCreateChooserInputWindow','_STHAcquireChooserKeyboardFocus','_STHReleaseChooserKeyboardFocus','_STHKeyboardModelDidMinimize','_STHCenterRingPan','_STHDockReflow','_STHSystemActionPresent'}
+required=set(meta['exports'])|{'_STHClassify','_STHSetup','_STHUpdate','_STHEnd','_STHTap','_STHLong','_STHFirstPresentation','_STHViewportPhysicalWill','_STHViewportSetLocalInput','_STHViewportKeyboardExcludes','_STHCreateChooserInputWindow','_STHAcquireChooserKeyboardFocus','_STHReleaseChooserKeyboardFocus','_STHViewportModelMinimized','_STHCenterRingPan','_STHDockReflow','_STHSystemActionPresent'}
 assert required<=names,sorted(required-names)
 assert exports((R/'inputs/Orion.arm64e').read_bytes())==exports(new['data']['./Library/MobileSubstrate/DynamicLibraries/.stheno/Orion'])
+retired=set(m['viewport_keyboard_rebuild']['legacy_files_removed'])
+assert not any(Path(k).name in retired for k in new['data'])
 for path,value in old['data'].items():
+ if Path(path).name in retired:continue
  if not value.startswith(b'\xcf\xfa\xed\xfe'):assert value==new['data'][path],path
 control=next(v.decode() for k,v in new['control'].items() if Path(k).name=='control')
 installed=int(next(s.split(':',1)[1] for s in control.splitlines() if s.startswith('Installed-Size:')))
 assert installed==(sum(len(x) for x in new['data'].values())+1023)//1024
-print('Runtime package: 23 core-resident bridges,',len(required),'required callbacks, exact original code outside documented patches, 34 payload files, all inherited resources exact')
+print('Runtime package: 21 core-resident bridges,',len(required),'required callbacks, exact original code outside documented patches, 29 payload files, all inherited resources exact')

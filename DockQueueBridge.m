@@ -45,7 +45,7 @@ void STHDockReflow(void){
  if(!array){reflowing=NO;return;}
  models=[NSMutableArray array];
  static void (*keyboardMinimized)(void *);
- if(!keyboardMinimized)keyboardMinimized=dlsym(RTLD_DEFAULT,"STHKeyboardModelDidMinimize");
+ if(!keyboardMinimized)keyboardMinimized=dlsym(RTLD_DEFAULT,"STHViewportModelMinimized");
  blockedSides=0;
  @try{
   size_t n=STHChooserManagersCount(array);if(n>4096)return;

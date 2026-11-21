@@ -102,6 +102,14 @@ void STHGestureInputFocusChanged(void *m){
  STHGestureState *s=state(m);
  if(s&&(s.active||s.dragActive))interruptForInput(s);
 }
+static int viewportClassify(void *m,CGPoint p){
+ int original=STHNativeClassify(m,p);
+#if !defined(STH_ROUTING_TEST)
+ extern BOOL STHViewportKeyboardExcludes(CGPoint);
+ if(original!=7&&STHViewportKeyboardExcludes(p))return 10;
+#endif
+ return original;
+}
 // Preserve membership in the ORIGINAL hit region. Subdivide it along its length only.
 int STHClassify(void *m,CGPoint p) {
  ensureBase();
@@ -113,13 +121,13 @@ int STHClassify(void *m,CGPoint p) {
   if(s.moving && s.lastActivity>0 && now-s.lastActivity>.35){
    resetGestureState(s);
   } else {
-   int native=STHNativeClassify(m,p);
+   int native=viewportClassify(m,p);
    if(native==10){interruptForInput(s);return native;}
    s.pendingPoint=p;s.pendingRehit=YES;
    return s.lockedHit;
   }
  }
- int original=STHNativeClassify(m,p);
+ int original=viewportClassify(m,p);
  CGRect content=STHNativeRect(m);
  BOOL dockedInside=minimized&&original!=7&&!CGRectIsEmpty(content)&&!CGRectIsNull(content)&&CGRectContainsPoint(content,p);
  if(original==10&&!dockedInside){interruptForInput(s);return original;}
@@ -181,10 +189,6 @@ void STHSetup(void *drag,void *m) {
  s.dragActive=YES;s.pendingRehit=NO;s.lastActivity=CACurrentMediaTime();
  if(s.docked){*hit(m)=4;*latch(m)=0;return;}
  if(s.zone==ZContent){
-#if !defined(STH_ROUTING_TEST)
-  extern void STHKeyboardFocus(void *);
-  STHKeyboardFocus(m);
-#endif
   *hit(m)=6;*latch(m)=0;return;
  }
  if (!s||s.zone==ZOriginal||s.zone==ZReturnPortrait) {STHNativeSetup(drag,m);return;}

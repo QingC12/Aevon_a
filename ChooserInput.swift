@@ -17,7 +17,7 @@ final class ChooserInputSession: NSObject, ObservableObject {
     func bind(_ window: UIWindow) {
         self.window = window
         policy.begin()
-        STHKeyboardSetLocalInput(true)
+        STHViewportSetLocalInput(true)
         let center = NotificationCenter.default
         observations.append(center.addObserver(forName: UIWindow.didBecomeKeyNotification, object: window, queue: .main) { [weak self] _ in self?.offerFocus() })
         observations.append(center.addObserver(forName: UIWindow.didResignKeyNotification, object: window, queue: .main) { [weak self] _ in self?.invalidate() })
@@ -68,7 +68,7 @@ final class ChooserInputSession: NSObject, ObservableObject {
         for token in observations { NotificationCenter.default.removeObserver(token) }
         observations.removeAll()
     }
-    func finish() { close(); STHKeyboardSetLocalInput(false); invalidated = nil }
+    func finish() { close(); STHViewportSetLocalInput(false); invalidated = nil }
     private func invalidate() { guard !closing else { return }; close(); invalidated?() }
     deinit {
         for token in observations { NotificationCenter.default.removeObserver(token) }
