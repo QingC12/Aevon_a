@@ -11,87 +11,85 @@
 @end
 @implementation Card @end
 @interface Packet:NSObject
-@property BOOL active;
-@property STHVRect card;
-@property STHVRect keyboard;
-@property uint64_t event;
+@property BOOL active,keyboardVisible,hosted;
+@property STHVRect card,keyboard;
+@property uint64_t event,physicalGeneration;
 @end
 @implementation Packet @end
 static NSArray<Card *> *cards;
 static NSMutableDictionary<NSString *,Packet *> *requests,*layouts;
-static uint64_t offeredKey,claimEvents;
-static double timeValue;
-static BOOL enabled=YES,unavailable,registryUnavailable,registryOversized;
-static int writes,animations,transaction,releases,interruptions,refreshes,logs;
-double STHVHostTestNow(void){return timeValue;}
-BOOL STHSystemActionsEnabled(void){return enabled;}
+static uint64_t offeredKey,events;
+static double now;
+static BOOL enabled=YES,unavailable,registryMissing,oversized;
+static STHVRect testScreen={0,0,400,850},realKeys={0,550,400,300};
+static int writes,transaction,interruptions,refreshes;
+STHVRect STHVHostTestScreen(void){return testScreen;}
+double STHVHostTestNow(void){return now;}
 BOOL STHSystemActionRuntimeReady(void){return YES;}
-void *STHDockCopyFloating(void){return registryUnavailable?NULL:(__bridge void *)cards;}
-size_t STHChooserManagersCount(void *p){return registryOversized?5000:[(__bridge NSArray *)p count];}
+BOOL STHSystemActionsEnabled(void){return enabled;}
+void *STHDockCopyFloating(void){return registryMissing?NULL:(__bridge void *)cards;}
+size_t STHChooserManagersCount(void *p){return oversized?5000:[(__bridge NSArray *)p count];}
 void *STHChooserCopyManagerAt(size_t i,void *p){return (__bridge void *)[(__bridge NSArray *)p objectAtIndex:i];}
 void STHChooserReleaseArray(void *p){}
-void STHChooserReleaseSwift(void *p){releases++;}
+void STHChooserReleaseSwift(void *p){}
 void *STHSystemCopyModelIdentifier(void *p){return (__bridge_retained void *)((__bridge Card *)p).bundle;}
 BOOL STHNativeMinimized(void *p){return ((__bridge Card *)p).minimized;}
 NSUInteger STHNativeOrientation(void *p){return 1;}
-CGRect STHNativeRect(void *p){Card *c=(__bridge Card *)p;return CGRectMake(200+c.offset.width-200*c.scale,400+c.offset.height-312.5*c.scale,400*c.scale,625*c.scale);}
+CGRect STHNativeRect(void *p){Card *c=(__bridge Card *)p;double h=testScreen.w==430?731:625;return CGRectMake(testScreen.w/2+c.offset.width-testScreen.w*c.scale/2,testScreen.h/2+c.offset.height-h*c.scale/2,testScreen.w*c.scale,h*c.scale);}
 double STHNativeGetScale(void *p){return ((__bridge Card *)p).scale;}
 CGSize STHNativeGetOffset(void *p){return ((__bridge Card *)p).offset;}
 void STHNativeSetViewportGeometry(void *p,const double *g){assert(transaction==1);Card *c=(__bridge Card *)p;c.scale=g[0];c.offset=CGSizeMake(g[1],g[2]);writes++;}
 void STHNativeRefreshGeometry(void *p){refreshes++;}
-void STHCenterRunAnimation(void (^block)(void),int style){assert(style==0&&transaction==0);transaction=1;animations++;block();transaction=0;}
+void STHCenterRunAnimation(void (^block)(void),int style){assert(style==0&&!transaction);transaction=1;block();transaction=0;}
 void STHGestureInputFocusChanged(void *p){interruptions++;}
 uint64_t STHVKey(NSString *b){return [b isEqual:@"a"]?11:([b isEqual:@"b"]?22:33);}
 uint64_t STHVRequestOwner(void){if(unavailable)return 0;for(NSString *b in requests)if(STHVKey(b)==offeredKey&&requests[b].active)return offeredKey;return 0;}
-BOOL STHVReadRequest(NSString *b,STHVSnapshot *s){if(unavailable)return NO;Packet *p=requests[b];if(!p)return NO;if(s)*s=(STHVSnapshot){.active=p.active,.keyboard=p.keyboard,.owner=STHVKey(b),.event=p.event};return YES;}
-BOOL STHVPublishLayout(NSString *b,BOOL active,STHVRect card,STHVRect keyboard){if(!b)return NO;Packet *p=[Packet new];p.active=active;p.card=card;p.keyboard=keyboard;layouts[b]=p;return YES;}
+BOOL STHVReadRequest(NSString *b,STHVSnapshot *s){Packet *p=requests[b];if(unavailable||!p)return NO;if(s)*s=(STHVSnapshot){.active=p.active,.keyboard=p.keyboard,.owner=STHVKey(b),.event=p.event};return YES;}
+BOOL STHVPublishLayoutState(NSString *b,BOOL active,STHVRect card,STHVRect physical,uint64_t generation,BOOL visible){assert(!active||(visible&&generation));Packet *p=[Packet new];p.active=active;p.card=card;p.keyboard=physical;p.physicalGeneration=generation;p.keyboardVisible=visible;p.hosted=STHVValid(card);layouts[b]=p;return YES;}
+BOOL STHVReadClientFrames(NSString *b,STHVSnapshot *out){return NO;}
 BOOL STHVReadProbe(NSString *b,STHVRect *a,STHVRect *p){return NO;}
 NSDictionary *STHVRectJSON(STHVRect r){return @{@"x":@(r.x),@"y":@(r.y),@"w":@(r.w),@"h":@(r.h)};}
-void STHVLog(NSString *event,NSString *b,NSDictionary *values){logs++;}
-static Card *make(NSString *bundle){Card *c=[Card new];c.bundle=bundle;c.scale=.8;c.offset=CGSizeMake(0,20);return c;}
-static void claim(NSString *bundle,BOOL active,STHVRect keyboard){Packet *p=[Packet new];p.active=active;p.event=++claimEvents;p.keyboard=keyboard;requests[bundle]=p;if(active)offeredKey=STHVKey(bundle);}
-static void runRegistry(void){STHCenterRunAnimation(^{updateRegistry(YES);},0);}
-static void physical(BOOL hide){STHCenterRunAnimation(^{STHViewportPhysicalWill(CGRectMake(0,550,400,300),hide);},0);}
+void STHVLog(NSString *e,NSString *b,NSDictionary *v){}
+static Card *make(NSString *b){Card *c=[Card new];c.bundle=b;c.scale=.8;return c;}
+static void claim(NSString *b,BOOL active,STHVRect raw){Packet *p=[Packet new];p.active=active;p.keyboard=raw;p.event=++events;requests[b]=p;if(active)offeredKey=STHVKey(b);}
+static void registry(void){STHCenterRunAnimation(^{updateRegistry(YES);},0);}
+static void sample(BOOL hide){STHCenterRunAnimation(^{STHViewportPhysicalWill(cr(realKeys),hide);},0);}
 int main(void){@autoreleasepool{
  requests=[NSMutableDictionary new];layouts=[NSMutableDictionary new];
- for(int i=0;i<200;i++){
-  timeValue=10+i*10;Card *a=make(@"a"),*b=make(@"b");cards=@[a,b];[requests removeAllObjects];offeredKey=0;
-  runRegistry();assert(!layouts[@"a"].active&&STHVValid(layouts[@"a"].card));
-  // A fullscreen keyboard cannot resize either floating model without ownership.
-  claim(@"fullscreen",YES,(STHVRect){0,550,400,300});int before=writes;physical(NO);assert(!viewportOwner&&writes==before);
-  assert(STHViewportKeyboardExcludes(CGPointMake(100,600))&&!STHViewportKeyboardExcludes(CGPointMake(100,300)));
-  claim(@"a",YES,(STHVRect){0,550,400,300});runRegistry();assert(viewportOwner==a&&a.scale==1&&layouts[@"a"].active);
-  assert(b.scale==.8&&STHVNear(vr(STHNativeRect((__bridge void *)a)),layouts[@"a"].card,.001));
-  before=writes;int prior=interruptions;physical(NO);runRegistry();assert(writes==before&&interruptions==prior);
-  // An unreadable packet never causes a shrink/re-enlarge oscillation.
-  unavailable=YES;runRegistry();unavailable=NO;runRegistry();assert(writes==before&&viewportOwner==a);
-  // A definite end is immediate even though effective global owner is now zero.
-  claim(@"a",NO,(STHVRect){0});physical(YES);assert(!viewportOwner&&fabs(a.scale-.8)<.001&&writes==before+1);
-  assert(!STHViewportKeyboardExcludes(CGPointMake(100,600)));
-  claim(@"a",YES,(STHVRect){0,550,400,300});runRegistry();assert(viewportOwner==a);
-  claim(@"b",YES,(STHVRect){0,550,400,300});runRegistry();assert(viewportOwner==b&&a.scale==.8&&b.scale==1);
-  // A late old-owner end and an unowned native hide cannot tear down B.
-  claim(@"a",NO,(STHVRect){0});before=writes;physical(YES);assert(viewportOwner==b&&writes==before);
-  runRegistry();assert(!STHViewportKeyboardExcludes(CGPointMake(100,600))&&writes==before);
-  claim(@"b",YES,(STHVRect){0,550,400,300});runRegistry();assert(STHViewportKeyboardExcludes(CGPointMake(100,600))&&writes==before);
-  claim(@"b",NO,(STHVRect){0});runRegistry();assert(!viewportOwner&&b.scale==.8);
-  // Manual geometry is not overwritten by automatic restoration.
-  claim(@"a",YES,(STHVRect){0,550,400,300});runRegistry();a.offset=CGSizeMake(55,66);a.scale=.93;
-  before=writes;runRegistry();assert(writes==before&&STHVNear(layouts[@"a"].card,vr(STHNativeRect((__bridge void *)a)),.001));
-  claim(@"a",NO,(STHVRect){0});runRegistry();assert(a.scale==.93&&a.offset.width==55&&a.offset.height==66);
-  a.scale=.8;a.offset=CGSizeMake(0,20);claim(@"a",YES,(STHVRect){0,550,400,300});runRegistry();
-  transaction=1;a.minimized=YES;STHViewportModelMinimized((__bridge void *)a);transaction=0;
-  assert(!viewportOwner&&a.scale==.8);runRegistry();assert(!viewportOwner);a.minimized=NO;
-  claim(@"b",YES,(STHVRect){0,550,400,300});runRegistry();STHViewportSetLocalInput(YES);assert(!viewportOwner&&b.scale==.8);
-  runRegistry();assert(!viewportOwner);STHViewportSetLocalInput(NO);runRegistry();assert(!viewportOwner);
-  claim(@"b",YES,(STHVRect){0,550,400,300});runRegistry();cards=@[a];runRegistry();assert(!viewportOwner&&b.scale==.8&&!STHVValid(layouts[@"b"].card));
-  claim(@"a",YES,(STHVRect){0,550,400,300});runRegistry();unavailable=YES;timeValue+=4;runRegistry();unavailable=NO;assert(!viewportOwner);
-  claim(@"a",YES,(STHVRect){0,550,400,300});runRegistry();registryUnavailable=YES;
-  claim(@"a",NO,(STHVRect){0});runRegistry();assert(!viewportOwner&&a.scale==.8);registryUnavailable=NO;
-  claim(@"a",YES,(STHVRect){0,550,400,300});runRegistry();registryOversized=YES;unavailable=YES;timeValue+=4;
-  runRegistry();assert(!viewportOwner&&a.scale==.8);registryOversized=NO;unavailable=NO;
-  enabled=NO;runRegistry();assert(!STHVValid(layouts[@"a"].card));enabled=YES;
+ for(int cycle=0;cycle<200;cycle++){
+  now=10+cycle*10;Card *a=make(@"a"),*b=make(@"b");cards=@[a,b];[requests removeAllObjects];offeredKey=0;sample(YES);registry();
+  assert(layouts[@"a"].hosted&&!layouts[@"a"].active&&!layouts[@"a"].keyboardVisible);
+  int before=writes;claim(@"a",YES,realKeys);registry();assert(!viewportOwner&&writes==before); // App frame cannot create SB authority.
+  claim(@"fullscreen",YES,realKeys);sample(NO);assert(!viewportOwner&&writes==before);
+  claim(@"a",YES,(STHVRect){0,774,430,158});registry();assert(viewportOwner==a&&a.scale==1&&b.scale==.8);
+  uint64_t generation=sbPhysicalGeneration;before=writes;
+  for(int n=0;n<4;n++){claim(@"a",YES,(STHVRect){0,932+n,430,97});registry();assert(sbPhysicalGeneration==generation&&STHVNear(physicalKeyboard,realKeys,0)&&writes==before&&layouts[@"a"].keyboardVisible);}
+  unavailable=YES;registry();unavailable=NO;registry();assert(viewportOwner==a&&writes==before);
+  claim(@"b",YES,(STHVRect){0});registry();assert(viewportOwner==b&&a.scale==.8&&b.scale==1);
+  claim(@"a",NO,(STHVRect){0});before=writes;registry();assert(viewportOwner==b&&writes==before);
+  sample(YES);assert(!viewportOwner&&!layouts[@"b"].keyboardVisible&&!STHViewportKeyboardExcludes(CGPointMake(100,650)));
+  before=writes;claim(@"b",YES,realKeys);registry();assert(!viewportOwner&&writes==before); // New app Will cannot undo an SB hide.
+  sample(NO);assert(viewportOwner==b);b.scale=.93;b.offset=CGSizeMake(55,66);before=writes;registry();assert(writes==before&&STHVNear(layouts[@"b"].card,vr(STHNativeRect((__bridge void *)b)),.001));
+  claim(@"b",NO,(STHVRect){0});registry();assert(!viewportOwner&&b.scale==.93&&b.offset.width==55);
+  claim(@"a",YES,(STHVRect){0});registry();assert(viewportOwner==a);
+  transaction=1;a.minimized=YES;STHViewportModelMinimized((__bridge void *)a);transaction=0;registry();assert(!viewportOwner&&!layouts[@"a"].hosted);a.minimized=NO;
+  claim(@"b",YES,(STHVRect){0});registry();STHViewportSetLocalInput(YES);assert(!viewportOwner);registry();STHViewportSetLocalInput(NO);registry();assert(!viewportOwner);
+  claim(@"b",YES,(STHVRect){0});registry();cards=@[a];registry();assert(!viewportOwner&&!layouts[@"b"].hosted);
+  claim(@"a",YES,(STHVRect){0});registry();registryMissing=YES;claim(@"a",NO,(STHVRect){0});registry();assert(!viewportOwner);registryMissing=NO;
+  claim(@"a",YES,(STHVRect){0});registry();oversized=YES;unavailable=YES;now+=4;registry();assert(!viewportOwner);oversized=NO;unavailable=NO;
+  enabled=NO;registry();assert(!layouts[@"a"].hosted);enabled=YES;sample(YES);
  }
- assert(writes>200&&refreshes>writes&&releases>400);
- puts("Viewport host: 200 fullscreen/focus/native-Will/duplicate/unavailable/end/handoff/late-hide/manual-change/dock/local/removed/expiry/disable cycles; original single transaction; no native legacy avoidance call");
+ // Exact uploaded device geometry. Only the declared SB sample is the oracle.
+ testScreen=(STHVRect){0,0,430,932};realKeys=(STHVRect){0,590,430,342};Card *a=make(@"a");cards=@[a];[requests removeAllObjects];offeredKey=0;sample(YES);
+ claim(@"a",YES,(STHVRect){0});sample(NO);assert(STHVNear(layouts[@"a"].card,(STHVRect){0,100.5,430,731},.001));
+ int unchanged=writes;uint64_t gen=sbPhysicalGeneration;
+ STHVRect raw[]={ {0,774,430,158},{0,804.6666666667,430,127.3333333333},{0,835.3333333333,430,96.6666666667},{0,932,430,97} };
+ for(unsigned i=0;i<sizeof(raw)/sizeof(raw[0]);i++){
+  claim(@"a",YES,raw[i]);registry();Packet *p=layouts[@"a"];STHVRect mapped;
+  assert(STHVAuthoritativeMap(p.card,p.keyboard,testScreen,(STHVRect){0,0,430,731},p.physicalGeneration,p.keyboardVisible,&mapped));
+  assert(fabs(mapped.y-489.5)<.001&&fabs(mapped.h-241.5)<.001&&p.physicalGeneration==gen&&writes==unchanged);
+  assert(STHViewportKeyboardExcludes(CGPointMake(100,650)));
+ }
+ sample(YES);unchanged=writes;claim(@"a",YES,realKeys);registry();assert(writes==unchanged&&!viewportOwner);
+ puts("Viewport32 host: 200 lifecycle cycles plus uploaded 430x932 fixture; app774/804.667/835.333/932 never replaces SB590; inset241.5 retained; hide cannot be revived by app claims; native transactions and hosted baselines preserved");
 }return 0;}

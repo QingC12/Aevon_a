@@ -49,18 +49,18 @@ static void observe(const char *name, dispatch_block_t block) {
 }
 #endif
 
-#define PREFIX "com.nx.stheno.viewport31"
+#define PREFIX "com.nx.stheno.viewport32"
 #define VALID (UINT64_C(1) << 63)
 #define ACTIVE (UINT64_C(1) << 62)
 #define SERIAL_MASK (ACTIVE - 1)
 
-typedef enum { Request, Layout, Probe } Stream;
-static const char *const streams[] = {"request", "layout", "probe"};
+typedef enum { Request, Layout, Probe, FrameProbe } Stream;
+static const char *const streams[] = {"request", "layout", "probe", "frameprobe"};
 
 typedef struct Channel {
     uint64_t key;
     Stream stream;
-    int data[2][3];             /* card, keyboard, continuous timestamp (ms). */
+    int data[2][4];             /* card, keyboard, continuous timestamp (ms). */
     int commit;
     struct Channel *next;
 } Channel;
@@ -106,11 +106,11 @@ static Channel *getChannel(Stream stream, uint64_t key) {
     c->stream = stream;
     c->commit = -1;
     for (unsigned slot = 0; slot < 2; ++slot)
-        for (unsigned field = 0; field < 3; ++field) c->data[slot][field] = -1;
+        for (unsigned field = 0; field < 4; ++field) c->data[slot][field] = -1;
     char name[128], field[16];
-    const char *const labels[] = {"card", "key", "at"};
+    const char *const labels[] = {"card", "key", "at", "authority"};
     for (unsigned slot = 0; slot < 2; ++slot) {
-        for (unsigned i = 0; i < 3; ++i) {
+        for (unsigned i = 0; i < 4; ++i) {
             snprintf(field, sizeof(field), "%s%u", labels[i], slot);
             nameFor(name, stream, key, field);
             if (busRegister(name, &c->data[slot][i]) != 0 || c->data[slot][i] < 0)
@@ -124,7 +124,7 @@ static Channel *getChannel(Stream stream, uint64_t key) {
     return c;
 failed:
     for (unsigned slot = 0; slot < 2; ++slot)
-        for (unsigned i = 0; i < 3; ++i)
+        for (unsigned i = 0; i < 4; ++i)
             if (c->data[slot][i] >= 0) busCancel(c->data[slot][i]);
     if (c->commit >= 0) busCancel(c->commit);
     free(c);
@@ -132,7 +132,7 @@ failed:
 }
 
 static BOOL publish(Stream stream, uint64_t key, BOOL active, BOOL claim,
-                    STHVRect card, STHVRect keyboard) {
+                    STHVRect card, STHVRect keyboard,uint64_t authority) {
     uint64_t a, b, current, stamp = nowMS();
     if (!key || stamp == UINT64_MAX || !STHVPackRect(card, &a) ||
         !STHVPackRect(keyboard, &b)) return NO;
@@ -154,6 +154,7 @@ static BOOL publish(Stream stream, uint64_t key, BOOL active, BOOL claim,
     if (busSet(c->data[slot][0], a) != 0 ||
         busSet(c->data[slot][1], b) != 0 ||
         busSet(c->data[slot][2], stamp) != 0 ||
+        busSet(c->data[slot][3], authority) != 0 ||
         busSet(c->commit, VALID | (active ? ACTIVE : 0) | serial) != 0) return NO;
     /* Never clear the shared owner. A conditional get/set clear races with
      * another application's claim because notify has no CAS. The sticky hash
@@ -170,10 +171,10 @@ static BOOL publish(Stream stream, uint64_t key, BOOL active, BOOL claim,
 
 /* A zero request key is internal shorthand for resolving the global owner. */
 static BOOL readSnapshotWithAge(Stream stream, uint64_t key, STHVSnapshot *out, BOOL allowExpired) {
-    const BOOL guarded = stream != Probe;
+    const BOOL guarded = stream == Request || stream == Layout;
     if (guarded && !getOwnerToken()) return NO;
     for (unsigned attempt = 0; attempt < 3; ++attempt) {
-        uint64_t before = 0, after = 0, first, last, a, b, stamp;
+        uint64_t before = 0, after = 0, first, last, a, b, stamp, authority;
         if (guarded && busGet(ownerToken, &before) != 0) return NO;
         uint64_t actualKey = key ? key : before;
         if (!actualKey) return NO;
@@ -184,16 +185,20 @@ static BOOL readSnapshotWithAge(Stream stream, uint64_t key, STHVSnapshot *out, 
         if (busGet(c->data[slot][0], &a) != 0 ||
             busGet(c->data[slot][1], &b) != 0 ||
             busGet(c->data[slot][2], &stamp) != 0 ||
+            busGet(c->data[slot][3], &authority) != 0 ||
             busGet(c->commit, &last) != 0 ||
             (guarded && busGet(ownerToken, &after) != 0)) return NO;
         if (first != last || (guarded && before != after)) continue;
-        if (guarded) {
-            uint64_t now = nowMS(), limit = stream == Request ? 2000 : 3000;
+        if (guarded || stream==FrameProbe) {
+            uint64_t now = nowMS(), limit = stream == Layout ? 3000 : 2000;
             if (now == UINT64_MAX || stamp > now || (!allowExpired && now - stamp > limit)) return NO;
         }
         STHVSnapshot value = {stream==Request?(STHVRect){0}:STHVUnpackRect(a), STHVUnpackRect(b), actualKey,
                              first & SERIAL_MASK, (first & ACTIVE) != 0,
-                             (double)stamp / 1000.0,stream==Request?a:0};
+                             (double)stamp / 1000.0,stream==Request?a:0,
+                             (stream==Layout||stream==FrameProbe)?authority>>2:0,
+                             stream==Layout&&(authority&1),
+                             stream==Layout&&(authority&2)};
         if (out) *out = value;
         return YES;
     }
@@ -203,7 +208,7 @@ static BOOL readSnapshotWithAge(Stream stream, uint64_t key, STHVSnapshot *out, 
 static BOOL readSnapshot(Stream stream,uint64_t key,STHVSnapshot *out){return readSnapshotWithAge(stream,key,out,NO);}
 
 BOOL STHVPublishRequest(NSString *bundle, BOOL active, STHVRect physical) {
-    return onMain() && publish(Request, STHVKey(bundle), active, YES, (STHVRect){0}, physical);
+    return onMain() && publish(Request, STHVKey(bundle), active, YES, (STHVRect){0}, physical,0);
 }
 
 BOOL STHVRenewRequest(NSString *bundle, STHVRect physical) {
@@ -212,7 +217,7 @@ BOOL STHVRenewRequest(NSString *bundle, STHVRect physical) {
     if (!onMain() || !(key = STHVKey(bundle)) ||
         !readSnapshot(Request, 0, &current) || current.owner != key || !current.active)
         return NO;
-    if (!publish(Request, key, YES, NO, (STHVRect){0}, physical)) return NO;
+    if (!publish(Request, key, YES, NO, (STHVRect){0}, physical,0)) return NO;
     /* A concurrent claim may make this renewal irrelevant, but is never
      * overwritten. The caller must not fall back to claiming on renewal failure. */
     return busGet(ownerToken, &after) == 0 && after == key;
@@ -223,7 +228,7 @@ BOOL STHVResumeRequest(NSString *bundle,STHVRect physical){
     if(!onMain()||!(key=STHVKey(bundle))||!getOwnerToken()||
        busGet(ownerToken,&before)!=0||before!=key||
        !readSnapshotWithAge(Request,key,&prior,YES)||!prior.active)return NO;
-    if(!publish(Request,key,YES,NO,(STHVRect){0},physical))return NO;
+    if(!publish(Request,key,YES,NO,(STHVRect){0},physical,0))return NO;
     return busGet(ownerToken,&after)==0&&after==key;
 }
 
@@ -242,7 +247,13 @@ void STHVObserveRequests(dispatch_block_t block) {
 }
 
 BOOL STHVPublishLayout(NSString *bundle, BOOL active, STHVRect card, STHVRect physical) {
-    return onMain() && publish(Layout, STHVKey(bundle), active, NO, card, physical);
+    return onMain() && publish(Layout, STHVKey(bundle), active, NO, card, physical,STHVValid(card)?2:0);
+}
+
+BOOL STHVPublishLayoutState(NSString *bundle,BOOL active,STHVRect card,STHVRect physical,uint64_t generation,BOOL visible){
+    if(!onMain()||generation>(UINT64_MAX>>2)||((visible||active)&&(!generation||!visible||!STHVValid(physical))))return NO;
+    uint64_t metadata=(generation<<2)|(visible?1:0)|(STHVValid(card)?2:0);
+    return publish(Layout,STHVKey(bundle),active,NO,card,physical,metadata);
 }
 
 BOOL STHVReadLayout(NSString *bundle, STHVSnapshot *out) {
@@ -260,7 +271,7 @@ void STHVObserveLayout(NSString *bundle, dispatch_block_t block) {
 }
 
 void STHVPublishProbe(NSString *bundle, STHVRect responder, STHVRect parent) {
-    if (onMain()) publish(Probe, STHVKey(bundle), YES, NO, responder, parent);
+    if (onMain()) publish(Probe, STHVKey(bundle), YES, NO, responder, parent,0);
 }
 
 BOOL STHVReadProbe(NSString *bundle, STHVRect *responder, STHVRect *parent) {
@@ -270,4 +281,11 @@ BOOL STHVReadProbe(NSString *bundle, STHVRect *responder, STHVRect *parent) {
     if (responder) *responder = value.card;
     if (parent) *parent = value.keyboard;
     return YES;
+}
+
+void STHVPublishClientFrames(NSString *bundle,STHVRect raw,STHVRect mapped,uint64_t generation){
+ if(onMain()&&generation<=(UINT64_MAX>>2))publish(FrameProbe,STHVKey(bundle),YES,NO,raw,mapped,generation<<2);
+}
+BOOL STHVReadClientFrames(NSString *bundle,STHVSnapshot *out){
+ return onMain()&&STHVKey(bundle)&&readSnapshot(FrameProbe,STHVKey(bundle),out);
 }

@@ -29,6 +29,8 @@ typedef struct {
     BOOL active;
     double at;                 /* Continuous boot-time seconds, not wall time. */
     uint64_t event;             /* Request claim generation; renewals preserve it. */
+    uint64_t physicalGeneration;
+    BOOL keyboardVisible, hosted;
 } STHVSnapshot;
 
 /* All transport/observation APIs are main-thread-only, otherwise fail/no-op.
@@ -59,6 +61,9 @@ void STHVObserveRequests(dispatch_block_t block);
  * are per-bundle facts, not gated by ownership of the current request. */
 BOOL STHVPublishLayout(NSString *bundle, BOOL active,
                        STHVRect card, STHVRect physical);
+/* Only the SB producer supplies these authority facts; app requests are diagnostic. */
+BOOL STHVPublishLayoutState(NSString *bundle,BOOL active,STHVRect card,STHVRect physical,
+                           uint64_t physicalGeneration,BOOL keyboardVisible);
 BOOL STHVReadLayout(NSString *bundle, STHVSnapshot *out);
 void STHVObserveLayout(NSString *bundle, dispatch_block_t block);
 
@@ -67,6 +72,8 @@ void STHVObserveLayout(NSString *bundle, dispatch_block_t block);
  * changes layout/request state or their notifications. */
 void STHVPublishProbe(NSString *bundle, STHVRect responder, STHVRect parent);
 BOOL STHVReadProbe(NSString *bundle, STHVRect *responder, STHVRect *parent);
+void STHVPublishClientFrames(NSString *bundle,STHVRect raw,STHVRect mapped,uint64_t physicalGeneration);
+BOOL STHVReadClientFrames(NSString *bundle,STHVSnapshot *out);
 
 /* Each observation adds a process-lifetime observer, delivered on main queue.
  * Consumers must re-read: Darwin notifications may be coalesced. */

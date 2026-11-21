@@ -35,9 +35,9 @@ static void checkLayout(NSString *bundle, unsigned i, BOOL active) {
 #define STR(s) s
 #define CALLBACK(fn) fn
 #endif
-static NSString *const A = STR("test.stheno.viewport31.A");
-static NSString *const B = STR("test.stheno.viewport31.B");
-#define PFX "com.nx.stheno.viewport31"
+static NSString *const A = STR("test.stheno.viewport32.A");
+static NSString *const B = STR("test.stheno.viewport32.B");
+#define PFX "com.nx.stheno.viewport32"
 #define CAP 4096
 static struct { char name[128]; uint64_t value, posts; } words[CAP];
 static int wordCount, tokenCount, tokenWord[CAP];
@@ -162,17 +162,17 @@ static void hashAndRoundTrips(void) {
     traceCount = 0; tracing = YES;
     assert(STHVReadLayout(A, &s));
     tracing = NO;
-    assert(traceCount == 7 && strstr(trace[0], ".request.owner") &&
+    assert(traceCount == 8 && strstr(trace[0], ".request.owner") &&
            strstr(trace[1], ".commit") && strstr(trace[2], ".card") &&
            strstr(trace[3], ".key") && strstr(trace[4], ".at") &&
-           !strcmp(trace[1], trace[5]) && !strcmp(trace[0], trace[6]));
+           strstr(trace[5], ".authority") && !strcmp(trace[1], trace[6]) && !strcmp(trace[0], trace[7]));
 }
 
 static void failuresAndEmptyLayouts(void) {
     STHVSnapshot before, after;
     assert(STHVPublishLayout(A, YES, cardFor(4), keyFor(4)));
     assert(STHVReadLayout(A, &before));
-    for (unsigned step = 1; step <= 4; ++step) {
+    for (unsigned step = 1; step <= 5; ++step) {
         uint64_t commit = field(A, "layout", "commit");
         failSet = sets + step;
         assert(!STHVPublishLayout(A, NO, cardFor(9), keyFor(9)));
@@ -180,7 +180,7 @@ static void failuresAndEmptyLayouts(void) {
         assert(STHVReadLayout(A, &after) && after.serial == before.serial && after.active);
         sameRect(after.card, before.card); sameRect(after.keyboard, before.keyboard);
     }
-    for (unsigned step = 1; step <= 7; ++step) {
+    for (unsigned step = 1; step <= 8; ++step) {
         memset(&after, 0xa5, sizeof(after));
         unsigned char saved[sizeof(after)]; memcpy(saved, &after, sizeof(after));
         failGet = getCount + step;
@@ -210,13 +210,13 @@ static void failuresAndEmptyLayouts(void) {
     assert(STHVReadLayout(A, &after) && !after.active);
     sameRect(after.card, (STHVRect){0});
     /* Registration failures are retryable, not permanently cached as invalid. */
-    NSString *fresh = STR("test.stheno.viewport31.registration");
+    NSString *fresh = STR("test.stheno.viewport32.registration");
     failRegister = registrations + 3;
     assert(!STHVPublishLayout(fresh, YES, cardFor(2), keyFor(2)) && !failRegister);
     assert(STHVPublishLayout(fresh, YES, cardFor(2), keyFor(2)));
     checkLayout(fresh, 2, YES);
     /* Even if owner installation fails, the preceding commit is never mixed. */
-    failSet = sets + 5;
+    failSet = sets + 6;
     assert(!STHVPublishRequest(B, YES, keyFor(8)) && !failSet);
     assert(STHVRequestOwner() == STHVKey(A));
     assert(STHVReadRequest(B, &after) && after.active);
@@ -341,7 +341,7 @@ static void freshnessAndProbes(void) {
     denyOwner = YES; tracing = YES; traceCount = 0;
     assert(STHVReadProbe(A, &a, &b));
     tracing = NO; denyOwner = NO;
-    assert(traceCount == 5); /* commit/data/commit, no owner or age dependency. */
+    assert(traceCount == 6); /* commit/data/commit, no owner or age dependency. */
     sameRect(a, cardFor(4)); sameRect(b, cardFor(4));
     uint64_t savedClock = clockMS; clockMS = UINT64_MAX;
     assert(STHVReadProbe(A, NULL, NULL)); clockMS = savedClock;
@@ -401,8 +401,21 @@ static int fakeMain(void) {
     consistencySwitches();
     ownerAndRenewal();
     freshnessAndProbes();
-    mainThreadAndGeneration();
     safeResumeAndEvent();
+    STHVSnapshot authority={0};
+    assert(STHVPublishLayoutState(A,YES,cardFor(2),keyFor(2),456,YES));
+    assert(STHVReadLayout(A,&authority)&&authority.hosted&&authority.keyboardVisible&&authority.physicalGeneration==456);
+    uint64_t previous=field(A,"layout","commit");
+    for(unsigned step=1;step<=5;step++){
+        failSet=sets+step;
+        assert(!STHVPublishLayoutState(A,NO,cardFor(3),(STHVRect){0},457,NO));
+        assert(field(A,"layout","commit")==previous);
+        assert(STHVReadLayout(A,&authority)&&authority.keyboardVisible&&authority.physicalGeneration==456);
+    }
+    assert(STHVPublishLayoutState(A,NO,cardFor(3),(STHVRect){0},457,NO));
+    assert(STHVReadLayout(A,&authority)&&authority.hosted&&!authority.keyboardVisible&&authority.physicalGeneration==457);
+    assert(!STHVPublishLayoutState(A,YES,cardFor(3),keyFor(3),0,YES));
+    mainThreadAndGeneration();
     puts("ViewportBus fake: 200 round trips, torn writes, owner/commit retries, inactive baselines, safe renewal, freshness and probe isolation passed");
     return 0;
 }
@@ -440,7 +453,7 @@ int main(int argc, const char **argv) {
             sameRect(a, cardFor(i)); sameRect(b, keyFor(i));
             return 0;
         }
-        NSString *a = [@"test.stheno.viewport31." stringByAppendingString:NSUUID.UUID.UUIDString];
+        NSString *a = [@"test.stheno.viewport32." stringByAppendingString:NSUUID.UUID.UUIDString];
         for (unsigned i = 0; i < 200; ++i) {
             assert(STHVPublishRequest(a, YES, keyFor(i)));
             assert(STHVPublishLayout(a, i % 3 != 0, cardFor(i), keyFor(i)));

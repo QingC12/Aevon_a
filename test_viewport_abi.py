@@ -24,5 +24,6 @@ for image in [action,client]:
  for old in ['_STHKeyboardShow','_STHKeyboardHide','_STHNativeKeyboardShow','_STHNativeKeyboardHide','_STHNativeSetKeyboardGeometry','_STHLayoutStatus','_STHEditorVisibilityEvent','_STHCardRunExpansion']:
   assert old not in names,('Legacy callback exported',old)
 assert {'_STHViewportPhysicalWill','_STHViewportSetLocalInput','_STHViewportModelMinimized','_STHGestureInputFocusChanged'}<=exports(action.data)
-assert {'_STHVPublishRequest','_STHVResumeRequest','_STHVReadLayout'}<=exports(client.data)
-print('Viewport31 ARM64e ABI: original avoidance observers skipped, old callbacks absent, 21 utility bridges, physical hit filter replaces stale legacy cache, original spring targets unchanged, standalone new client exports complete')
+assert {'_STHVPublishRequest','_STHVResumeRequest','_STHVReadLayout','_STHVUnmodifiedScreenBounds','_STHVInstallAppSceneReflow'}<=exports(client.data)
+assert '_STHVPublishLayoutState' in exports(action.data)
+print('Viewport32 ARM64e ABI: original avoidance observers skipped, old callbacks absent, 21 utility bridges, physical hit filter replaces stale legacy cache, original spring targets unchanged, standalone new client exports complete')

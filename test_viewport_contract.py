@@ -16,14 +16,15 @@ for old in ['KeyboardCoordinates.m','KeyboardInset.m','EditorGuard.m','LayoutPub
 assert "changes[0x8778c]=(bytes.fromhex('e80200f0'),0x87964)" in build
 assert 'changes[0x87b8c]' not in build and 'changes[0x87dfc]' not in build
 assert 'STHCenterRunAnimation' in host and 'writeCard' in host
-assert 'STHVMap' in client and 'STHVInset' in client
+assert 'STHVAuthoritativeMap' in client and 'STHVInset' in client
 assert 'toCoordinateSpace:scene.screen.coordinateSpace' in client
 assert 'toCoordinateSpace:scene.screen.fixedCoordinateSpace' in client
 assert 'firstWill' in client and 'predictionSerial' in client and 'client-host-inactive' in client
 assert 'STHVResumeRequest' in client and 'STHVPublishRequest(bundle(),YES' in client
 assert 'manualOverride' in host and host.index('maintainOwner(nativeTransaction)')<host.index('void *array=STHDockCopyFloating()')
-assert 'hiddenRequestEvent' in host and 'request.event' in host
-assert 'client-native-keyboard-context' in client and 'noDockedKeyboard' in host
+assert 'sbPhysicalGeneration' in host and 'request.event' in host and 'request.keyboard' not in host
+assert 'appRawDiagnostic' in client and 'noDockedKeyboard' in host and 'STHVPublishLayoutState' in host
+assert 'STHVClientHidden' in client and 'explicitHidden' in client and 'return 0;' in client
 assert 'STHGestureInputFocusChanged' in host
 assert 'STHVViewport' not in host
-print('Viewport31 contract: 36 legacy production sources retired; original avoidance registration disabled; no editor transforms; canonical scene/screen bridge; original spring; bounded cleanup; fresh owner and real-event fencing')
+print('Viewport32 contract: 36 legacy production sources retired; original avoidance registration disabled; no editor transforms; canonical scene/screen bridge; original spring; bounded cleanup; fresh owner and real-event fencing')

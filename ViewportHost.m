@@ -7,6 +7,7 @@
 #endif
 #import "ViewportHost.h"
 #import "ViewportBus.h"
+#import "ViewportAuthority.h"
 #import "ViewportDiagnostics.h"
 extern void *STHDockCopyFloating(void);
 extern size_t STHChooserManagersCount(void *);
@@ -30,13 +31,19 @@ static NSString *ownerBundle;
 static STHVRect originalCard,currentTarget,physicalKeyboard;
 static double originalGeometry[3],writtenGeometry[3],lastOwnerAt;
 static BOOL hasWrittenGeometry,localInput,manualOverride;
-static BOOL physicallyHidden;
-static uint64_t hiddenOwnerKey,hiddenRequestEvent,localBarrierKey,localBarrierEvent;
+static BOOL sbKeyboardVisible;
+static uint64_t sbPhysicalGeneration;
+static uint64_t localBarrierKey,localBarrierEvent;
 static STHVRect ownerKeyboard;
 static NSSet<NSString *> *publishedBundles;
 static BOOL processing;
 static NSMutableDictionary<NSString *,NSDictionary *> *lastProbes;
 static void recordProbe(NSString *bundle){
+ static NSMutableDictionary *lastFrames;STHVSnapshot frame={0};
+ if(STHVReadClientFrames(bundle,&frame)){
+  if(!lastFrames)lastFrames=[NSMutableDictionary new];
+  if([lastFrames[bundle] unsignedLongLongValue]!=frame.serial){lastFrames[bundle]=@(frame.serial);STHVLog(@"client-frame-probe",bundle,@{@"appRawDiagnostic":STHVRectJSON(frame.card),@"mappedScene":STHVRectJSON(frame.keyboard),@"physicalGeneration":@(frame.physicalGeneration),@"probeSerial":@(frame.serial)});}
+ }
  STHVRect a={0},p={0};if(!STHVReadProbe(bundle,&a,&p))return;
  NSDictionary *values=@{@"responderScene":STHVRectJSON(a),@"parentScene":STHVRectJSON(p)};
  if(!lastProbes)lastProbes=[NSMutableDictionary new];
@@ -47,7 +54,7 @@ static STHVRect vr(CGRect r){return (STHVRect){r.origin.x,r.origin.y,r.size.widt
 static CGRect cr(STHVRect r){return CGRectMake(r.x,r.y,r.w,r.h);}
 static STHVRect viewportScreen(void){
 #if defined(STH_VIEWPORT_HOST_TEST)
- return (STHVRect){0,0,400,850};
+ extern STHVRect STHVHostTestScreen(void);return STHVHostTestScreen();
 #else
  return vr(UIScreen.mainScreen.fixedCoordinateSpace.bounds);
 #endif
@@ -60,6 +67,10 @@ static double hostNow(void){
 #endif
 }
 static NSString *modelBundle(void *model){return CFBridgingRelease(STHSystemCopyModelIdentifier(model));}
+static void publishHostLayout(NSString *bundle,BOOL active,STHVRect card,STHVRect unused){
+ // This is the only producer of layout physical facts. Requests never enter it.
+ STHVPublishLayoutState(bundle,active,card,physicalKeyboard,sbPhysicalGeneration,sbKeyboardVisible);
+}
 static void writeCard(void *model,const double geometry[3],BOOL nativeTransaction){
  if(nativeTransaction){STHNativeSetViewportGeometry(model,geometry);STHNativeRefreshGeometry(model);}
  else{
@@ -76,16 +87,16 @@ static void restoreOwner(BOOL nativeTransaction,NSString *reason){
   if(fabs(s-writtenGeometry[0])<.001)g[0]=originalGeometry[0];
   if(hypot(p.width-writtenGeometry[1],p.height-writtenGeometry[2])<.5){g[1]=originalGeometry[1];g[2]=originalGeometry[2];}
   writeCard((__bridge void *)model,g,nativeTransaction);
-  STHVPublishLayout(bundle,NO,vr(STHNativeRect((__bridge void *)model)),(STHVRect){0});
+  publishHostLayout(bundle,NO,vr(STHNativeRect((__bridge void *)model)),(STHVRect){0});
   STHVLog(@"host-restore",bundle,@{@"reason":reason,@"card":STHVRectJSON(vr(STHNativeRect((__bridge void *)model)))});
  }
- if(model&&manualOverride){STHNativeRefreshGeometry((__bridge void *)model);STHVPublishLayout(bundle,NO,vr(STHNativeRect((__bridge void *)model)),(STHVRect){0});}
+ if(model&&manualOverride){STHNativeRefreshGeometry((__bridge void *)model);publishHostLayout(bundle,NO,vr(STHNativeRect((__bridge void *)model)),(STHVRect){0});}
  hasWrittenGeometry=NO;manualOverride=NO;currentTarget=(STHVRect){0};
 }
 static void applyOwner(void *pointer,NSString *bundle,STHVRect keyboard,uint64_t event,BOOL nativeTransaction){
  id model=(__bridge id)pointer;
  if(localBarrierKey==STHVKey(bundle)&&event<=localBarrierEvent)return;
- if(physicallyHidden&&hiddenOwnerKey==STHVKey(bundle)&&event<=hiddenRequestEvent)return;
+ if(!sbKeyboardVisible||!sbPhysicalGeneration)return;
  if(localInput||STHNativeMinimized(pointer)||STHNativeOrientation(pointer)!=1)return;
  STHVRect screen=viewportScreen();if(!STHVKeyboard(keyboard,screen))return;
  if(viewportOwner!=model){
@@ -98,14 +109,14 @@ static void applyOwner(void *pointer,NSString *bundle,STHVRect keyboard,uint64_t
   viewportOwner=model;ownerBundle=bundle;hasWrittenGeometry=NO;manualOverride=NO;
   STHGestureInputFocusChanged(pointer);
  }
- lastOwnerAt=hostNow();physicalKeyboard=keyboard;ownerKeyboard=keyboard;physicallyHidden=NO;
+ lastOwnerAt=hostNow();ownerKeyboard=keyboard;
  if(hasWrittenGeometry&&!manualOverride){
   double scale=STHNativeGetScale(pointer);CGSize p=STHNativeGetOffset(pointer);
   if(fabs(scale-writtenGeometry[0])>.001||hypot(p.width-writtenGeometry[1],p.height-writtenGeometry[2])>.5)manualOverride=YES;
  }
  if(manualOverride){
   STHNativeRefreshGeometry(pointer);currentTarget=vr(STHNativeRect(pointer));
-  STHVPublishLayout(bundle,YES,currentTarget,keyboard);return;
+  publishHostLayout(bundle,YES,currentTarget,keyboard);return;
  }
  STHVRect target=STHVTarget(originalCard,screen,keyboard);
  if(!STHVValid(target))return;
@@ -117,12 +128,12 @@ static void applyOwner(void *pointer,NSString *bundle,STHVRect keyboard,uint64_t
   // Publish the identical mathematical target used by the application bridge.
   // Native keyboard delivery owns this transaction; an IPC wake uses the same
   // original withAnimation ABI only when that transaction is not on this stack.
-  STHVPublishLayout(bundle,YES,target,keyboard);
+  publishHostLayout(bundle,YES,target,keyboard);
   writeCard(pointer,g,nativeTransaction);
   for(int i=0;i<3;i++)writtenGeometry[i]=g[i];
   hasWrittenGeometry=YES;currentTarget=target;
-  STHVLog(@"host-target",bundle,@{@"nativeTransaction":@(nativeTransaction),@"before":STHVRectJSON(originalCard),@"target":STHVRectJSON(target),@"measured":STHVRectJSON(vr(STHNativeRect(pointer))),@"physicalKeyboard":STHVRectJSON(keyboard)});
- }else STHVPublishLayout(bundle,YES,currentTarget,keyboard);
+  STHVLog(@"host-target",bundle,@{@"nativeTransaction":@(nativeTransaction),@"before":STHVRectJSON(originalCard),@"target":STHVRectJSON(target),@"measured":STHVRectJSON(vr(STHNativeRect(pointer))),@"physicalKeyboard":STHVRectJSON(keyboard),@"physicalGeneration":@(sbPhysicalGeneration),@"source":@"springboard-only"});
+ }else publishHostLayout(bundle,YES,currentTarget,keyboard);
 }
 static void maintainOwner(BOOL nativeTransaction){
  if(!viewportOwner)return;
@@ -136,7 +147,7 @@ static void updateRegistry(BOOL nativeTransaction){
  if(processing||!NSThread.isMainThread||!STHSystemActionRuntimeReady())return;processing=YES;
  if(!STHSystemActionsEnabled()){
   restoreOwner(nativeTransaction,@"disabled");
-  for(NSString *bundle in publishedBundles)STHVPublishLayout(bundle,NO,(STHVRect){0},(STHVRect){0});
+  for(NSString *bundle in publishedBundles)publishHostLayout(bundle,NO,(STHVRect){0},(STHVRect){0});
   publishedBundles=nil;processing=NO;return;
  }
  maintainOwner(nativeTransaction);
@@ -154,21 +165,21 @@ static void updateRegistry(BOOL nativeTransaction){
     [current addObject:bundle];recordProbe(bundle);STHVSnapshot request={0};
     if(key==STHVKey(bundle)&&STHVReadRequest(bundle,&request)){
      if(request.active&&STHSystemActionsEnabled()&&!localInput){
-      STHVRect keys=STHVKeyboard(request.keyboard,viewportScreen())?request.keyboard:physicalKeyboard;
+      STHVRect keys=physicalKeyboard;
       applyOwner(pointer,bundle,keys,request.event,nativeTransaction);
      }else if(viewportOwner==(__bridge id)pointer)restoreOwner(nativeTransaction,@"input-ended");
     }
     if(viewportOwner==(__bridge id)pointer&&hasWrittenGeometry){
-     STHVPublishLayout(bundle,YES,currentTarget,ownerKeyboard);
+     publishHostLayout(bundle,YES,currentTarget,ownerKeyboard);
     }else{
      STHNativeRefreshGeometry(pointer);STHVRect card=vr(STHNativeRect(pointer));
-     if(STHVValid(card))STHVPublishLayout(bundle,NO,card,(STHVRect){0});
+     if(STHVValid(card))publishHostLayout(bundle,NO,card,(STHVRect){0});
     }
    }@finally{STHChooserReleaseSwift(pointer);}
   }
   if(viewportOwner&&(![current containsObject:ownerBundle]||!STHSystemActionsEnabled()))restoreOwner(nativeTransaction,@"removed-or-disabled");
   // Unavailable reads never change geometry; maintainOwner bounds actual loss.
-  for(NSString *bundle in publishedBundles)if(![current containsObject:bundle])STHVPublishLayout(bundle,NO,(STHVRect){0},(STHVRect){0});
+  for(NSString *bundle in publishedBundles)if(![current containsObject:bundle])publishHostLayout(bundle,NO,(STHVRect){0},(STHVRect){0});
   publishedBundles=[current copy];
  }@finally{STHChooserReleaseArray(array);processing=NO;}
 }
@@ -189,11 +200,12 @@ BOOL STHViewportKeyboardExcludes(CGPoint point){
 }
 void STHViewportPhysicalWill(CGRect frame,BOOL hiding){
  if(!NSThread.isMainThread)return;
- if(hiding){
-  hiddenOwnerKey=STHVRequestOwner();hiddenRequestEvent=0;
-  STHVSnapshot last={0};if(ownerBundle&&STHVReadRequest(ownerBundle,&last)&&last.owner==hiddenOwnerKey)hiddenRequestEvent=last.event;
-  physicallyHidden=YES;physicalKeyboard=(STHVRect){0};
- }else if(STHVKeyboard(vr(frame),viewportScreen())){physicallyHidden=NO;physicalKeyboard=vr(frame);}
+ // No other entry writes physicalKeyboard/visibility/generation.
+ sbPhysicalGeneration++;
+ sbKeyboardVisible=!hiding&&STHVKeyboard(vr(frame),viewportScreen());
+ physicalKeyboard=sbKeyboardVisible?vr(frame):(STHVRect){0};
+ STHVLog(@"sb-keyboard-commit",@"com.apple.springboard",@{@"source":@"springboard-notification",@"physicalGeneration":@(sbPhysicalGeneration),@"visible":@(sbKeyboardVisible),@"frame":STHVRectJSON(physicalKeyboard)});
+ if(!sbKeyboardVisible)restoreOwner(YES,@"physical-hide");
  // This entry is invoked only inside the unmodified original animation ABI.
  updateRegistry(YES);
 }
@@ -209,12 +221,13 @@ __attribute__((constructor)) static void installViewportHost(void){dispatch_asyn
    CGRect frame=[value isKindOfClass:NSValue.class]?[value CGRectValue]:CGRectNull;
    if(!CGRectIsNull(frame))frame=[UIScreen.mainScreen.coordinateSpace convertRect:frame toCoordinateSpace:UIScreen.mainScreen.fixedCoordinateSpace];
    BOOL noDockedKeyboard=hide||!STHVKeyboard(vr(frame),viewportScreen());
+   STHVLog(@"sb-keyboard-notification",@"com.apple.springboard",@{@"notification":note.name,@"nextGeneration":@(sbPhysicalGeneration+1),@"raw":STHVRectJSON(vr(frame)),@"hiding":@(noDockedKeyboard)});
    STHCenterRunAnimation(^{STHViewportPhysicalWill(frame,noDockedKeyboard);},0);
   }];
  }
  static dispatch_source_t registryTimer;registryTimer=dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER,0,0,dispatch_get_main_queue());
  dispatch_source_set_timer(registryTimer,dispatch_time(DISPATCH_TIME_NOW,NSEC_PER_SEC/2),NSEC_PER_SEC,NSEC_PER_SEC/10);
  dispatch_source_set_event_handler(registryTimer,^{updateRegistry(NO);});dispatch_resume(registryTimer);
- STHVLog(@"host-start",@"com.apple.springboard",@{@"architecture":@"viewport31",@"legacyAvoidanceCalled":@NO});
+ STHVLog(@"host-start",@"com.apple.springboard",@{@"architecture":@"viewport32",@"legacyAvoidanceCalled":@NO});
 });}
 #endif

@@ -2,7 +2,7 @@
 from pathlib import Path
 import hashlib,json
 R=Path(__file__).resolve().parent
-m=json.loads((R/'inputs/reviewed-runtime-2.0.31.json').read_text())
+m=json.loads((R/'inputs/reviewed-runtime-2.0.32.json').read_text())
 for collection in ['preserved_nonkeyboard_sources','reviewed_active_production']:
  for name,digest in m[collection].items():
   assert hashlib.sha256((R/name).read_bytes()).hexdigest()==digest,('Unreviewed production change',name)
@@ -13,4 +13,4 @@ for name in ['ViewportHost.m','ViewportClient.m','ViewportBus.m','ViewportDiagno
 for name in m['retired_production']:assert "'"+name+"'" not in build,('Retired compiler input',name)
 assert 'migrate_native_bridge(img,OUT' in build and 'compact_signature(p)' in build
 assert "OUT/'SthenoGesture.dylib'" not in build
-print('Runtime31 audit lock passed:',len(m['preserved_nonkeyboard_sources']),'unrelated production files preserved;',len(m['reviewed_active_production']),'active sources reviewed;',len(m['retired_production']),'legacy keyboard files absent')
+print('Runtime32 audit lock passed:',len(m['preserved_nonkeyboard_sources']),'unrelated production files preserved;',len(m['reviewed_active_production']),'active sources reviewed;',len(m['retired_production']),'legacy keyboard files absent')

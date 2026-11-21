@@ -19,6 +19,8 @@ jobs:
         run: |
           xcrun --sdk macosx clang -std=c11 -Wall -Wextra -Werror test_viewport_geometry.c -lm -o /tmp/stheno-viewport-math
           /tmp/stheno-viewport-math
+          python3 test_device32_authority.py
+          python3 test_scene_reflow_contract.py
           xcrun --sdk macosx clang -fobjc-arc -DSTH_VIEWPORT_BUS_TEST -Wall -Wextra -Werror test_viewport_bus.m ViewportBus.m -framework Foundation -o /tmp/stheno-viewport-bus
           /tmp/stheno-viewport-bus
           xcrun --sdk macosx clang -fobjc-arc -Wall -Wextra -Werror test_viewport_bus.m ViewportBus.m -framework Foundation -o /tmp/stheno-viewport-process
@@ -27,6 +29,8 @@ jobs:
         run: |
           xcrun --sdk macosx clang -fobjc-arc -Wall -Wextra -Wno-unused-parameter test_viewport_host.m -framework Foundation -framework CoreGraphics -o /tmp/stheno-viewport-host
           /tmp/stheno-viewport-host
+          xcrun --sdk macosx clang -fobjc-arc -Wall -Wextra -Wno-unused-parameter test_viewport_client.m -framework Foundation -framework CoreGraphics -o /tmp/stheno-viewport-client
+          /tmp/stheno-viewport-client
           python3 test_viewport_contract.py
       - name: Test default size only on first presentation
         run: |
