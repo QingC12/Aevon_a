@@ -1,0 +1,418 @@
+﻿2026-11-21T03:34:54.2372080Z Current runner version: '2.338.2'
+2026-11-21T03:34:54.2420170Z ##[group]Runner Image Provisioner
+2026-11-21T03:34:54.2421650Z Hosted Compute Agent
+2026-11-21T03:34:54.2422960Z Version: 20260819.586
+2026-11-21T03:34:54.2424040Z Commit: 3cc4a88dfa507ef76119ad1bb3eccc6378bb2b76
+2026-11-21T03:34:54.2425450Z Build Date: 2026-08-18T23:20:18Z
+2026-11-21T03:34:54.2426980Z Worker ID: {e6a1714c-4dd2-48dc-8bc3-7013c73ad3ed}
+2026-11-21T03:34:54.2428360Z Azure Region: westus
+2026-11-21T03:34:54.2429610Z ##[endgroup]
+2026-11-21T03:34:54.2433000Z ##[group]Operating System
+2026-11-21T03:34:54.2434070Z macOS
+2026-11-21T03:34:54.2434900Z 15.7.9
+2026-11-21T03:34:54.2435730Z 24G830
+2026-11-21T03:34:54.2436580Z ##[endgroup]
+2026-11-21T03:34:54.2437480Z ##[group]Runner Image
+2026-11-21T03:34:54.2438460Z Image: macos-15
+2026-11-21T03:34:54.2439370Z Version: 20260824.0482.1
+2026-11-21T03:34:54.2442130Z Included Software: https://github.com/actions/runner-images/blob/macos-15/20260824.0482/images/macos/macos-15-Readme.md
+2026-11-21T03:34:54.2445530Z Image Release: https://github.com/actions/runner-images/releases/tag/macos-15%2F20260824.0482
+2026-11-21T03:34:54.2447460Z ##[endgroup]
+2026-11-21T03:34:54.2449480Z ##[group]GITHUB_TOKEN Permissions
+2026-11-21T03:34:54.2453950Z Contents: read
+2026-11-21T03:34:54.2454940Z Metadata: read
+2026-11-21T03:34:54.2455910Z ##[endgroup]
+2026-11-21T03:34:54.2459800Z Secret source: Actions
+2026-11-21T03:34:54.2461410Z Cache mode: write
+2026-11-21T03:34:54.2465370Z Prepare workflow directory
+2026-11-21T03:34:54.3090990Z Prepare all required actions
+2026-11-21T03:34:54.3196670Z Getting action download info
+2026-11-21T03:34:54.8261580Z Download action repository 'actions/checkout@v4' (SHA:11d5960a326750d5838078e36cf38b85af677262)
+2026-11-21T03:34:55.0863410Z Download action repository 'actions/upload-artifact@v4' (SHA:ea165f8d65b6e75b540449e92b4886f43607fa02)
+2026-11-21T03:34:55.4209030Z Complete job name: build
+2026-11-21T03:34:55.6082410Z ##[group]Run actions/checkout@v4
+2026-11-21T03:34:55.6083880Z with:
+2026-11-21T03:34:55.6084740Z   repository: QingC12/stheno-arm64e-gesture
+2026-11-21T03:34:55.6094830Z   token: ***
+2026-11-21T03:34:55.6095890Z   ssh-strict: true
+2026-11-21T03:34:55.6096850Z   ssh-user: git
+2026-11-21T03:34:55.6097820Z   persist-credentials: true
+2026-11-21T03:34:55.6098880Z   clean: true
+2026-11-21T03:34:55.6099860Z   sparse-checkout-cone-mode: true
+2026-11-21T03:34:55.6101060Z   fetch-depth: 1
+2026-11-21T03:34:55.6102000Z   fetch-tags: false
+2026-11-21T03:34:55.6103000Z   show-progress: true
+2026-11-21T03:34:55.6104140Z   lfs: false
+2026-11-21T03:34:55.6105100Z   submodules: false
+2026-11-21T03:34:55.6105970Z   set-safe-directory: true
+2026-11-21T03:34:55.6107080Z   allow-unsafe-pr-checkout: false
+2026-11-21T03:34:55.6109700Z ##[endgroup]
+2026-11-21T03:34:56.0194910Z Syncing repository: QingC12/stheno-arm64e-gesture
+2026-11-21T03:34:56.0199330Z ##[group]Getting Git version info
+2026-11-21T03:34:56.0201960Z Working directory is '/Users/runner/work/stheno-arm64e-gesture/stheno-arm64e-gesture'
+2026-11-21T03:34:56.0205010Z [command]/usr/local/bin/git version
+2026-11-21T03:34:56.0565690Z git version 2.55.0
+2026-11-21T03:34:56.0598870Z ##[endgroup]
+2026-11-21T03:34:56.0617880Z Copying '/Users/runner/.gitconfig' to '/Users/runner/work/_temp/64bc3054-2329-41b7-984a-dc902f82160d/.gitconfig'
+2026-11-21T03:34:56.0638460Z Temporarily overriding HOME='/Users/runner/work/_temp/64bc3054-2329-41b7-984a-dc902f82160d' before making global git config changes
+2026-11-21T03:34:56.0642080Z Adding repository directory to the temporary git global config as a safe directory
+2026-11-21T03:34:56.0646300Z [command]/usr/local/bin/git config --global --add safe.directory /Users/runner/work/stheno-arm64e-gesture/stheno-arm64e-gesture
+2026-11-21T03:34:56.0803290Z Deleting the contents of '/Users/runner/work/stheno-arm64e-gesture/stheno-arm64e-gesture'
+2026-11-21T03:34:56.0809610Z ##[group]Initializing the repository
+2026-11-21T03:34:56.0817850Z [command]/usr/local/bin/git init /Users/runner/work/stheno-arm64e-gesture/stheno-arm64e-gesture
+2026-11-21T03:34:56.1230590Z hint: Using 'master' as the name for the initial branch. This default branch name
+2026-11-21T03:34:56.1233250Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+2026-11-21T03:34:56.1235440Z hint: to use in all of your new repositories, which will suppress this warning,
+2026-11-21T03:34:56.1237200Z hint: call:
+2026-11-21T03:34:56.1238280Z hint:
+2026-11-21T03:34:56.1239510Z hint: 	git config --global init.defaultBranch <name>
+2026-11-21T03:34:56.1241040Z hint:
+2026-11-21T03:34:56.1242120Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2026-11-21T03:34:56.1244190Z hint: 'development'. The just-created branch can be renamed via this command:
+2026-11-21T03:34:56.1246050Z hint:
+2026-11-21T03:34:56.1246920Z hint: 	git branch -m <name>
+2026-11-21T03:34:56.1247810Z hint:
+2026-11-21T03:34:56.1249240Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2026-11-21T03:34:56.1251570Z Initialized empty Git repository in /Users/runner/work/stheno-arm64e-gesture/stheno-arm64e-gesture/.git/
+2026-11-21T03:34:56.1256340Z [command]/usr/local/bin/git remote add origin https://github.com/QingC12/stheno-arm64e-gesture
+2026-11-21T03:34:56.1382150Z ##[endgroup]
+2026-11-21T03:34:56.1383820Z ##[group]Disabling automatic garbage collection
+2026-11-21T03:34:56.1385360Z [command]/usr/local/bin/git config --local gc.auto 0
+2026-11-21T03:34:56.1491670Z ##[endgroup]
+2026-11-21T03:34:56.1493440Z ##[group]Setting up auth
+2026-11-21T03:34:56.1501260Z [command]/usr/local/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-11-21T03:34:56.1610250Z [command]/usr/local/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-11-21T03:34:56.3089480Z [command]/usr/local/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-11-21T03:34:56.3249550Z [command]/usr/local/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-11-21T03:34:56.5310180Z [command]/usr/local/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-11-21T03:34:56.5460900Z [command]/usr/local/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-11-21T03:34:56.7342030Z [command]/usr/local/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2026-11-21T03:34:56.7495320Z ##[endgroup]
+2026-11-21T03:34:57.2970350Z ##[group]Fetching the repository
+2026-11-21T03:34:57.2973840Z [command]/usr/local/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +28d9c530ab208bc1a8a1367ac34f524f9a3d28bc:refs/remotes/origin/main
+2026-11-21T03:34:57.2977350Z From https://github.com/QingC12/stheno-arm64e-gesture
+2026-11-21T03:34:57.2979120Z  * [new ref]         28d9c530ab208bc1a8a1367ac34f524f9a3d28bc -> origin/main
+2026-11-21T03:34:57.2982890Z ##[endgroup]
+2026-11-21T03:34:57.2984540Z ##[group]Determining the checkout info
+2026-11-21T03:34:57.2986440Z ##[endgroup]
+2026-11-21T03:34:57.2993280Z [command]/usr/local/bin/git sparse-checkout disable
+2026-11-21T03:34:57.3178620Z [command]/usr/local/bin/git config --local --unset-all extensions.worktreeConfig
+2026-11-21T03:34:57.3324380Z ##[group]Checking out the ref
+2026-11-21T03:34:57.3345910Z [command]/usr/local/bin/git checkout --progress --force -B main refs/remotes/origin/main
+2026-11-21T03:34:57.4239410Z Switched to a new branch 'main'
+2026-11-21T03:34:57.4261110Z branch 'main' set up to track 'origin/main'.
+2026-11-21T03:34:57.4273710Z ##[endgroup]
+2026-11-21T03:34:57.4465160Z [command]/usr/local/bin/git log -1 --format=%H
+2026-11-21T03:34:57.4582730Z 28d9c530ab208bc1a8a1367ac34f524f9a3d28bc
+2026-11-21T03:34:57.6865340Z ##[group]Run xcrun --sdk macosx clang -fobjc-arc -Wall -Wextra -Wno-unused-parameter test_gesture_routing.m -framework Foundation -framework CoreGraphics -framework QuartzCore -o /tmp/stheno-gesture-routing
+2026-11-21T03:34:57.6870740Z [36;1mxcrun --sdk macosx clang -fobjc-arc -Wall -Wextra -Wno-unused-parameter test_gesture_routing.m -framework Foundation -framework CoreGraphics -framework QuartzCore -o /tmp/stheno-gesture-routing[0m
+2026-11-21T03:34:57.6873480Z [36;1m/tmp/stheno-gesture-routing[0m
+2026-11-21T03:34:57.6949290Z shell: /bin/bash -e {0}
+2026-11-21T03:34:57.6949930Z ##[endgroup]
+2026-11-21T03:35:07.9586140Z Gesture dock regression: keyboard exclusion preserved except the visible minimized hit target; one restore per gesture
+2026-11-21T03:35:07.9713750Z ##[group]Run xcrun --sdk macosx clang -std=c11 -Wall -Wextra test_keyboard_geometry.c -o /tmp/stheno-keyboard-geometry
+2026-11-21T03:35:07.9715460Z [36;1mxcrun --sdk macosx clang -std=c11 -Wall -Wextra test_keyboard_geometry.c -o /tmp/stheno-keyboard-geometry[0m
+2026-11-21T03:35:07.9716660Z [36;1m/tmp/stheno-keyboard-geometry[0m
+2026-11-21T03:35:07.9718490Z [36;1mxcrun --sdk macosx clang -fobjc-arc -Wall -Wextra -Wno-unused-parameter test_keyboard_routing.m -framework Foundation -framework CoreGraphics -framework QuartzCore -o /tmp/stheno-keyboard-routing[0m
+2026-11-21T03:35:07.9720490Z [36;1m/tmp/stheno-keyboard-routing[0m
+2026-11-21T03:35:07.9722190Z [36;1mxcrun --sdk macosx clang -fobjc-arc -Wall -Wextra -Wno-unused-parameter test_keyboard_focus_owner.m KeyboardFocusBus.m KeyboardOwner.m -framework Foundation -o /tmp/stheno-focus-owner[0m
+2026-11-21T03:35:07.9723960Z [36;1m/tmp/stheno-focus-owner[0m
+2026-11-21T03:35:07.9725860Z [36;1mxcrun --sdk macosx clang -fobjc-arc -Wall -Wextra -Wno-unused-parameter test_keyboard_dock_integration.m -framework Foundation -framework CoreGraphics -framework QuartzCore -o /tmp/stheno-keyboard-dock[0m
+2026-11-21T03:35:07.9727750Z [36;1m/tmp/stheno-keyboard-dock[0m
+2026-11-21T03:35:07.9793800Z shell: /bin/bash -e {0}
+2026-11-21T03:35:07.9794340Z ##[endgroup]
+2026-11-21T03:35:08.2763290Z Keyboard geometry tests passed
+2026-11-21T03:35:09.5437050Z Keyboard routing passed: 20 native show, 10 hide, 24 geometry writes
+2026-11-21T03:35:12.7047790Z Input owner: 200 real notify claim/handoff/minimize/clear cycles; no passive hit-test ownership
+2026-11-21T03:35:14.9993930Z Keyboard/dock production integration: 200 show-dock-late-frame-restore cycles; normal content still routes correctly
+2026-11-21T03:35:15.0100620Z ##[group]Run xcrun --sdk macosx clang -std=c11 -Wall -Wextra -Werror test_editor_visibility.c -o /tmp/stheno-editor-visibility
+2026-11-21T03:35:15.0102530Z [36;1mxcrun --sdk macosx clang -std=c11 -Wall -Wextra -Werror test_editor_visibility.c -o /tmp/stheno-editor-visibility[0m
+2026-11-21T03:35:15.0103740Z [36;1m/tmp/stheno-editor-visibility[0m
+2026-11-21T03:35:15.0104890Z [36;1mxcrun --sdk macosx clang -std=c11 -Wall -Wextra -Werror test_editor_lifecycle.c -o /tmp/stheno-editor-lifecycle[0m
+2026-11-21T03:35:15.0106040Z [36;1m/tmp/stheno-editor-lifecycle[0m
+2026-11-21T03:35:15.0107270Z [36;1mxcrun --sdk macosx clang -std=c11 -Wall -Wextra -Werror test_keyboard_coordinates.c -o /tmp/stheno-keyboard-coordinates[0m
+2026-11-21T03:35:15.0108520Z [36;1m/tmp/stheno-keyboard-coordinates[0m
+2026-11-21T03:35:15.0167130Z shell: /bin/bash -e {0}
+2026-11-21T03:35:15.0167630Z ##[endgroup]
+2026-11-21T03:35:15.1343340Z Measured composer tests passed: input+app row protection, no fixed padding, no whole-page movement
+2026-11-21T03:35:15.2468160Z 100 editor show cycles and late-hide interleavings passed; private nested toolbar/emoji rows stay contiguous and scoped
+2026-11-21T03:35:15.3563770Z Keyboard coordinate tests passed: real host, notifications, no fullscreen-container overlap
+2026-11-21T03:35:15.3661110Z ##[group]Run python3 test_editor_refined_contract.py
+2026-11-21T03:35:15.3662370Z [36;1mpython3 test_editor_refined_contract.py[0m
+2026-11-21T03:35:15.3664190Z [36;1mxcrun --sdk macosx clang -std=c11 -Wall -Wextra -Werror test_editor_refinement.c -o /tmp/stheno-editor-refinement[0m
+2026-11-21T03:35:15.3666810Z [36;1m/tmp/stheno-editor-refinement[0m
+2026-11-21T03:35:15.3766380Z shell: /bin/bash -e {0}
+2026-11-21T03:35:15.3767320Z ##[endgroup]
+2026-11-21T03:35:15.5459760Z Legacy functional route retained; diagnostic deletion reviewed; refined profiles, compact root, clipping/emoji descendants and declared-accessory exclusion wired
+2026-11-21T03:35:15.6739790Z Refined editor tests passed: QQ/Minis isolation, no305pt page, bounded emoji,100 reflows, measured transparent tail only
+2026-11-21T03:35:15.6846900Z ##[group]Run python3 test_editor_composite_contract.py
+2026-11-21T03:35:15.6848130Z [36;1mpython3 test_editor_composite_contract.py[0m
+2026-11-21T03:35:15.6849890Z [36;1mxcrun --sdk macosx clang -std=c11 -Wall -Wextra -Werror test_editor_composite.c -o /tmp/stheno-editor-composite[0m
+2026-11-21T03:35:15.6851970Z [36;1m/tmp/stheno-editor-composite[0m
+2026-11-21T03:35:15.6853570Z [36;1mxcrun --sdk macosx clang -std=c11 -Wall -Wextra -Werror test_keyboard_plane.c -o /tmp/stheno-keyboard-plane[0m
+2026-11-21T03:35:15.6855300Z [36;1m/tmp/stheno-keyboard-plane[0m
+2026-11-21T03:35:15.6857610Z [36;1mxcrun --sdk macosx clang -fobjc-arc -Wall -Wextra -Wno-unused-parameter test_composite_layout.m -framework Foundation -framework CoreGraphics -o /tmp/stheno-composite-layout[0m
+2026-11-21T03:35:15.6860120Z [36;1m/tmp/stheno-composite-layout[0m
+2026-11-21T03:35:15.6960700Z shell: /bin/bash -e {0}
+2026-11-21T03:35:15.6961420Z ##[endgroup]
+2026-11-21T03:35:15.7895910Z Legacy/refined/composite math and native layout shields retained; diagnostic reporters removed
+2026-11-21T03:35:15.9135570Z Composite cases passed: keep QQ/Minis/WeChat, reject20pt leaf, complete reply owner+2rows,100x20 native relayouts and bounded feedback
+2026-11-21T03:35:16.0251450Z Keyboard source cases passed: broad529/533 hosts rejected; exact590 keyplane plus connected573 assistant accepted
+2026-11-21T03:35:16.7130050Z In file included from test_composite_layout.m:74:
+2026-11-21T03:35:16.7132680Z ./CompositeStructure.inc:23:13: warning: unused function 'sharedComposerBranch' [-Wunused-function]
+2026-11-21T03:35:16.7134120Z    23 | static BOOL sharedComposerBranch(UIView *root,UIView *row){
+2026-11-21T03:35:16.7135510Z       |             ^~~~~~~~~~~~~~~~~~~~
+2026-11-21T03:35:16.7136100Z In file included from test_composite_layout.m:74:
+2026-11-21T03:35:16.7136780Z In file included from ./CompositeStructure.inc:44:
+2026-11-21T03:35:16.7138460Z ./NativeGeometryShield.inc:59:13: warning: unused function 'protectAdditionalPart' [-Wunused-function]
+2026-11-21T03:35:16.7139650Z    59 | static void protectAdditionalPart(UIView *part){
+2026-11-21T03:35:16.7140290Z       |             ^~~~~~~~~~~~~~~~~~~~~
+2026-11-21T03:35:16.7487980Z 2 warnings generated.
+2026-11-21T03:35:16.9739310Z Production geometry shield passed100 native relayouts and100 frame/bounds/center setters, complete175pt owner, unrelated-instance passthrough and independent app transform wins
+2026-11-21T03:35:16.9891470Z ##[group]Run python3 test_keyboard_contract.py
+2026-11-21T03:35:16.9892320Z [36;1mpython3 test_keyboard_contract.py[0m
+2026-11-21T03:35:16.9893510Z [36;1mxcrun --sdk macosx clang -std=c11 -Wall -Wextra -Werror test_keyboard_session.c -o /tmp/stheno-keyboard-session[0m
+2026-11-21T03:35:16.9894680Z [36;1m/tmp/stheno-keyboard-session[0m
+2026-11-21T03:35:16.9955260Z shell: /bin/bash -e {0}
+2026-11-21T03:35:16.9955730Z ##[endgroup]
+2026-11-21T03:35:17.0767560Z Scene routing, immediate immutable delivery and independent repeat-show editor lifecycle verified
+2026-11-21T03:35:17.2167280Z Scene/session tests passed:241.5 not286.5; no physical cache poisoning; idempotent refresh; hide invalidation
+2026-11-21T03:35:17.2268770Z ##[group]Run xcrun --sdk macosx clang -std=c11 -Wall -Wextra -Werror test_layout_settle.c -o /tmp/stheno-layout-settle
+2026-11-21T03:35:17.2271570Z [36;1mxcrun --sdk macosx clang -std=c11 -Wall -Wextra -Werror test_layout_settle.c -o /tmp/stheno-layout-settle[0m
+2026-11-21T03:35:17.2274240Z [36;1m/tmp/stheno-layout-settle[0m
+2026-11-21T03:35:17.2276590Z [36;1mxcrun --sdk macosx clang -fobjc-arc -Wall -Wextra -Wno-unused-parameter test_keyboard_delivery.m -framework Foundation -o /tmp/stheno-keyboard-delivery[0m
+2026-11-21T03:35:17.2278810Z [36;1m/tmp/stheno-keyboard-delivery[0m
+2026-11-21T03:35:17.2371360Z shell: /bin/bash -e {0}
+2026-11-21T03:35:17.2372040Z ##[endgroup]
+2026-11-21T03:35:17.4021070Z 60 show cycles replayed: no pre-expansion card or18-55ms keyboard transients committed; genuine changes allowed
+2026-11-21T03:35:18.1920010Z test_keyboard_delivery.m:20:13: warning: unused function 'STHWriteLayoutLog' [-Wunused-function]
+2026-11-21T03:35:18.1921410Z    20 | static void STHWriteLayoutLog(NSString *s){}
+2026-11-21T03:35:18.2155190Z       |             ^~~~~~~~~~~~~~~~~
+2026-11-21T03:35:18.2155980Z 1 warning generated.
+2026-11-21T03:35:18.5119240Z Production delivery tests passed: immediate Will delivery, immutable observer frame, hide lifecycle, fullscreen passthrough (10 preparations)
+2026-11-21T03:35:18.5218660Z ##[group]Run xcrun --sdk macosx clang -std=c11 -Wall -Wextra -Werror test_layout_math.c -o /tmp/stheno-layout-math
+2026-11-21T03:35:18.5220470Z [36;1mxcrun --sdk macosx clang -std=c11 -Wall -Wextra -Werror test_layout_math.c -o /tmp/stheno-layout-math[0m
+2026-11-21T03:35:18.5221690Z [36;1m/tmp/stheno-layout-math[0m
+2026-11-21T03:35:18.5223750Z [36;1mxcrun --sdk macosx clang -fobjc-arc -Wall -Wextra -Wno-unused-parameter test_layout_bus.m LayoutBus.m -framework Foundation -framework QuartzCore -framework CoreGraphics -o /tmp/stheno-layout-bus[0m
+2026-11-21T03:35:18.5226000Z [36;1m/tmp/stheno-layout-bus[0m
+2026-11-21T03:35:18.5284970Z shell: /bin/bash -e {0}
+2026-11-21T03:35:18.5285590Z ##[endgroup]
+2026-11-21T03:35:18.6823150Z Host mapping passed: small/large, top/middle/bottom, negative origin, fixed-point transport
+2026-11-21T03:35:20.8701150Z Cross-process layout transport passed (separate reader executable, preview/session isolation and hide invalidation)
+2026-11-21T03:35:20.8831460Z ##[group]Run xcrun --sdk macosx clang -fobjc-arc -Wall -Wextra -Wno-unused-parameter test_default_size.m -framework Foundation -o /tmp/stheno-default-size
+2026-11-21T03:35:20.8834790Z [36;1mxcrun --sdk macosx clang -fobjc-arc -Wall -Wextra -Wno-unused-parameter test_default_size.m -framework Foundation -o /tmp/stheno-default-size[0m
+2026-11-21T03:35:20.8836870Z [36;1m/tmp/stheno-default-size[0m
+2026-11-21T03:35:20.8938170Z shell: /bin/bash -e {0}
+2026-11-21T03:35:20.8939210Z ##[endgroup]
+2026-11-21T03:35:21.6659690Z Presentation lifecycle passed: unminimize before present; initial size only once per model
+2026-11-21T03:35:21.6751490Z ##[group]Run python3 test_frozen_runtime.py
+2026-11-21T03:35:21.6752590Z [36;1mpython3 test_frozen_runtime.py[0m
+2026-11-21T03:35:21.6753480Z [36;1mpython3 test_core_native_bridge.py[0m
+2026-11-21T03:35:21.6754390Z [36;1mpython3 test_system_action_contract.py[0m
+2026-11-21T03:35:21.6755450Z [36;1mfor name in catalog gate order; do[0m
+2026-11-21T03:35:21.6757100Z [36;1m  xcrun --sdk macosx clang -std=c11 -Wall -Wextra -Werror test_system_action_${name}.c -o /tmp/stheno-system-${name}[0m
+2026-11-21T03:35:21.6759060Z [36;1m  /tmp/stheno-system-${name}[0m
+2026-11-21T03:35:21.6759970Z [36;1mdone[0m
+2026-11-21T03:35:21.6761930Z [36;1mxcrun --sdk macosx clang -fobjc-arc -Wall -Wextra -Werror test_system_action_picker.m SystemActionPicker.m -framework Foundation -o /tmp/stheno-system-picker[0m
+2026-11-21T03:35:21.6764100Z [36;1m/tmp/stheno-system-picker[0m
+2026-11-21T03:35:21.6857200Z shell: /bin/bash -e {0}
+2026-11-21T03:35:21.6857890Z ##[endgroup]
+2026-11-21T03:35:21.8036990Z Runtime audit lock passed; merged host and separate app focus/geometry path retained
+2026-11-21T03:35:24.1935700Z test_complete_emitted_semantic_equivalence (__main__.MigrationTests.test_complete_emitted_semantic_equivalence) ... ok
+2026-11-21T03:35:24.1947230Z test_exact_bounds_and_original_bodies (__main__.MigrationTests.test_exact_bounds_and_original_bodies) ... ok
+2026-11-21T03:35:24.3485960Z test_fail_closed_without_mutating_caller (__main__.MigrationTests.test_fail_closed_without_mutating_caller) ... ok
+2026-11-21T03:35:24.4187490Z test_helper_tail_jumps_preserve_all_abi_inputs (__main__.MigrationTests.test_helper_tail_jumps_preserve_all_abi_inputs) ... ok
+2026-11-21T03:35:24.7363910Z test_prepare_order_and_existing_dispatch_bytes (__main__.MigrationTests.test_prepare_order_and_existing_dispatch_bytes) ... ok
+2026-11-21T03:35:24.7370220Z test_real_direct_targets_and_callback_authentication (__main__.MigrationTests.test_real_direct_targets_and_callback_authentication) ... ok
+2026-11-21T03:35:24.7374380Z test_retained_model_and_consumed_keypaths (__main__.MigrationTests.test_retained_model_and_consumed_keypaths) ... ok
+2026-11-21T03:35:24.8211280Z test_all_four_real_object_relocation_kinds (__main__.RelocationTests.test_all_four_real_object_relocation_kinds) ... ok
+2026-11-21T03:35:25.1156890Z test_ranges_flags_alignment_and_truncation_rejected (__main__.RelocationTests.test_ranges_flags_alignment_and_truncation_rejected) ... ok
+2026-11-21T03:35:25.4122360Z test_unknown_symbols_addend_got_and_bad_opcodes_rejected (__main__.RelocationTests.test_unknown_symbols_addend_got_and_bad_opcodes_rejected) ... ok
+2026-11-21T03:35:25.4124110Z 
+2026-11-21T03:35:25.4124910Z ----------------------------------------------------------------------
+2026-11-21T03:35:25.4126090Z Ran 10 tests in 3.111s
+2026-11-21T03:35:25.4126540Z 
+2026-11-21T03:35:25.4126830Z OK
+2026-11-21T03:35:25.6010030Z System action contract: exact IDs; System-top native rows; original app icons/ring; early admission dispatch; user-click-only native capture; original preferences unchanged
+2026-11-21T03:35:27.0368220Z 2026-11-21 03:35:27.036 stheno-system-picker[3541:13984] System native picker: ordering, ownership-copy contract, dedup and off-state passed
+2026-11-21T03:35:27.0433990Z ##[group]Run xcrun --sdk macosx clang -fobjc-arc -DSTH_CAPTURE_TEST -Wall -Wextra -Werror test_system_capture.m SystemCapture.m -framework Foundation -o /tmp/stheno-system-capture
+2026-11-21T03:35:27.0436760Z [36;1mxcrun --sdk macosx clang -fobjc-arc -DSTH_CAPTURE_TEST -Wall -Wextra -Werror test_system_capture.m SystemCapture.m -framework Foundation -o /tmp/stheno-system-capture[0m
+2026-11-21T03:35:27.0438840Z [36;1m/tmp/stheno-system-capture[0m
+2026-11-21T03:35:27.0496760Z shell: /bin/bash -e {0}
+2026-11-21T03:35:27.0497210Z ##[endgroup]
+2026-11-21T03:35:29.0133080Z 2026-11-21 03:35:29.012 stheno-system-capture[3553:14014] System capture mock tests passed: exact typed APIs, native system start/stop, mic off, no load capture, incompatible selectors rejected, existing non-system session untouched
+2026-11-21T03:35:29.0195920Z ##[group]Run python3 test_icon_assets.py
+2026-11-21T03:35:29.0196550Z [36;1mpython3 test_icon_assets.py[0m
+2026-11-21T03:35:29.0198040Z [36;1mxcrun --sdk macosx clang -fobjc-arc -DSTH_ICON_HOOK_TEST -Wall -Wextra -Werror test_icon_hooks.m SystemActionHooks.m -framework Foundation -o /tmp/stheno-icon-hooks[0m
+2026-11-21T03:35:29.0199600Z [36;1m/tmp/stheno-icon-hooks[0m
+2026-11-21T03:35:29.0253430Z shell: /bin/bash -e {0}
+2026-11-21T03:35:29.0253850Z ##[endgroup]
+2026-11-21T03:35:29.1222070Z Three default PNG assets decoded: correct dimensions, colored opaque background, transparent rounded corners, white glyph detail; no blank/template images
+2026-11-21T03:35:30.6829460Z 2026-11-21 03:35:30.681 stheno-icon-hooks[3563:14048] Icon factory regression passed: int and 64-bit signatures; exact IDs; original App format/scale unchanged
+2026-11-21T03:35:30.6967050Z ##[group]Run xcrun --sdk macosx clang -fobjc-arc -DSTH_CHOOSER_TEST -Wall -Wextra -Werror test_chooser_catalog.m ChooserCatalog.m -framework Foundation -o /tmp/stheno-chooser-catalog
+2026-11-21T03:35:30.6970290Z [36;1mxcrun --sdk macosx clang -fobjc-arc -DSTH_CHOOSER_TEST -Wall -Wextra -Werror test_chooser_catalog.m ChooserCatalog.m -framework Foundation -o /tmp/stheno-chooser-catalog[0m
+2026-11-21T03:35:30.6972770Z [36;1m/tmp/stheno-chooser-catalog[0m
+2026-11-21T03:35:30.6974600Z [36;1mxcrun --sdk macosx clang -std=c11 -Wall -Wextra -Werror test_chooser_motion.c -o /tmp/stheno-chooser-motion[0m
+2026-11-21T03:35:30.6976140Z [36;1m/tmp/stheno-chooser-motion[0m
+2026-11-21T03:35:30.6977740Z [36;1mxcrun --sdk macosx clang -std=c11 -Wall -Wextra -Werror test_dock_orientation.c -o /tmp/stheno-dock-orientation[0m
+2026-11-21T03:35:30.6979400Z [36;1mpython3 test_dock_orientation_contract.py[0m
+2026-11-21T03:35:30.6980390Z [36;1m/tmp/stheno-dock-orientation[0m
+2026-11-21T03:35:30.6981830Z [36;1mxcrun swiftc -D STH_DOCK_TEST DockQueue.swift test_dock_queue.swift -o /tmp/stheno-dock-queue[0m
+2026-11-21T03:35:30.6983290Z [36;1m/tmp/stheno-dock-queue[0m
+2026-11-21T03:35:30.6984560Z [36;1mxcrun swiftc ChooserSearch.swift test_chooser_search.swift -o /tmp/stheno-chooser-search[0m
+2026-11-21T03:35:30.6985880Z [36;1m/tmp/stheno-chooser-search[0m
+2026-11-21T03:35:30.6987290Z [36;1mxcrun swiftc ChooserFocusPolicy.swift test_chooser_focus.swift -o /tmp/stheno-chooser-focus[0m
+2026-11-21T03:35:30.6988740Z [36;1m/tmp/stheno-chooser-focus[0m
+2026-11-21T03:35:30.6990350Z [36;1mxcrun swiftc CenterGlyphGeometry.swift test_center_glyph_geometry.swift -o /tmp/stheno-center-glyph-geometry[0m
+2026-11-21T03:35:30.6992660Z [36;1m/tmp/stheno-center-glyph-geometry[0m
+2026-11-21T03:35:30.6994000Z [36;1mpython3 test_global_logic_contract.py[0m
+2026-11-21T03:35:30.6995580Z [36;1mpython3 test_update18_contract.py[0m
+2026-11-21T03:35:30.6996790Z [36;1mpython3 test_chooser_contract.py[0m
+2026-11-21T03:35:30.6998410Z [36;1mpython3 test_installer_preferences.py[0m
+2026-11-21T03:35:30.7136240Z shell: /bin/bash -e {0}
+2026-11-21T03:35:30.7137070Z ##[endgroup]
+2026-11-21T03:35:31.7864990Z 2026-11-21 03:35:31.785 stheno-chooser-catalog[3573:14075] Chooser catalog passed: unpinned-only, dedup, action exclusion, stale membership recheck, native animated submission, no pin writes, 100 ownership cycles
+2026-11-21T03:35:32.0072660Z Dock ABI: orientation result buffer avoids saved x19 and preserves caller registers
+2026-11-21T03:35:32.0146400Z Dock orientation policy passed
+2026-11-21T03:35:41.7111870Z Dock queues: independent sides; newest appended; restore/removal compacts; stable repeated reflow
+2026-11-21T03:35:42.5098640Z Chooser search passed: localized names, IDs, case/width/diacritic folding and trimming
+2026-11-21T03:35:43.2847300Z Chooser focus: event-driven key/attachment readiness, one offer per session, no focus after close
+2026-11-21T03:35:44.4261850Z Center glyph hit geometry follows rendered scale, hover lift and center
+2026-11-21T03:35:44.4769130Z Global logic contract: stale gesture recovery, dock restore, orientation ABI, keyboard ownership and center hit geometry
+2026-11-21T03:35:44.5620750Z 2.0.18 contract: native same-finger chooser; SwiftUI original transactions; separate docking queues; system-page gate; no incremental diagnostic emitters; three default icons; English comments
+2026-11-21T03:35:44.6643250Z Center chooser contract: original ring geometry untouched; real host passthrough; model-based animated visibility; native catalog minus pinned; transient original withAnimation launch; no preference writes
+2026-11-21T03:35:44.8023280Z Installer preferences: existing files preserved; defaults seeded only when absent
+2026-11-21T03:35:44.8185110Z ##[group]Run xcrun swiftc CenterSelection.swift test_center_selection.swift -o /tmp/stheno-center-selection
+2026-11-21T03:35:44.8186830Z [36;1mxcrun swiftc CenterSelection.swift test_center_selection.swift -o /tmp/stheno-center-selection[0m
+2026-11-21T03:35:44.8188220Z [36;1m/tmp/stheno-center-selection[0m
+2026-11-21T03:35:44.8189690Z [36;1mxcrun --sdk macosx clang -std=c11 -Wall -Wextra -Werror test_visibility_policy.c -o /tmp/stheno-visibility-policy[0m
+2026-11-21T03:35:44.8190870Z [36;1m/tmp/stheno-visibility-policy[0m
+2026-11-21T03:35:44.8191460Z [36;1mpython3 test_update19_contract.py[0m
+2026-11-21T03:35:44.8257810Z shell: /bin/bash -e {0}
+2026-11-21T03:35:44.8258240Z ##[endgroup]
+2026-11-21T03:35:45.7336260Z Center release: only a deliberate outside-to-center crossing commits once
+2026-11-21T03:35:45.8910360Z 2.0.24: center geometry follows native pan basis; stale gesture recovery; dock restore; Unicode app search; key-gated UIKit input
+2026-11-21T03:35:45.9045640Z ##[group]Run python3 test_embed_orion.py
+2026-11-21T03:35:45.9046660Z [36;1mpython3 test_embed_orion.py[0m
+2026-11-21T03:35:45.9122410Z shell: /bin/bash -e {0}
+2026-11-21T03:35:45.9123060Z ##[endgroup]
+2026-11-21T03:35:46.1536240Z test_complete_swift_abi_surface (__main__.EmbeddedOrionTests.test_complete_swift_abi_surface) ... ok
+2026-11-21T03:35:46.1538460Z test_license_is_preserved (__main__.EmbeddedOrionTests.test_license_is_preserved) ... ok
+2026-11-21T03:35:46.1549450Z test_no_code_or_ordinal_fixup_changes (__main__.EmbeddedOrionTests.test_no_code_or_ordinal_fixup_changes) ... ok
+2026-11-21T03:35:46.1554480Z test_no_global_orion_resolution_required (__main__.EmbeddedOrionTests.test_no_global_orion_resolution_required) ... ok
+2026-11-21T03:35:46.1562190Z test_wrong_runtime_is_rejected (__main__.EmbeddedOrionTests.test_wrong_runtime_is_rejected) ... ok
+2026-11-21T03:35:46.1563470Z 
+2026-11-21T03:35:46.1564020Z ----------------------------------------------------------------------
+2026-11-21T03:35:46.1564790Z Ran 5 tests in 0.095s
+2026-11-21T03:35:46.1565200Z 
+2026-11-21T03:35:46.1565380Z OK
+2026-11-21T03:35:46.1787610Z ##[group]Run python3 build.py
+2026-11-21T03:35:46.1788640Z [36;1mpython3 build.py[0m
+2026-11-21T03:35:46.1883100Z shell: /bin/bash -e {0}
+2026-11-21T03:35:46.1883790Z ##[endgroup]
+2026-11-21T03:35:46.3733440Z clang: warning: using sysroot for 'MacOSX' but targeting 'iPhone' [-Wincompatible-sysroot]
+2026-11-21T03:35:46.4262950Z clang: warning: using sysroot for 'MacOSX' but targeting 'iPhone' [-Wincompatible-sysroot]
+2026-11-21T03:35:46.4764180Z clang: warning: using sysroot for 'MacOSX' but targeting 'iPhone' [-Wincompatible-sysroot]
+2026-11-21T03:35:46.5432340Z clang: warning: using sysroot for 'MacOSX' but targeting 'iPhone' [-Wincompatible-sysroot]
+2026-11-21T03:35:46.6057860Z clang: warning: using sysroot for 'MacOSX' but targeting 'iPhone' [-Wincompatible-sysroot]
+2026-11-21T03:35:58.4075020Z KeyboardMeasurement.m:37:53: warning: 'windows' is deprecated: first deprecated in iOS 15.0 - Use UIWindowScene.windows on a relevant window scene instead [-Wdeprecated-declarations]
+2026-11-21T03:35:58.4152490Z    37 |  for(UIWindow *w in UIApplication.sharedApplication.windows)
+2026-11-21T03:35:58.4204400Z       |                                                     ^
+2026-11-21T03:35:58.5212170Z /Applications/Xcode_16.4.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.5.sdk/System/Library/Frameworks/UIKit.framework/Headers/UIApplication.h:109:62: note: 'windows' has been explicitly marked deprecated here
+2026-11-21T03:35:58.5870340Z   109 | @property(nonatomic,readonly) NSArray<__kindof UIWindow *>  *windows API_DEPRECATED("Use UIWindowScene.windows on a relevant window scene instead", ios(2.0, 15.0), visionos(1.0, 1.0)) API_UNAVAILABLE(watchos);
+2026-11-21T03:35:58.5960730Z       |                                                              ^
+2026-11-21T03:35:58.5990470Z 1 warning generated.
+2026-11-21T03:35:59.8110670Z KeyboardRefinedMeasurement.m:57:53: warning: 'windows' is deprecated: first deprecated in iOS 15.0 - Use UIWindowScene.windows on a relevant window scene instead [-Wdeprecated-declarations]
+2026-11-21T03:35:59.8114630Z    57 |  for(UIWindow *w in UIApplication.sharedApplication.windows)
+2026-11-21T03:35:59.8116980Z       |                                                     ^
+2026-11-21T03:35:59.8121100Z /Applications/Xcode_16.4.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.5.sdk/System/Library/Frameworks/UIKit.framework/Headers/UIApplication.h:109:62: note: 'windows' has been explicitly marked deprecated here
+2026-11-21T03:35:59.8127130Z   109 | @property(nonatomic,readonly) NSArray<__kindof UIWindow *>  *windows API_DEPRECATED("Use UIWindowScene.windows on a relevant window scene instead", ios(2.0, 15.0), visionos(1.0, 1.0)) API_UNAVAILABLE(watchos);
+2026-11-21T03:35:59.8131840Z       |                                                              ^
+2026-11-21T03:35:59.9274270Z 1 warning generated.
+2026-11-21T03:36:00.9546380Z KeyboardCompositeMeasurement.m:53:53: warning: 'windows' is deprecated: first deprecated in iOS 15.0 - Use UIWindowScene.windows on a relevant window scene instead [-Wdeprecated-declarations]
+2026-11-21T03:36:00.9549220Z    53 |  for(UIWindow *w in UIApplication.sharedApplication.windows)
+2026-11-21T03:36:00.9550420Z       |                                                     ^
+2026-11-21T03:36:00.9553570Z /Applications/Xcode_16.4.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.5.sdk/System/Library/Frameworks/UIKit.framework/Headers/UIApplication.h:109:62: note: 'windows' has been explicitly marked deprecated here
+2026-11-21T03:36:00.9574230Z   109 | @property(nonatomic,readonly) NSArray<__kindof UIWindow *>  *windows API_DEPRECATED("Use UIWindowScene.windows on a relevant window scene instead", ios(2.0, 15.0), visionos(1.0, 1.0)) API_UNAVAILABLE(watchos);
+2026-11-21T03:36:00.9577030Z       |                                                              ^
+2026-11-21T03:36:01.0487640Z 1 warning generated.
+2026-11-21T03:36:17.3159730Z LayoutPublisher.m:73:53: warning: 'windows' is deprecated: first deprecated in iOS 15.0 - Use UIWindowScene.windows on a relevant window scene instead [-Wdeprecated-declarations]
+2026-11-21T03:36:17.3162830Z    73 |  for(UIWindow *w in UIApplication.sharedApplication.windows)
+2026-11-21T03:36:17.3163980Z       |                                                     ^
+2026-11-21T03:36:17.3167020Z /Applications/Xcode_16.4.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.5.sdk/System/Library/Frameworks/UIKit.framework/Headers/UIApplication.h:109:62: note: 'windows' has been explicitly marked deprecated here
+2026-11-21T03:36:17.3171870Z   109 | @property(nonatomic,readonly) NSArray<__kindof UIWindow *>  *windows API_DEPRECATED("Use UIWindowScene.windows on a relevant window scene instead", ios(2.0, 15.0), visionos(1.0, 1.0)) API_UNAVAILABLE(watchos);
+2026-11-21T03:36:17.3174690Z       |                                                              ^
+2026-11-21T03:36:17.3200570Z LayoutPublisher.m:154:44: warning: if statement has empty body [-Wempty-body]
+2026-11-21T03:36:17.3202350Z   154 |   if(!STHSameRect(rr(r),rr(keyboardFrame)));
+2026-11-21T03:36:17.3203390Z       |                                            ^
+2026-11-21T03:36:17.3204770Z LayoutPublisher.m:154:44: note: put the semicolon on a separate line to silence this warning
+2026-11-21T03:36:17.5179730Z 2 warnings generated.
+2026-11-21T03:36:48.9670000Z clang: warning: using sysroot for 'MacOSX' but targeting 'iPhone' [-Wincompatible-sysroot]
+2026-11-21T03:37:06.4883370Z clang: warning: using sysroot for 'MacOSX' but targeting 'iPhone' [-Wincompatible-sysroot]
+2026-11-21T03:37:08.0534880Z /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/strip: warning: changes being made to the file will invalidate the code signature in: /Users/runner/work/stheno-arm64e-gesture/stheno-arm64e-gesture/build/Orion
+2026-11-21T03:37:10.4055060Z {"artifact": "stheno_2.0.26_iphoneos-arm64e.deb", "sha256": "2f4cc20a3019bfb957eae85673b569f5aa4a11f1c2300c343af830d6bfbc46cb", "size": 515252, "data_tar_default_xz_bytes": 519424, "data_tar_optimized_xz_bytes": 513584, "data_tar_bytes_saved": 5840, "data_tar_uncompressed_bytes": 2437120, "data_tar_uncompressed_sha256": "40b9173ebd6a00c9652428c5114adc4fa3202454177a2301308af7c45a030bb4", "patch_entries": {"0x3dff0": "0xd9100", "0x49948": "0xd9140", "0x4ad44": "0xd9180", "0x4c364": "0xd91c0", "0x3e41c": "0xd9200", "0x3e778": "0xd9240", "0x87b8c": "0xd9380", "0x87dfc": "0xd93c0", "0x41a9c": "0xd9500", "0x47e8": "0xd9700"}, "device_tested": false, "merged_springboard_runtime": true, "native_bridges": {"base": 894464, "limit": 901120, "capacity": 6656, "size": 1504, "end": 895968, "file_offset": 894464, "exports": {"_STHNativeClassify": 894736, "_STHNativeCopyBundleID": 895808, "_STHNativeDock": 895132, "_STHNativeEnd": 895488, "_STHNativeGetOffset": 895704, "_STHNativeGetScale": 895668, "_STHNativeInitialSize": 895916, "_STHNativeKeyboardHide": 895632, "_STHNativeKeyboardShow": 895596, "_STHNativeLong": 895520, "_STHNativeMinimized": 894464, "_STHNativeMove": 894808, "_STHNativeOrientation": 895292, "_STHNativePresent": 895880, "_STHNativeRect": 894844, "_STHNativeRefreshGeometry": 895844, "_STHNativeReset": 894880, "_STHNativeSetKeyboardGeometry": 895740, "_STHNativeSetMinimized": 894608, "_STHNativeSetup": 895424, "_STHNativeTap": 895556, "_STHNativeTranslation": 894772, "_STHNativeUpdate": 895456}, "callbacks": {"LresetSize": 895040}, "original_callbacks": {"dock": 316612, "initializer": 327456}, "base_loads": 10, "source_base_load_pairs": 9, "direct_calls": [{"rva": 894508, "target": 723228, "symbol": "_STHCoreRVA_0xb091c", "type": "BRANCH26"}, {"rva": 894536, "target": 723228, "symbol": "_STHCoreRVA_0xb091c", "type": "BRANCH26"}, {"rva": 894560, "target": 716492, "symbol": "_STHCoreRVA_0xaeecc", "type": "BRANCH26"}, {"rva": 894576, "target": 723468, "symbol": "_STHCoreRVA_0xb0a0c", "type": "BRANCH26"}, {"rva": 894584, "target": 723468, "symbol": "_STHCoreRVA_0xb0a0c", "type": "BRANCH26"}, {"rva": 894656, "target": 723228, "symbol": "_STHCoreRVA_0xb091c", "type": "BRANCH26"}, {"rva": 894684, "target": 723228, "symbol": "_STHCoreRVA_0xb091c", "type": "BRANCH26"}, {"rva": 894696, "target": 723500, "symbol": "_STHCoreRVA_0xb0a2c", "type": "BRANCH26"}, {"rva": 894716, "target": 716508, "symbol": "_STHCoreRVA_0xaeedc", "type": "BRANCH26"}, {"rva": 894756, "target": 883072, "symbol": "_STHCoreRVA_0xd7980", "type": "BRANCH26"}, {"rva": 894792, "target": 716844, "symbol": "_STHCoreRVA_0xaf02c", "type": "BRANCH26"}, {"rva": 894828, "target": 644176, "symbol": "_STHCoreRVA_0x9d450", "type": "BRANCH26"}, {"rva": 894864, "target": 253412, "symbol": "_STHCoreRVA_0x3dde4", "type": "BRANCH26"}, {"rva": 894952, "target": 723452, "symbol": "_STHCoreRVA_0xb09fc", "type": "BRANCH26"}, {"rva": 895024, "target": 717212, "symbol": "_STHCoreRVA_0xaf19c", "type": "BRANCH26"}, {"rva": 895104, "target": 649072, "symbol": "_STHCoreRVA_0x9e770", "type": "BRANCH26"}, {"rva": 895112, "target": 280912, "symbol": "_STHCoreRVA_0x44950", "type": "BRANCH26"}, {"rva": 895156, "target": 332884, "symbol": "_STHCoreRVA_0x51454", "type": "BRANCH26"}, {"rva": 895172, "target": 332884, "symbol": "_STHCoreRVA_0x51454", "type": "BRANCH26"}, {"rva": 895188, "target": 719708, "symbol": "_STHCoreRVA_0xafb5c", "type": "BRANCH26"}, {"rva": 895264, "target": 717212, "symbol": "_STHCoreRVA_0xaf19c", "type": "BRANCH26"}, {"rva": 895272, "target": 723468, "symbol": "_STHCoreRVA_0xb0a0c", "type": "BRANCH26"}, {"rva": 895340, "target": 723228, "symbol": "_STHCoreRVA_0xb091c", "type": "BRANCH26"}, {"rva": 895356, "target": 723228, "symbol": "_STHCoreRVA_0xb091c", "type": "BRANCH26"}, {"rva": 895380, "target": 716492, "symbol": "_STHCoreRVA_0xaeecc", "type": "BRANCH26"}, {"rva": 895388, "target": 723468, "symbol": "_STHCoreRVA_0xb0a0c", "type": "BRANCH26"}, {"rva": 895396, "target": 723468, "symbol": "_STHCoreRVA_0xb0a0c", "type": "BRANCH26"}, {"rva": 895440, "target": 889600, "symbol": "_STHCoreRVA_0xd9300", "type": "BRANCH26"}, {"rva": 895472, "target": 889616, "symbol": "_STHCoreRVA_0xd9310", "type": "BRANCH26"}, {"rva": 895504, "target": 889632, "symbol": "_STHCoreRVA_0xd9320", "type": "BRANCH26"}, {"rva": 895540, "target": 889648, "symbol": "_STHCoreRVA_0xd9330", "type": "BRANCH26"}, {"rva": 895580, "target": 889664, "symbol": "_STHCoreRVA_0xd9340", "type": "BRANCH26"}, {"rva": 895616, "target": 889856, "symbol": "_STHCoreRVA_0xd9400", "type": "BRANCH26"}, {"rva": 895652, "target": 889872, "symbol": "_STHCoreRVA_0xd9410", "type": "BRANCH26"}, {"rva": 895688, "target": 641756, "symbol": "_STHCoreRVA_0x9cadc", "type": "BRANCH26"}, {"rva": 895724, "target": 259552, "symbol": "_STHCoreRVA_0x3f5e0", "type": "BRANCH26"}, {"rva": 895776, "target": 648112, "symbol": "_STHCoreRVA_0x9e3b0", "type": "BRANCH26"}, {"rva": 895784, "target": 258896, "symbol": "_STHCoreRVA_0x3f350", "type": "BRANCH26"}, {"rva": 895828, "target": 720076, "symbol": "_STHCoreRVA_0xafccc", "type": "BRANCH26"}, {"rva": 895864, "target": 640636, "symbol": "_STHCoreRVA_0x9c67c", "type": "BRANCH26"}, {"rva": 895900, "target": 889984, "symbol": "_STHCoreRVA_0xd9480", "type": "BRANCH26"}, {"rva": 895948, "target": 258896, "symbol": "_STHCoreRVA_0x3f350", "type": "BRANCH26"}, {"rva": 895952, "target": 640636, "symbol": "_STHCoreRVA_0x9c67c", "type": "BRANCH26"}], "source_sha256": "1ec36a6b2dffcecbf3b7b79681e4edb869f8334da443a86a5b589767146f16e9", "code_sha256": "4a206f741b12dd7e111b3e2b999b3b2cd2e8f04ca356dcb71a5163154e7b983a", "stub_source": "/Users/runner/work/stheno-arm64e-gesture/stheno-arm64e-gesture/build/core-native-stubs.S"}, "signature_compaction": {"Stheno.dylib": {"before": 1123008, "after": 1105008, "saved": 18000, "code_directories": 1}, "Orion": {"before": 244512, "after": 226512, "saved": 18000, "code_directories": 1}, "SthenoKeyboard.dylib": {"before": 89904, "after": 71904, "saved": 18000, "code_directories": 1}, "SthenoKeyboardInset.dylib": {"before": 197136, "after": 179136, "saved": 18000, "code_directories": 1}, "SthenoSystemActions.dylib": {"before": 316064, "after": 298064, "saved": 18000, "code_directories": 1}, "CameraFix.dylib": {"before": 86384, "after": 68384, "saved": 18000, "code_directories": 1}, "KeyboardFix.dylib": {"before": 86720, "after": 68720, "saved": 18000, "code_directories": 1}}, "runtime_export_count": 129, "bundled_orion": {"version": "1.0.2", "required_symbols": 79, "resolved_symbols": 79, "load_path": "@loader_path/.stheno/Orion", "private_id": "@rpath/SthenoOrion", "substrate_path": "@loader_path/../.jbroot/usr/lib/libsubstrate.dylib", "source_arm64e_sha256": "e7cbd6e055d9ec30c750741c9a2831d73c5ce7efaf812053e7b279a4e92dbe85"}, "keyboard_inset_adapter": true, "system_actions": {"version": 1, "ids": ["com.nx.stheno.action.screenshot", "com.nx.stheno.action.screen-recording"], "picker": "system-top-native-app-records", "icon_container": "original-app", "ring_geometry_modified": false, "dispatch_base": "0xd9500", "dispatch_bytes": 2248, "patches": {"0x47e8": {"target": "0xd9700", "kind": "b", "original": "7f2303d5"}, "0x41a9c": {"target": "0xd9500", "kind": "b", "original": "695e0214"}, "0xfe30": {"target": "0xd9a00", "kind": "bl", "original": "a8835af8"}, "0x81968": {"target": "0xd9b00", "kind": "b", "original": "fcfaffb5"}, "0x81c78": {"target": "0xd9d00", "kind": "b", "original": "760100b5"}}}, "center_app_chooser": {"version": 3, "pins_apps": false, "native_catalog": true, "native_animated_launch": true, "native_pan_trigger": true, "release_admission": true, "ring_auto_dismiss_preserved": true, "ring_geometry_modified": false}, "visibility_restores_from_observed_state": true, "initial_model_position": "native_screen_center", "icon_resources": {"screenshot.png": "13ee19a2ed7f10ba5658c7453e1db70e0b59c704a452c9694b0125282688b9f0", "screen-recording.png": "ebe412b69a2d516fef79b9d9441106c29ec87bbebb55095187686f08ccee058c", "app-picker.png": "0318c3cd7393af2dd03b53016562d2353d90ef7fc85a9dfb43470ed768a87d85"}, "update18": {"quiet_core_logger": {"address": "0x3c11c", "kind": "ret"}, "center": {"dispatch_base": "0xda000", "dispatch_bytes": 440, "gesture": "native-ring-pan", "ring_geometry_modified": false, "patches": {"0x56630": {"target": "0xda000", "kind": "b", "original": "7f2303d5"}, "0x56fcc": {"target": "0xda080", "kind": "b", "original": "7f2303d5"}, "0x578e0": {"target": "0xda100", "kind": "b", "original": "7f2303d5"}}}, "dock": {"dispatch_base": "0xda400", "dispatch_bytes": 424, "patches": {"0x447d4": {"kind": "b", "target": "0xda400", "original": "7f2303d5"}, "0x449dc": {"kind": "b", "target": "0xda480", "original": "7f2303d5"}, "0x9d7f4": {"kind": "b", "target": "0xda500", "original": "7f2303d5"}}}, "original_animation_transactions": true}, "diagnostic_logging_removed": true}
+2026-11-21T03:37:10.4245760Z ##[group]Run python3 test_runtime_exports.py
+2026-11-21T03:37:10.4247930Z [36;1mpython3 test_runtime_exports.py[0m
+2026-11-21T03:37:10.4339730Z shell: /bin/bash -e {0}
+2026-11-21T03:37:10.4340390Z ##[endgroup]
+2026-11-21T03:37:10.5322550Z Dynamic callback exports verified from actual Mach-O export trie: 7 C entry points; internal Swift symbols alone are insufficient
+2026-11-21T03:37:10.5489600Z ##[group]Run python3 test_published_bridge_abi.py
+2026-11-21T03:37:10.5490760Z [36;1mpython3 test_published_bridge_abi.py[0m
+2026-11-21T03:37:10.5588290Z shell: /bin/bash -e {0}
+2026-11-21T03:37:10.5588990Z ##[endgroup]
+2026-11-21T03:37:10.6590370Z Stheno.dylib _STHNativeSetMinimized retained self + consumed paths; caller ownership preserved
+2026-11-21T03:37:10.6592910Z SthenoSystemActions.dylib _STHChooserClearMinimized retained self + consumed paths; caller ownership preserved
+2026-11-21T03:37:10.6595220Z Published bridge ABI passed: real machine-code ownership, getter releases and orientation result separation
+2026-11-21T03:37:10.6757460Z ##[group]Run python3 test_runtime_package.py
+2026-11-21T03:37:10.6759230Z [36;1mpython3 test_runtime_package.py[0m
+2026-11-21T03:37:10.6871560Z shell: /bin/bash -e {0}
+2026-11-21T03:37:10.6872220Z ##[endgroup]
+2026-11-21T03:37:11.0907210Z Runtime package: 23 core-resident bridges, 42 required callbacks, exact original code outside documented patches, 34 payload files, all inherited resources exact
+2026-11-21T03:37:11.1656680Z ##[group]Run python3 test_maintenance_contract.py
+2026-11-21T03:37:11.1657770Z [36;1mpython3 test_maintenance_contract.py[0m
+2026-11-21T03:37:11.1786210Z shell: /bin/bash -e {0}
+2026-11-21T03:37:11.1786860Z ##[endgroup]
+2026-11-21T03:37:12.2985350Z Maintenance checks passed: all original preference/UI/toggle assets preserved; settings defaults and uninstall script unchanged; quiet installer verified; compression round-trip identical; data XZ savings 5840 bytes; only allowlisted runtime modules added; diagnostic emitters removed
+2026-11-21T03:37:12.3297150Z ##[group]Run actions/upload-artifact@v4
+2026-11-21T03:37:12.3298090Z with:
+2026-11-21T03:37:12.3298720Z   name: Stheno-arm64e-RootHide-Gestures-test
+2026-11-21T03:37:12.3299640Z   path: build/*.deb
+build/build-manifest.json
+
+2026-11-21T03:37:12.3300820Z   if-no-files-found: error
+2026-11-21T03:37:12.3301570Z   retention-days: 7
+2026-11-21T03:37:12.3302060Z   compression-level: 6
+2026-11-21T03:37:12.3304140Z   overwrite: false
+2026-11-21T03:37:12.3304800Z   include-hidden-files: false
+2026-11-21T03:37:12.3305520Z ##[endgroup]
+2026-11-21T03:37:12.6207030Z (node:4841) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-11-21T03:37:12.6208950Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-11-21T03:37:12.6293390Z With the provided path, there will be 2 files uploaded
+2026-11-21T03:37:12.6299400Z Artifact name is valid!
+2026-11-21T03:37:12.6300610Z Root directory input is valid!
+2026-11-21T03:37:13.0566430Z Beginning upload of artifact content to blob storage
+2026-11-21T03:37:13.1391180Z (node:4841) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+2026-11-21T03:37:13.7414930Z Uploaded bytes 518236
+2026-11-21T03:37:13.8202520Z Finished uploading artifact content to blob storage!
+2026-11-21T03:37:13.8204250Z SHA256 digest of uploaded artifact zip is 6bfa299779bb3ce800d55f67f6c29583951a5f332144741cdf8ce51bf0e3ba15
+2026-11-21T03:37:13.8205960Z Finalizing artifact upload
+2026-11-21T03:37:14.3497280Z Artifact Stheno-arm64e-RootHide-Gestures-test.zip successfully finalized. Artifact ID 14690311720
+2026-11-21T03:37:14.3500060Z Artifact Stheno-arm64e-RootHide-Gestures-test has been successfully uploaded! Final size is 518236 bytes. Artifact ID is 14690311720
+2026-11-21T03:37:14.3512650Z Artifact download URL: https://github.com/QingC12/stheno-arm64e-gesture/actions/runs/44861849716/artifacts/14690311720
+2026-11-21T03:37:14.3969480Z Post job cleanup.
+2026-11-21T03:37:14.5766590Z [command]/usr/local/bin/git version
+2026-11-21T03:37:14.5886930Z git version 2.55.0
+2026-11-21T03:37:14.5928100Z Copying '/Users/runner/.gitconfig' to '/Users/runner/work/_temp/ca8be6e0-94eb-4f7a-b2f7-6c5849ed7a8e/.gitconfig'
+2026-11-21T03:37:14.5955520Z Temporarily overriding HOME='/Users/runner/work/_temp/ca8be6e0-94eb-4f7a-b2f7-6c5849ed7a8e' before making global git config changes
+2026-11-21T03:37:14.5958870Z Adding repository directory to the temporary git global config as a safe directory
+2026-11-21T03:37:14.5977160Z [command]/usr/local/bin/git config --global --add safe.directory /Users/runner/work/stheno-arm64e-gesture/stheno-arm64e-gesture
+2026-11-21T03:37:14.6211100Z [command]/usr/local/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-11-21T03:37:14.6334630Z [command]/usr/local/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-11-21T03:37:14.8526070Z [command]/usr/local/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-11-21T03:37:14.8651740Z http.https://github.com/.extraheader
+2026-11-21T03:37:14.8677800Z [command]/usr/local/bin/git config --local --unset-all http.https://github.com/.extraheader
+2026-11-21T03:37:14.8829070Z [command]/usr/local/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-11-21T03:37:15.0667570Z [command]/usr/local/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-11-21T03:37:15.0809930Z [command]/usr/local/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-11-21T03:37:15.2684380Z Cleaning up orphan processes
+2026-11-21T03:37:15.5837390Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/upload-artifact@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
