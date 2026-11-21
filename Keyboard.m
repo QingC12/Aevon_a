@@ -13,7 +13,6 @@ extern void *STHCopyInputFocusedModel(void);
 extern void *STHCopyInputFocusedModelWithFrame(STHRect *);
 extern void STHChooserReleaseSwift(void *);
 extern void STHCenterRunAnimation(void (^block)(void),int);
-extern void STHCardRunExpansion(void (^block)(void));
 extern void STHGestureInputFocusChanged(void *);
 extern BOOL STHSystemActionsEnabled(void);
 #endif
@@ -41,6 +40,7 @@ static __weak id owner;
 static double saved[3], applied[3];
 static BOOL changed;
 static BOOL localInput;
+static NSUInteger inputReadGeneration;
 static void reconcileKeyboard(void *frameBox,BOOL nativeDelivery,void *verifiedModel);
 void STHKeyboardShow(void *frameBox);
 
@@ -90,6 +90,7 @@ void STHKeyboardModelDidMinimize(void *model) {
  BOOL owns=owner==value;
  BOOL pending=candidate==value;
  if(!owns&&!pending)return;
+ inputReadGeneration++;
 #if !defined(STH_KEYBOARD_TEST) || defined(STH_KEYBOARD_INPUT_TEST)
  if(owns||(pending&&!owner))STHStopLayout();
 #endif
@@ -101,6 +102,7 @@ void STHKeyboardModelDidMinimize(void *model) {
 void STHKeyboardSetLocalInput(BOOL active){
  if(!NSThread.isMainThread)return;
  localInput=active;
+ inputReadGeneration++;
 #if !defined(STH_KEYBOARD_TEST) || defined(STH_KEYBOARD_INPUT_TEST)
  STHResetInputFocusReadEpoch();
 #endif
@@ -112,17 +114,7 @@ void STHKeyboardSetLocalInput(BOOL active){
  }
 }
 #if !defined(STH_KEYBOARD_TEST) || defined(STH_KEYBOARD_INPUT_TEST)
-static void inputOwnerChanged(void){
- if(localInput)return;
- STHRect physical={0,0,0,0};
- void *model=STHSystemActionsEnabled()?STHCopyInputFocusedModelWithFrame(&physical):NULL;
- if(!model){
-  if(owner||candidate)STHCenterRunAnimation(^{
-   if(localInput)return;
-   STHStopLayout();restoreCard();candidate=nil;candidateAt=0;candidateConfirmed=NO;
-  },0);
-  return;
- }
+static void acceptInputOwner(void *model,STHRect physical){
  STHKeyboardInputFocus(model);
  if(physical.w>=80&&physical.h>=80&&owner!=(__bridge id)model){
 #if defined(STH_KEYBOARD_TEST)
@@ -135,6 +127,26 @@ static void inputOwnerChanged(void){
   STHCenterRunAnimation(^{if(!localInput)reconcileKeyboard((__bridge void *)frame,NO,model);},0);
  }
  STHChooserReleaseSwift(model);
+}
+static void recheckInputOwner(NSUInteger generation){
+ if(generation!=inputReadGeneration||localInput||(!owner&&!candidate))return;
+ STHRect physical={0,0,0,0};
+ void *model=STHSystemActionsEnabled()?STHCopyInputFocusedModelWithFrame(&physical):NULL;
+ if(model){acceptInputOwner(model,physical);return;}
+ // A failed read is not itself a keyboard hide. Confirm once on the next
+ // main-queue turn before restoring a card; never poll or extend the lease.
+ STHCenterRunAnimation(^{
+  if(generation!=inputReadGeneration||localInput)return;
+  STHStopLayout();restoreCard();candidate=nil;candidateAt=0;candidateConfirmed=NO;
+ },0);
+}
+static void inputOwnerChanged(void){
+ if(localInput)return;
+ NSUInteger generation=++inputReadGeneration;
+ STHRect physical={0,0,0,0};
+ void *model=STHSystemActionsEnabled()?STHCopyInputFocusedModelWithFrame(&physical):NULL;
+ if(model){acceptInputOwner(model,physical);return;}
+ if(owner||candidate)dispatch_async(dispatch_get_main_queue(),^{recheckInputOwner(generation);});
 }
 #if !defined(STH_KEYBOARD_TEST)
 __attribute__((constructor)) static void observeKeyboardOwner(void){
@@ -154,6 +166,7 @@ static void reconcileKeyboard(void *frameBox,BOOL nativeDelivery,void *verifiedM
  // that borrow only for this synchronous call; native delivery always rechecks.
  void *confirmed=verifiedModel?:STHCopyInputFocusedModel();
  if(confirmed){
+  inputReadGeneration++;
   if(candidate!=(__bridge id)confirmed)STHKeyboardInputFocus(confirmed);
   if(!verifiedModel)STHChooserReleaseSwift(confirmed);
  }
@@ -216,12 +229,7 @@ static void reconcileKeyboard(void *frameBox,BOOL nativeDelivery,void *verifiedM
  if (enlarge) {
   for (int i=0;i<3;i++) { applied[i]=target[i]; saved[i]=original[i]; }
   owner=focus;changed=YES;
-#if !defined(STH_KEYBOARD_TEST) || defined(STH_KEYBOARD_INPUT_TEST)
-  double scale=target[0],x=target[1],y=target[2];
-  STHCardRunExpansion(^{const double geometry[3]={scale,x,y};STHNativeSetKeyboardGeometry((__bridge void *)focus,geometry);});
-#else
   STHNativeSetKeyboardGeometry((__bridge void *)focus,target);
-#endif
  }
  if(!eligible){candidate=nil;candidateAt=0;candidateConfirmed=NO;}
 #if !defined(STH_KEYBOARD_TEST) || defined(STH_KEYBOARD_INPUT_TEST)
@@ -232,6 +240,7 @@ static void reconcileKeyboard(void *frameBox,BOOL nativeDelivery,void *verifiedM
 void STHKeyboardShow(void *frameBox){reconcileKeyboard(frameBox,YES,NULL);}
 
 void STHKeyboardHide(void) {
+ inputReadGeneration++;
 #if !defined(STH_KEYBOARD_TEST) || defined(STH_KEYBOARD_INPUT_TEST)
  STHStopLayout();
 #endif

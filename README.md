@@ -2,7 +2,15 @@
 
 This private project reconstructs the requested portrait-gesture dispatch from the supplied Stheno binary. It is a replacement gesture module with ABI bridges, **not a recovery of the original full Swift source tree**.
 
-# Stheno 2.0.29 scoped card expansion and interrupted input handoffs
+# Stheno 2.0.30 original card transition and bounded owner-loss confirmation
+
+Device feedback reports slight composer occlusion and unsmooth card expansion in 2.0.29; 2.0.28 did not occlude the composer. The application keyboard and inset binaries being unchanged did not isolate the host animation from the visible input result. The card-only damping-floor spring introduced in 2.0.29 is removed entirely, including its source/object/export and obsolete release gates. Expansion again writes scale/offset directly in the original native caller transaction, exactly as in 2.0.28. An IPC wakeup that follows native delivery retains the existing original-parameter withAnimation fallback; no new duration, damping, curve or fixed delay is introduced. Target geometry, keyboard height, notification delivery, all app editor protections, transport and the native ABI remain frozen to 2.0.28. The 2.0.29 gesture-interruption fix is retained byte for byte.
+
+An unavailable input snapshot was previously treated as an immediate final focus loss, restoring the card; the same owner on a subsequent valid read then expanded it again. Only this nil-read branch now confirms once on the next main-queue turn before restoring. A positive owner observation or native delivery, native hide, local-input transition or relevant minimize cancels obsolete confirmation by generation. A persistent nil restores once; there is no timer/polling, lease extension, native callback replay or changed first-frame target. This removes a reproducible shrink/re-enlarge state sequence, not a proven unique explanation of the reported physical-device jitter.
+
+A new fixture derives the card rectangle from current scale/offset rather than returning a fixed test rectangle. The exact SHA-locked 2.0.29 host source must fail separate nested-spring and transient-nil assertions; the new source must keep the target/saved snapshot unchanged across transient loss and still restore boundedly on genuine loss. Existing input timing, cross-process bus, fullscreen-to-card handoff, dock and gesture regression suites remain enabled. Final package checks compare both 2.0.28 and 2.0.29, preserve the accepted keyboard binaries and reject a linked card-only spring. Device composer clearance, smoothness and touch acceptance are still required.
+
+# Stheno 2.0.29 scoped card expansion and interrupted input handoffs (animation superseded by 2.0.30)
 
 Device feedback accepts 2.0.28 application keyboard/composer placement. This release freezes 80 other production sources/resources against the remote 2.0.28 archive, including all app-side keyboard notifications, insets, editor protection, frame transport, native bridges and ring geometry/animations. Only the host card's scale/offset expansion gets a separate spring transaction: response remains 0.25/nativeSpeed, with damping bounded below by 1 to remove card overshoot. Native keyboard show/hide stay in their original transaction and retain exactly-once delivery. There is no notification replay, delay, per-app adjustment or new keyboard geometry.
 

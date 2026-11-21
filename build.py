@@ -6,7 +6,7 @@ from update18_patch import patch_update18
 from core_native_bridge import migrate_native_bridge
 from compact_sign import compact_signature
 ROOT=Path(__file__).resolve().parent
-VERSION='2.0.29'
+VERSION='2.0.30'
 os.chdir(ROOT)
 OUT=ROOT/'build';OUT.mkdir(exist_ok=True)
 def run(*args,**kw): return subprocess.check_output([str(x) for x in args],**kw)
@@ -144,7 +144,7 @@ run('xcrun','clang','-target','arm64e-apple-ios16.1','-isysroot',run('xcrun','--
 action_binary=OUT/'SthenoSystemActions.dylib'
 sdk=run('xcrun','--sdk','iphoneos','--show-sdk-path').decode().strip()
 action_objects=[]
-for source in ['SystemActions.m','SystemActionRuntime.m','SystemActionPicker.m','SystemActionIcons.m','SystemActionHooks.m','SystemCapture.m','SystemActionNative.S','ChooserCatalog.m','ChooserState.m','ChooserNative.S','CenterChooserBridge.m','CenterChooserNative.S','SystemVisibilityBridge.m','DockQueueBridge.m','DockQueueNative.S','CardExpansion.S','Gesture.m','Keyboard.m','DefaultSize.m','LayoutPublisher.m','LayoutBus.m','KeyboardFocusBus.m','KeyboardOwner.m','ChooserInputNative.m',native_stubs]:
+for source in ['SystemActions.m','SystemActionRuntime.m','SystemActionPicker.m','SystemActionIcons.m','SystemActionHooks.m','SystemCapture.m','SystemActionNative.S','ChooserCatalog.m','ChooserState.m','ChooserNative.S','CenterChooserBridge.m','CenterChooserNative.S','SystemVisibilityBridge.m','DockQueueBridge.m','DockQueueNative.S','Gesture.m','Keyboard.m','DefaultSize.m','LayoutPublisher.m','LayoutBus.m','KeyboardFocusBus.m','KeyboardOwner.m','ChooserInputNative.m',native_stubs]:
  obj=OUT/(Path(source).stem+'.o')
  args=['xcrun','clang','-target','arm64e-apple-ios16.1','-isysroot',sdk,'-Oz','-c',source,'-o',obj]
  if str(source).endswith('.m'):args.insert(7,'-fobjc-arc')
