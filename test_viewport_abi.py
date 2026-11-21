@@ -2,7 +2,7 @@
 from pathlib import Path
 import json,struct,sys,plistlib
 from test_published_bridge_abi import Image,calls
-from embed_orion import exports
+from embed_orion import exports,commands
 R=Path(__file__).resolve().parent
 folder=Path(sys.argv[1]) if len(sys.argv)>1 else R/'build'
 m=json.loads((folder/'build-manifest.json').read_text())
@@ -29,4 +29,12 @@ assert '_STHVPublishLayoutPolicyState' in exports(action.data)
 assert '_STHVObserveApplicationLaunch' in exports(client.data)
 for removed in [b'FBSWorkspaceScenesClient',b'sceneID:updateWithSettingsDiff:transitionContext:completion:',b'_boundsForInterfaceOrientation:',b'NSUserDefaultsDidChangeNotification']:
  assert removed not in client.data,('Global startup-sensitive hook still linked',removed)
+initializer_slots=0
+for cmd,pos,length in commands(client.data):
+ if cmd!=0x19:continue
+ count=struct.unpack_from('<I',client.data,pos+64)[0]
+ for index in range(count):
+  section=pos+72+index*80
+  if client.data[section:section+16].split(b'\0')[0]==b'__mod_init_func':initializer_slots+=struct.unpack_from('<Q',client.data,section+40)[0]//8
+assert initializer_slots==1,('Unexpected extra prelaunch initializer',initializer_slots)
 print('Viewport33 ARM64e ABI: original avoidance observers skipped, old callbacks absent, 21 utility bridges, physical hit filter replaces stale legacy cache, original spring targets unchanged, standalone new client exports complete')
