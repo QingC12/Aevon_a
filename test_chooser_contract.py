@@ -30,6 +30,7 @@ assert 'scene.activationState == .foregroundActive' in ui and 'if input.prepareR
 assert 'panelInput?.close()' in ui and 'input.open()' in ui
 assert 'routingReady: assertion != nil' in inputSource and 'assertion != nil, let window' in inputSource
 assert 'reloadInputViews' not in inputSource and 'UIWindow.didResignKeyNotification' in inputSource
+assert 'private func invalidate() { guard !closing else' in inputSource and 'if let acquired { STHReleaseChooserKeyboardFocus(acquired) }' in inputSource
 assert 'private func attach(to window: UIWindow, hostView: UIView)' in ui
 assert 'surface.window === w' in ui and 'sceneRank' in ui and 'lifecycleChanged' in ui
 assert 'host.view.isHidden = !visible' not in ui

@@ -35,9 +35,9 @@ int main(void){@autoreleasepool{
   c.expectedScene=[NSObject new];c.expectedWindow=[NSObject new];
   c.scene=[TestAssertion new];c.scene.name=@"release-scene";c.steal=[TestAssertion new];c.steal.name=@"release-window";
   NSObject *token=createChooserFocusToken(c,c.expectedScene,c.expectedWindow);assert(token);
-  assert([events isEqual:@[@"lock",@"steal"]]);invalidateFocus(token);invalidateFocus(token);token=nil;
+  assert(([events isEqual:@[@"lock",@"steal"]]));invalidateFocus(token);invalidateFocus(token);token=nil;
   assert(c.scene.invalidations==1&&c.steal.invalidations==1);
-  assert([events isEqual:@[@"lock",@"steal",@"release-window",@"release-scene"]]);
+  assert(([events isEqual:@[@"lock",@"steal",@"release-window",@"release-scene"]]));
   events=[NSMutableArray new];c.steal=nil;
   assert(!createChooserFocusToken(c,c.expectedScene,c.expectedWindow));assert(c.scene.invalidations==2);
   c.scene=nil;events=[NSMutableArray new];assert(!createChooserFocusToken(c,c.expectedScene,c.expectedWindow));

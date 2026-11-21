@@ -33,7 +33,12 @@ final class ChooserInputSession: NSObject, ObservableObject {
         guard let window, !window.isHidden,
               window.windowScene?.activationState == .foregroundActive else { return false }
         routingAttempted = true
-        assertion = STHAcquireChooserKeyboardFocus(window)
+        let acquired = STHAcquireChooserKeyboardFocus(window)
+        guard !closing else {
+            if let acquired { STHReleaseChooserKeyboardFocus(acquired) }
+            return false
+        }
+        assertion = acquired
         if assertion == nil { routingError = "搜索键盘未取得系统输入焦点" }
         return assertion != nil
     }
@@ -64,7 +69,7 @@ final class ChooserInputSession: NSObject, ObservableObject {
         observations.removeAll()
     }
     func finish() { close(); STHKeyboardSetLocalInput(false); invalidated = nil }
-    private func invalidate() { close(); invalidated?() }
+    private func invalidate() { guard !closing else { return }; close(); invalidated?() }
     deinit {
         for token in observations { NotificationCenter.default.removeObserver(token) }
         if let assertion { STHReleaseChooserKeyboardFocus(assertion) }
