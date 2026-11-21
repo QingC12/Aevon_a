@@ -94,8 +94,9 @@ static STHGestureState *registerState(void *m) {
 int STHClassify(void *m,CGPoint p) {
  ensureBase();
  STHGestureState *s=registerState(m);
- // Preserve the core's keyboard exclusion so the scene can skip this card.
- if (s.dragActive){
+ // A minimized card has its own visible hit target, independent of keyboard exclusion.
+ BOOL minimized=STHNativeMinimized(m);
+ if (s.dragActive&&!minimized){
   double now=CACurrentMediaTime();
   if(s.moving && s.lastActivity>0 && now-s.lastActivity>.35){
    resetGestureState(s);
@@ -107,10 +108,10 @@ int STHClassify(void *m,CGPoint p) {
   }
  }
  int original=STHNativeClassify(m,p);
- if(original==10)return original;
  CGRect content=STHNativeRect(m);
- BOOL inside=original!=7&&CGRectContainsPoint(CGRectInset(content,4,4),p);
- BOOL dockedInside=inside&&STHNativeMinimized(m);
+ BOOL dockedInside=minimized&&!CGRectIsEmpty(content)&&!CGRectIsNull(content)&&CGRectContainsPoint(content,p);
+ if(original==10&&!dockedInside)return original;
+ BOOL inside=!minimized&&original!=7&&CGRectContainsPoint(CGRectInset(content,4,4),p);
  if(dockedInside)original=4;
  else if(inside)original=6;
  s=registerState(m);
@@ -165,6 +166,7 @@ void STHSetup(void *drag,void *m) {
   if(!s)return;
  }
  s.dragActive=YES;s.pendingRehit=NO;s.lastActivity=CACurrentMediaTime();
+ if(s.docked){*hit(m)=4;*latch(m)=0;return;}
  if(s.zone==ZContent){
 #if !defined(STH_ROUTING_TEST)
   extern void STHKeyboardFocus(void *);
@@ -184,6 +186,7 @@ void STHUpdate(void *drag,void *m) {
  if(s.zone==ZContent)return;
  CGSize translation=STHNativeTranslation(drag);
  BOOL displaced=hypot(translation.width,translation.height)>3.0;
+ if(s.docked){s.moving=s.moving||displaced;return;}
  if (!s||s.zone==ZOriginal||s.zone==ZReturnPortrait){if(displaced)s.moving=YES;if(!s.acted)STHNativeUpdate(drag,m);return;}
  if (s.zone==ZRotate||s.zone==ZReset||s.acted) return;
  if (s.zone==ZCorner) {
@@ -218,6 +221,11 @@ void STHEnd(void *drag,void *m) {
  ensureBase();
  STHGestureState *s=registerState(m);if(!s)return;
  s.active=NO;s.dragActive=NO;
+ if(s.docked){
+  CGSize t=STHNativeTranslation(drag);
+  if(!s.acted&&!s.moving&&hypot(t.width,t.height)<=10){s.acted=YES;STHNativeDock(m);}
+  *latch(m)=0;finishGestureState(s);return;
+ }
  if(s.zone==ZContent){*hit(m)=6;*latch(m)=0;finishGestureState(s);return;}
  if (s.zone==ZOriginal||s.zone==ZReturnPortrait){if(!*latch(m)&&!s.acted)STHNativeEnd(drag,m);finishGestureState(s);return;}
  CGSize t=STHNativeTranslation(drag);
@@ -242,6 +250,7 @@ void STHEnd(void *drag,void *m) {
 }
 void STHLong(void *m) {
  STHGestureState *s=registerState(m);if(!s)return;
+ if(s.docked)return;
  if(s.zone==ZContent){*latch(m)=0;return;}
  if (!s||s.zone==ZOriginal) {
   // The underlying recognizer is now .25s. Preserve the original .5s elsewhere.

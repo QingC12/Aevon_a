@@ -8,6 +8,7 @@
 @property CGSize offset;
 @property CGRect card;
 @property NSUInteger orientation;
+@property BOOL minimized;
 @end
 @implementation Model
 @end
@@ -15,6 +16,7 @@ static int showCalls,hideCalls,writes;
 static BOOL inOriginalTransaction;
 CGRect STHNativeRect(void *p) { return ((__bridge Model *)p).card; }
 NSUInteger STHNativeOrientation(void *p) { return ((__bridge Model *)p).orientation; }
+BOOL STHNativeMinimized(void *p) { return ((__bridge Model *)p).minimized; }
 double STHNativeGetScale(void *p) { return ((__bridge Model *)p).scale; }
 CGSize STHNativeGetOffset(void *p) { return ((__bridge Model *)p).offset; }
 void STHNativeSetKeyboardGeometry(void *p,const double *v) {
@@ -80,6 +82,16 @@ int main(void) {
   b.orientation=3;show(b,frame);assert(writes==before+1);
   b.orientation=1;STHKeyboardFocus((__bridge void *)b);candidateAt-=3;
   STHKeyboardShow((__bridge void *)frame);assert(writes==before+1);
+  STHKeyboardHide();
+  Model *docked=make();show(docked,frame);assert(owner==docked);
+  docked.minimized=YES;STHKeyboardModelDidMinimize((__bridge void *)docked);
+  assert(!owner&&!candidate&&candidateAt==0&&fabs(docked.scale-.8)<.001);
+  before=writes;STHKeyboardModelDidMinimize((__bridge void *)docked);
+  show(docked,frame);assert(!owner&&!candidate&&writes==before);
+  docked.minimized=NO;show(docked,frame);assert(owner==docked);STHKeyboardHide();
+  show(a,frame);b.minimized=YES;
+  STHKeyboardModelDidMinimize((__bridge void *)b);assert(owner==a);
+  STHKeyboardHide();
   printf("Keyboard routing passed: %d native show, %d hide, %d geometry writes\n",showCalls,hideCalls,writes);
  }
  return 0;

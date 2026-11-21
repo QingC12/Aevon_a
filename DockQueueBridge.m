@@ -2,6 +2,7 @@
 #import <UIKit/UIKit.h>
 #import "DockOrientation.h"
 #include <stdbool.h>
+#import <dlfcn.h>
 extern void *STHDockCopyFloating(void);
 extern size_t STHChooserManagersCount(void *);
 extern void *STHChooserCopyManagerAt(size_t,void *);
@@ -43,12 +44,15 @@ void STHDockReflow(void){
  void *array=STHDockCopyFloating();
  if(!array){reflowing=NO;return;}
  models=[NSMutableArray array];
+ static void (*keyboardMinimized)(void *);
+ if(!keyboardMinimized)keyboardMinimized=dlsym(RTLD_DEFAULT,"STHKeyboardModelDidMinimize");
  blockedSides=0;
  @try{
   size_t n=STHChooserManagersCount(array);if(n>4096)return;
   for(size_t i=0;i<n;i++){
    void *m=STHChooserCopyManagerAt(i,array);
    if(STHDockNativeMinimized(m)){
+    if(keyboardMinimized)keyboardMinimized(m);
     CGSize offset=STHDockNativeOffset(m);
     if(!STHDockUsesNativeReflow((unsigned)STHDockNativeOrientation(m)))blockedSides|=offset.width<0?1u:2u;
     [models addObject:[NSValue valueWithPointer:m]];

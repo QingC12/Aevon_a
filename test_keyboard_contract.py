@@ -28,6 +28,9 @@ assert 'STHKeyboardFocus(m);' not in gesture.split('int STHClassify',1)[1].split
 assert 'BOOL ownerMismatch=currentOwner&&currentOwner!=focus;' in keyboard
 assert 'if(ownerMismatch){restoreCard();currentOwner=nil;}' in keyboard
 assert 'candidate=nil;' in keyboard and 'candidateAt=0;' in keyboard
+assert 'void STHKeyboardModelDidMinimize(void *model)' in keyboard
+assert 'STHNativeMinimized((__bridge void *)focus)' in keyboard
+assert 'keyboardMinimized(m)' in (root/'DockQueueBridge.m').read_text()
 assert 'queueHeld' not in delivery and 'dispatch_after' not in delivery
 assert 'if(status==1||status==2)' in delivery
 assert 'STHReadPreview' in scene

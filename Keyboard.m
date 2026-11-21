@@ -16,6 +16,8 @@ extern void STHStopLayout(void);
 
 extern CGRect STHNativeRect(void *);
 extern NSUInteger STHNativeOrientation(void *);
+extern BOOL STHNativeMinimized(void *);
+void STHKeyboardModelDidMinimize(void *model);
 extern double STHNativeGetScale(void *);
 extern CGSize STHNativeGetOffset(void *);
 extern void STHNativeSetKeyboardGeometry(void *,const double *);
@@ -38,6 +40,7 @@ static CGRect viewport(void) {
 
 void STHKeyboardFocus(void *model) {
  if (![NSThread isMainThread] || !model) return;
+ if(STHNativeMinimized(model)){STHKeyboardModelDidMinimize(model);return;}
  candidate=(__bridge id)model;
  candidateAt=CACurrentMediaTime();
 #if !defined(STH_KEYBOARD_TEST)
@@ -60,6 +63,20 @@ static void restoreCard(void) {
   geometry[1]=saved[1]; geometry[2]=saved[2];
  }
  STHNativeSetKeyboardGeometry(model,geometry);
+}
+
+// Called by dock reconciliation inside the existing native transition.
+void STHKeyboardModelDidMinimize(void *model) {
+ if(!NSThread.isMainThread||!model)return;
+ id value=(__bridge id)model;
+ BOOL owns=owner==value;
+ BOOL pending=candidate==value;
+ if(!owns&&!pending)return;
+#if !defined(STH_KEYBOARD_TEST)
+ if(owns||(pending&&!owner))STHStopLayout();
+#endif
+ if(owns)restoreCard();
+ if(pending){candidate=nil;candidateAt=0;}
 }
 
 void STHKeyboardShow(void *frameBox) {
@@ -85,7 +102,7 @@ void STHKeyboardShow(void *frameBox) {
    && CGRectGetMinY(keyboard)>CGRectGetMinY(screen)
    && CGRectGetMinY(keyboard)<CGRectGetMaxY(screen)-40
    && CGRectGetMaxY(keyboard)>=CGRectGetMaxY(screen)-20;
- if (eligible && STHNativeOrientation((__bridge void *)focus)!=1) eligible=NO;
+ if (eligible && (STHNativeMinimized((__bridge void *)focus)||STHNativeOrientation((__bridge void *)focus)!=1)) eligible=NO;
  // Repeated show/frame changes must never overwrite the original snapshot.
  if (currentOwner && currentOwner==focus && eligible) {
   STHNativeKeyboardShow(frameBox);

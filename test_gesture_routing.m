@@ -96,6 +96,18 @@ int main(void) {
   STHSetup(&drag,m);STHTap(m,1);
   assert(docked==1&&!testMinimized);
   testMinimized=NO;
+  for(int i=0;i<200;i++){
+   nativeHit=10;testMinimized=YES;drag=(Drag){CGSizeZero,NO};
+   assert(STHClassify(m,CGPointMake(10,200))==10);
+   // Full thumbnail edges remain clickable; no content inset is applied.
+   assert(STHClassify(m,CGPointMake(21,21))==4);
+   int prior=docked, priorEnds=ends, priorSetups=setups;
+   STHSetup(&drag,m);
+   if(i%2){STHTap(m,1);STHEnd(&drag,m);}else{STHEnd(&drag,m);STHTap(m,1);}
+   assert(docked==prior+1&&!testMinimized&&ends==priorEnds&&setups==priorSetups);
+   assert(STHClassify(m,CGPointMake(120,120))==10);
+  }
+  puts("Gesture dock regression: keyboard exclusion preserved except the visible minimized hit target; one restore per gesture");
  }
  return 0;
 }

@@ -59,15 +59,14 @@ enter STHChooserClearMinimized
  callcore 0xb091c
  str x0,[sp,#24]
  strb wzr,[sp]
+ // Transfer one retained model and the two owned key paths to the setter.
+ mov x0,x20
+ callcore 0xb0a2c
  mov x0,sp
  mov x1,x20
  ldp x2,x3,[sp,#16]
  mov x21,#0
  callcore 0xaeedc
- ldr x0,[sp,#16]
- callcore 0xb0a0c
- ldr x0,[sp,#24]
- callcore 0xb0a0c
  add sp,sp,#32
  leave
 

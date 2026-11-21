@@ -113,15 +113,14 @@ begin STHNativeSetMinimized
  add x0,x0,#0x8c0
  target 0xb091c
  str x0,[sp,#24]
+ // The setter consumes self and both owned key paths, unlike the getter.
+ mov x0,x20
+ target 0xb0a2c
  mov x0,sp
  mov x1,x20
  ldp x2,x3,[sp,#16]
  mov x21,#0
  target 0xaeedc
- ldr x0,[sp,#16]
- target 0xb0a0c
- ldr x0,[sp,#24]
- target 0xb0a0c
  add sp,sp,#32
  finish
 
