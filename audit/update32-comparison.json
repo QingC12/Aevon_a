@@ -1,0 +1,44 @@
+{
+  "artifact": "stheno_2.0.32_iphoneos-arm64e.deb",
+  "artifact_sha256": "1fe1ff0e50a21062ff234f73314b865e14c3d10161d269e056d5c455106beb40",
+  "artifact_size": 489600,
+  "baseline_version": "2.0.31",
+  "baseline_sha256": "004b3bbb6059b24287a75085a3d674f46212125d6c255a08fe24d96b7bbb3a5c",
+  "baseline_size": 484800,
+  "package_bytes_delta": 4800,
+  "installed_logical_bytes": 2138272,
+  "baseline_installed_logical_bytes": 2119952,
+  "payload_files": 29,
+  "changed_files": [
+    {
+      "path": "./Library/MobileSubstrate/DynamicLibraries/SthenoSystemActions.dylib",
+      "before": 315408,
+      "after": 315664
+    },
+    {
+      "path": "./Library/MobileSubstrate/DynamicLibraries/SthenoViewport.dylib",
+      "before": 93024,
+      "after": 111088
+    }
+  ],
+  "unchanged_files": 27,
+  "added_files": [],
+  "removed_files": [],
+  "core_entire_file_unchanged": true,
+  "installer_scripts_resources_orion_unchanged": true,
+  "legacy_keyboard_libraries_remain_absent": true,
+  "original_animation_and_native_scene_commit_unchanged": true,
+  "independent_scene_reflow_restored": true,
+  "springboard_physical_authority_only": true,
+  "physical_hide_blocks_stale_positive_client_data": true,
+  "preserved_files_checked": 49,
+  "active_sources_reviewed": 54,
+  "build_commit": "a6bc1c93d88f5439134cae8952ea4decc10026bc",
+  "ci_run": 44922749451,
+  "ci_job": 136902128474,
+  "ci_artifact": 14714128733,
+  "all_ci_steps_success": 22,
+  "tracked_blobs_checked": 186,
+  "local_source_drift": [],
+  "device_tested": false
+}
