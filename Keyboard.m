@@ -12,6 +12,7 @@
 extern void *STHCopyInputFocusedModel(void);
 extern void STHChooserReleaseSwift(void *);
 extern void STHCenterRunAnimation(void (^block)(void),int);
+extern BOOL STHSystemActionsEnabled(void);
 #endif
 #if !defined(STH_KEYBOARD_TEST)
 extern void STHStartLayout(void *,CGRect);
@@ -50,7 +51,7 @@ static CGRect viewport(void) {
 }
 
 static void focusModel(void *model,BOOL confirmed) {
- if (![NSThread isMainThread] || !model) return;
+ if (![NSThread isMainThread] || !model || localInput) return;
  if(STHNativeMinimized(model)){STHKeyboardModelDidMinimize(model);return;}
  if(!confirmed)return; // A scene hit or drag is not evidence of text-input ownership.
  candidate=(__bridge id)model;candidateConfirmed=YES;
@@ -107,8 +108,14 @@ void STHKeyboardSetLocalInput(BOOL active){
 #if !defined(STH_KEYBOARD_TEST)
 static void inputOwnerChanged(void){
  if(localInput)return;
- void *model=STHCopyInputFocusedModel();
- if(!model)return;
+ void *model=STHSystemActionsEnabled()?STHCopyInputFocusedModel():NULL;
+ if(!model){
+  if(owner||candidate)STHCenterRunAnimation(^{
+   if(localInput)return;
+   STHStopLayout();restoreCard();candidate=nil;candidateAt=0;candidateConfirmed=NO;
+  },0);
+  return;
+ }
  STHKeyboardInputFocus(model);
  STHChooserReleaseSwift(model);
  if(latestKeyboardFrame&&CACurrentMediaTime()-latestKeyboardAt<1.0){
@@ -124,6 +131,10 @@ __attribute__((constructor)) static void observeKeyboardOwner(void){
 void STHKeyboardShow(void *frameBox) {
  if(localInput){STHNativeKeyboardShow(frameBox);return;}
 #if !defined(STH_KEYBOARD_TEST)
+ if(!STHSystemActionsEnabled()){
+  STHStopLayout();restoreCard();candidate=nil;candidateAt=0;candidateConfirmed=NO;
+  STHNativeKeyboardShow(frameBox);return;
+ }
  void *confirmed=STHCopyInputFocusedModel();
  if(confirmed){
   if(candidate!=(__bridge id)confirmed)STHKeyboardInputFocus(confirmed);

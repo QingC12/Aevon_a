@@ -94,6 +94,11 @@ int main(void) {
   show(a,frame);b.minimized=YES;
   STHKeyboardModelDidMinimize((__bridge void *)b);assert(owner==a);
   STHKeyboardHide();
+  b.minimized=NO;show(a,frame);assert(owner==a);
+  STHKeyboardSetLocalInput(YES);assert(!owner&&!candidate&&fabs(a.scale-.8)<.001);
+  before=writes;show(b,frame);assert(!owner&&!candidate&&writes==before);
+  STHKeyboardSetLocalInput(NO);show(b,frame);assert(owner==b&&b.scale>.8);
+  STHKeyboardHide();assert(fabs(b.scale-.8)<.001);
   printf("Keyboard routing passed: %d native show, %d hide, %d geometry writes\n",showCalls,hideCalls,writes);
  }
  return 0;
