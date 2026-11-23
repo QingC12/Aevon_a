@@ -1,5 +1,5 @@
-# 构建只产出 Actions artifact，不创建 Release，也不打 Tag。
-# permissions 固定为 contents: read，从权限层面阻止任何写 ref / 发布行为。
+# Build produces Actions artifacts only. It never creates a Release or a Tag.
+# permissions stays at contents: read so no ref write or publish step can run.
 name: Build arm64e gesture test
 on:
   workflow_dispatch:
@@ -43,6 +43,8 @@ jobs:
         run: |
           xcrun --sdk macosx clang -fobjc-arc -Wall -Wextra -Wno-unused-parameter test_viewport_host.m -framework Foundation -framework CoreGraphics -o /tmp/stheno-viewport-host
           /tmp/stheno-viewport-host
+          xcrun --sdk macosx clang -fobjc-arc -DSTH_SCREEN_AWAKE_TEST -Wall -Wextra -Werror test_screen_awake.m -framework Foundation -o /tmp/stheno-screen-awake
+          /tmp/stheno-screen-awake
           xcrun --sdk macosx clang -fobjc-arc -Wall -Wextra -Wno-unused-parameter test_viewport_client.m -framework Foundation -framework CoreGraphics -o /tmp/stheno-viewport-client
           /tmp/stheno-viewport-client
           python3 tests/test_viewport_contract.py

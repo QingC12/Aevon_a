@@ -27,5 +27,7 @@ assert 'sbPhysicalGeneration' in host and 'request.event' in host and 'request.k
 assert 'appRawDiagnostic' in client and 'noDockedKeyboard' in host and 'STHVPublishLayoutPolicyState' in host
 assert 'STHVClientHidden' in client and 'explicitHidden' in client and 'return 0;' in client
 assert 'STHGestureInputFocusChanged' in host
+assert 'STHScreenAwakeUpdate(current.count)' in host and 'STHScreenAwakeUpdate(0)' in host
+assert 'awakeMissingAt' in host and "'ScreenAwake.m'" in build
 assert 'STHVViewport' not in host
 print('Viewport32 contract: 36 legacy production sources retired; original avoidance registration disabled; no editor transforms; canonical scene/screen bridge; original spring; bounded cleanup; fresh owner and real-event fencing')

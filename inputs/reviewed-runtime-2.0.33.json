@@ -46,7 +46,7 @@
     "ViewportDiagnostics.h": "7ab7ad6bba73b1e801089fc1e474923b3492c7bf5e3a5b686d840e384f943aea",
     "ViewportGeometry.h": "a831ad791f38dddf1305b56d9b28b9bcccdc8a7f8481edbe29dc9a22fa5559ca",
     "ViewportHost.h": "49a503c40e55ccd2c763addbd87bcdb231e233347672b836bab9237b98373295",
-    "ViewportHost.m": "fc8112e013ef731cbe56887c58b27749b4e966e14dfda9b44d0bbca313ad158d",
+    "ViewportHost.m": "213987b54dc983ba697c42002a7e731c9e167ef4b2b14ad70cc2bac946e80ae1",
     "VisibilityPolicy.h": "0f5b52752f5d76a715f0b3a226a464378c7d68ea8feaa661739736a4dc5d201e",
     "installer/postinst": "645d6c24195b47f0ec2c19cf2985e7e3d1ef7d4b686b2de396716ee2bc5c119d",
     "resources/system-actions/app-picker.png": "0318c3cd7393af2dd03b53016562d2353d90ef7fc85a9dfb43470ed768a87d85",
@@ -144,11 +144,13 @@
     "ViewportDiagnostics.m": "bcfce225d44b9d42d2d375d08df3ab85f51c846847184a0a520ea9adad8cc33b",
     "ViewportGeometry.h": "a831ad791f38dddf1305b56d9b28b9bcccdc8a7f8481edbe29dc9a22fa5559ca",
     "ViewportHost.h": "49a503c40e55ccd2c763addbd87bcdb231e233347672b836bab9237b98373295",
-    "ViewportHost.m": "fc8112e013ef731cbe56887c58b27749b4e966e14dfda9b44d0bbca313ad158d",
+    "ViewportHost.m": "213987b54dc983ba697c42002a7e731c9e167ef4b2b14ad70cc2bac946e80ae1",
     "ViewportProcess.h": "8574dd59b7cf28a9b6a8ba74c22df5b0466db2ec53072b23620762a9dfd64a73",
     "ViewportStartup.h": "74b8666de07374aad3c5446c4466193990652e66da2065e31bf0abdf37c1ac37",
     "ViewportStartup.m": "645caafa93792cea87048825345a740b30b6ff5c671945cc5e03da95725042ca",
-    "VisibilityPolicy.h": "0f5b52752f5d76a715f0b3a226a464378c7d68ea8feaa661739736a4dc5d201e"
+    "VisibilityPolicy.h": "0f5b52752f5d76a715f0b3a226a464378c7d68ea8feaa661739736a4dc5d201e",
+    "ScreenAwake.h": "2b045370dd4402a2fe37c38c3e553086e5738363a336b6d94f6e58c3647382b5",
+    "ScreenAwake.m": "e2c1c45131c4c3115fa564e9266e1586169577ec83147cc29f6c6104b21f6430"
   },
   "scope": "post-launch main-application isolation and cached screen getter"
 }

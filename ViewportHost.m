@@ -9,6 +9,7 @@
 #import "ViewportBus.h"
 #import "ViewportAuthority.h"
 #import "ViewportDiagnostics.h"
+#import "ScreenAwake.h"
 extern void *STHDockCopyFloating(void);
 extern size_t STHChooserManagersCount(void *);
 extern void *STHChooserCopyManagerAt(size_t,void *);
@@ -37,6 +38,7 @@ static uint64_t localBarrierKey,localBarrierEvent;
 static STHVRect ownerKeyboard;
 static NSSet<NSString *> *publishedBundles;
 static BOOL processing;
+static double awakeMissingAt;
 static NSMutableDictionary<NSString *,NSDictionary *> *lastProbes;
 static void recordProbe(NSString *bundle){
  static NSMutableDictionary *lastFrames;STHVSnapshot frame={0};
@@ -150,10 +152,19 @@ static void updateRegistry(BOOL nativeTransaction){
  if(!STHSystemActionsEnabled()){
   restoreOwner(nativeTransaction,@"disabled");
   for(NSString *bundle in publishedBundles)publishHostLayout(bundle,NO,(STHVRect){0},(STHVRect){0});
-  publishedBundles=nil;processing=NO;return;
+  publishedBundles=nil;STHScreenAwakeUpdate(0);awakeMissingAt=0;processing=NO;return;
  }
  maintainOwner(nativeTransaction);
- void *array=STHDockCopyFloating();if(!array){processing=NO;return;}
+ void *array=STHDockCopyFloating();if(!array){
+  // A missing registry is not proof that every card closed. Keep the lease
+  // during a bounded outage, then fail closed so auto-lock cannot stay off.
+  if(STHScreenAwakeHeld()){
+   if(!awakeMissingAt)awakeMissingAt=hostNow();
+   else if(hostNow()-awakeMissingAt>10){STHScreenAwakeUpdate(0);awakeMissingAt=0;}
+  }else awakeMissingAt=0;
+  processing=NO;return;
+ }
+ awakeMissingAt=0;
  NSMutableSet *current=[NSMutableSet new];
  uint64_t key=STHVRequestOwner();
  @try{
@@ -183,6 +194,8 @@ static void updateRegistry(BOOL nativeTransaction){
   // Unavailable reads never change geometry; maintainOwner bounds actual loss.
   for(NSString *bundle in publishedBundles)if(![current containsObject:bundle])publishHostLayout(bundle,NO,(STHVRect){0},(STHVRect){0});
   publishedBundles=[current copy];
+  // Visible floating cards are the only reason to hold the system awake.
+  STHScreenAwakeUpdate(current.count);
  }@finally{STHChooserReleaseArray(array);processing=NO;}
 }
 void STHViewportSetLocalInput(BOOL active){
