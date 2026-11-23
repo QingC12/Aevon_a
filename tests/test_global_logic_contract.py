@@ -1,5 +1,5 @@
 from pathlib import Path
-R = Path(__file__).resolve().parent
+R = Path(__file__).resolve().parent.parent
 center = (R / "CenterChooser.swift").read_text()
 gesture = (R / "Gesture.m").read_text()
 dock = (R / "DockQueueBridge.m").read_text()

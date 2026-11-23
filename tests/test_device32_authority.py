@@ -1,6 +1,6 @@
 from pathlib import Path
 import json,subprocess,tempfile
-R=Path(__file__).resolve().parent
+R=Path(__file__).resolve().parent.parent
 f=json.loads((R/'inputs/device31-frame-fixture.json').read_text())
 def c(r):return '{'+','.join(repr(r[k]) for k in ('x','y','w','h'))+'}'
 code=['#include <assert.h>','#include <stdio.h>','#include "ViewportAuthority.h"','int main(void){',f'STHVRect card={c(f["card"])},scene={c(f["scene"])},screen={c(f["screen"])},sb={c(f["sb_scenario"])},mapped;']

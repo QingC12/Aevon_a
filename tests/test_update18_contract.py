@@ -1,6 +1,6 @@
 from pathlib import Path
 import re,ast,hashlib,json
-R=Path(__file__).resolve().parent
+R=Path(__file__).resolve().parent.parent
 build=ast.parse((R/'build.py').read_text())
 for name in ['CenterChooser.swift','DockQueue.swift','CenterChooserNative.S','DockQueueNative.S','SystemVisibilityBridge.m']:
  assert (R/name).exists(),name

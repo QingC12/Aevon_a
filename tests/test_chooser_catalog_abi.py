@@ -2,7 +2,7 @@
 from pathlib import Path
 import sys
 from test_published_bridge_abi import Image, calls
-ROOT=Path(__file__).resolve().parent
+ROOT=Path(__file__).resolve().parent.parent
 
 def verify(folder):
     image=Image(Path(folder)/'SthenoSystemActions.dylib')

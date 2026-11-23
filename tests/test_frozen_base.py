@@ -6,7 +6,7 @@ patch pipeline is gone from the tree.
 """
 from pathlib import Path
 import io,json,hashlib,tarfile
-R=Path(__file__).resolve().parent
+R=Path(__file__).resolve().parent.parent
 frozen=json.loads((R/'inputs/base-patched.json').read_text())
 raw=(R/'inputs/base-patched.deb').read_bytes()
 assert hashlib.sha256(raw).hexdigest()==frozen['frozen_deb_sha256']

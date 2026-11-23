@@ -3,7 +3,7 @@ This demonstrates an unsafe entry path, not a captured iPhone deadlock stack.
 """
 from pathlib import Path
 import hashlib,resource,subprocess,tempfile
-R=Path(__file__).resolve().parent
+R=Path(__file__).resolve().parent.parent
 old=(R/'inputs/reflow32-negative-control.txt').read_bytes()
 assert hashlib.sha256(old).hexdigest()=='17973dddfe2dbe0e5c9e179cd5b0b07b63edb14b9ff41d8fa50fc4f074a1c181'
 source=old.decode()

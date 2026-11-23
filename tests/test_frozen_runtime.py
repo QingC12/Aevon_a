@@ -1,7 +1,7 @@
 """Explicit reset: preserve unrelated features, retire old keyboard runtime."""
 from pathlib import Path
 import hashlib,json
-R=Path(__file__).resolve().parent
+R=Path(__file__).resolve().parent.parent
 m=json.loads((R/'inputs/reviewed-runtime-2.0.33.json').read_text())
 for collection in ['preserved_nonkeyboard_sources','reviewed_active_production']:
  for name,digest in m[collection].items():

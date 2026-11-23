@@ -1,7 +1,7 @@
 from pathlib import Path
 import json
 from macho import exports
-R=Path(__file__).resolve().parent
+R=Path(__file__).resolve().parent.parent
 manifest=json.loads((R/'build/build-manifest.json').read_text())
 image=(R/'build/SthenoSystemActions.dylib').read_bytes()
 names=exports(image)

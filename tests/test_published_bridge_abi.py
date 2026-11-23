@@ -9,7 +9,7 @@ import struct
 import json
 import sys
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parent.parent
 
 class Image:
     def __init__(self, path):

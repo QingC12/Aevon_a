@@ -1,7 +1,7 @@
 """Source/packaging boundaries only; UIKit layout correctness needs device data."""
 from pathlib import Path
 import json,re
-R=Path(__file__).resolve().parent
+R=Path(__file__).resolve().parent.parent
 retired=json.loads((R/'inputs/viewport31-retirement.json').read_text())
 for name in retired['production']+retired['tests']:
  assert not (R/name).exists(),('Retired implementation survived',name)

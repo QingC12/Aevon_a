@@ -1,7 +1,7 @@
 """Static contract for native picker/ring routing and opt-in system actions."""
 from pathlib import Path
 import io,json,struct,hashlib,tarfile
-R=Path(__file__).resolve().parent
+R=Path(__file__).resolve().parent.parent
 def branch(at,target,link=False):
  delta=target-at
  assert delta%4==0 and -(1<<27)<=delta<(1<<27)

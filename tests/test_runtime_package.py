@@ -1,7 +1,7 @@
 from pathlib import Path
 import hashlib,io,json,struct,sys,tarfile
 from macho import exports
-R=Path(__file__).resolve().parent
+R=Path(__file__).resolve().parent.parent
 folder=Path(sys.argv[1]) if len(sys.argv)>1 else R/'build'
 m=json.loads((folder/'build-manifest.json').read_text())
 def entries(pkg):

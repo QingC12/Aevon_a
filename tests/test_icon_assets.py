@@ -1,6 +1,6 @@
 from pathlib import Path
 import struct,zlib,hashlib
-R=Path(__file__).resolve().parent/'resources/system-actions'
+R=Path(__file__).resolve().parent.parent/'resources/system-actions'
 def decode(raw):
  assert raw[:8]==b'\x89PNG\r\n\x1a\n';p=8;data=b''
  while p<len(raw):

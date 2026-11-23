@@ -1,7 +1,7 @@
 """Boundary checks supplement the actual production-source runtime test."""
 from pathlib import Path
 import subprocess,tempfile,re
-R=Path(__file__).resolve().parent;s=(R/'AppSceneReflow.m').read_text();c=(R/'ViewportClient.m').read_text()
+R=Path(__file__).resolve().parent.parent;s=(R/'AppSceneReflow.m').read_text();c=(R/'ViewportClient.m').read_text()
 for token in ['NSUserDefaults','persistentDomainForName','FBSWorkspaceScenesClient','sceneID:updateWithSettingsDiff:','_boundsForInterfaceOrientation:','__attribute__((constructor))','openURL:','UIKeyboard']:
  assert token not in s,('Global launch/scene hook returned',token)
 start=s.index('static CGRect screenBounds(');end=s.index('static void publishState(',start)

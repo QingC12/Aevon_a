@@ -3,7 +3,7 @@ from pathlib import Path
 import json,struct,sys,plistlib
 from test_published_bridge_abi import Image,calls
 from macho import exports,commands
-R=Path(__file__).resolve().parent
+R=Path(__file__).resolve().parent.parent
 folder=Path(sys.argv[1]) if len(sys.argv)>1 else R/'build'
 m=json.loads((folder/'build-manifest.json').read_text())
 core=Image(folder/'Stheno.dylib');action=Image(folder/'SthenoSystemActions.dylib');client=Image(folder/'SthenoViewport.dylib')

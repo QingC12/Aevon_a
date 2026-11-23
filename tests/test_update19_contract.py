@@ -1,6 +1,6 @@
 from pathlib import Path
 import re,json
-R=Path(__file__).resolve().parent
+R=Path(__file__).resolve().parent.parent
 ui=(R/'CenterChooser.swift').read_text()
 session=(R/'CenterSelection.swift').read_text()
 catalog=(R/'ChooserCatalog.m').read_text()

@@ -1,7 +1,7 @@
 """Maintenance safety: preserve every user-facing option/resource and validate only reversible packaging changes."""
 from pathlib import Path
 import hashlib, io, json, lzma, plistlib, tarfile
-R=Path(__file__).resolve().parent
+R=Path(__file__).resolve().parent.parent
 base=R/'inputs/base.deb'
 manifest=json.loads((R/'build/build-manifest.json').read_text())
 artifact=R/'build'/manifest['artifact']

@@ -1,6 +1,6 @@
 from pathlib import Path
 import io,tarfile,struct
-R=Path(__file__).resolve().parent
+R=Path(__file__).resolve().parent.parent
 catalog=(R/'ChooserCatalog.m').read_text();ui=(R/'CenterChooser.swift').read_text();state=(R/'ChooserState.m').read_text();native=(R/'ChooserNative.S').read_text()
 for forbidden in ('setPersistentDomain','setObject:','STHSystemGrowApps','append','setValue:'):
  assert forbidden not in catalog,forbidden

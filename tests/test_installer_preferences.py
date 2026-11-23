@@ -1,7 +1,7 @@
 from pathlib import Path
 import subprocess, tempfile
 
-R = Path(__file__).resolve().parent
+R = Path(__file__).resolve().parent.parent
 script = (R / "installer/postinst").read_text()
 assert script.index('/var/mobile/Library/Preferences/com.nx.stheno.plist') < script.index('/var/jb/usr/local/share/stheno/com.nx.stheno.plist')
 assert 'TMP="$T.tmp.$$"' in script and 'ln "$TMP" "$T"' in script
