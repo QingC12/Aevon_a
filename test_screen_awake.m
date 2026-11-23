@@ -49,6 +49,7 @@ int main(void){@autoreleasepool{
  UIApplication *app=[UIApplication sharedApplication];
  app.idleTimerDisabled=NO;
  STHScreenAwakeUpdate(2);
+ NSLog(@"awake-debug held=%d idle=%d same=%d cls=%d shared=%d get=%d set=%d mode=%d",STHScreenAwakeHeld(),app.idleTimerDisabled,application==app,NSClassFromString(@"UIApplication")!=nil,[NSClassFromString(@"UIApplication") respondsToSelector:@selector(sharedApplication)],signature(app,@selector(isIdleTimerDisabled),'B',""),signature(app,@selector(setIdleTimerDisabled:),'v',"B"),applicationMode);
  assert(STHScreenAwakeHeld()&&app.idleTimerDisabled);
  STHScreenAwakeUpdate(0);
  assert(!STHScreenAwakeHeld()&&!app.idleTimerDisabled);
