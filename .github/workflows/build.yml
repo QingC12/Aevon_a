@@ -1,8 +1,6 @@
 name: Build arm64e gesture test
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
 permissions:
   contents: read
 jobs:

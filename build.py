@@ -132,12 +132,17 @@ sdk=run('xcrun','--sdk','iphoneos','--show-sdk-path').decode().strip()
 viewport_binary=OUT/'SthenoViewport.dylib'
 run('xcrun','clang','-target','arm64e-apple-ios16.1','-isysroot',sdk,'-fobjc-arc','-Oz','-dynamiclib','ViewportClient.m','ViewportStartup.m','AppSceneReflow.m','ViewportBus.m','ViewportDiagnostics.m','-framework','UIKit','-framework','Foundation','-framework','CoreGraphics','-framework','QuartzCore','-install_name','@loader_path/SthenoViewport.dylib','-o',viewport_binary)
 action_binary=OUT/'SthenoSystemActions.dylib'
-action_objects=[]
-for source in ['SystemActions.m','SystemActionRuntime.m','SystemActionPicker.m','SystemActionIcons.m','SystemActionHooks.m','SystemCapture.m','SystemActionNative.S','ChooserCatalog.m','ChooserState.m','ChooserNative.S','CenterChooserBridge.m','CenterChooserNative.S','SystemVisibilityBridge.m','DockQueueBridge.m','DockQueueNative.S','Gesture.m','DefaultSize.m','ViewportHost.m','ViewportBus.m','ViewportDiagnostics.m','ChooserInputNative.m',native_stubs]:
+action_sources=['SystemActions.m','SystemActionRuntime.m','SystemActionPicker.m','SystemActionIcons.m','SystemActionHooks.m','SystemCapture.m','SystemActionNative.S','ChooserCatalog.m','ChooserState.m','ChooserNative.S','CenterChooserBridge.m','CenterChooserNative.S','SystemVisibilityBridge.m','DockQueueBridge.m','DockQueueNative.S','Gesture.m','DefaultSize.m','ViewportHost.m','ViewportBus.m','ViewportDiagnostics.m','ChooserInputNative.m',native_stubs]
+def compile_source(source):
  obj=OUT/(Path(source).stem+'.o')
  args=['xcrun','clang','-target','arm64e-apple-ios16.1','-isysroot',sdk,'-Oz','-c',source,'-o',obj]
  if str(source).endswith('.m'):args.insert(7,'-fobjc-arc')
- run(*args);action_objects.append(obj)
+ proc=subprocess.run([str(x) for x in args],capture_output=True)
+ if proc.returncode:raise RuntimeError(f'{source}: {proc.stderr.decode()[-1200:]}')
+ return obj
+from concurrent.futures import ThreadPoolExecutor
+with ThreadPoolExecutor(max_workers=min(8,os.cpu_count() or 2)) as pool:
+ action_objects=list(pool.map(compile_source,action_sources))
 action_link=['xcrun','swiftc','-swift-version','5','-target','arm64e-apple-ios16.1','-sdk',sdk,'-Osize','-emit-library','-import-objc-header','RuntimeBridge.h','-module-name','SthenoRuntime','CenterChooser.swift','CenterSelection.swift','DockQueue.swift','ChooserSearch.swift','CenterGlyphGeometry.swift','ChooserInput.swift','ChooserFocusPolicy.swift',*action_objects,'-Xlinker','-install_name','-Xlinker','@loader_path/SthenoSystemActions.dylib','-Xlinker','-rpath','-Xlinker','/usr/lib/swift','-o',action_binary]
 run(*action_link)
 exported=run('xcrun','nm','-gjU',action_binary).decode().splitlines()
@@ -152,6 +157,27 @@ for filename,address,marker in [('CameraFix.dylib',0x40e4,b'CameraFixDiag.txt')]
  index=next(i for i,(m,b) in enumerate(rows) if m.name.endswith('/'+filename));image=bytearray(rows[index][1])
  assert marker in image and image[address:address+4]==bytes.fromhex('7f2303d5')
  image[address:address+4]=bytes.fromhex('c0035fd6');path=OUT/filename;path.write_bytes(image);quiet_companions.append((index,path))
+if os.environ.get('STHENO_FREEZE'):
+ # One-shot export: bake every binary patch into a fixed base for later builds.
+ import sys
+ frozen_rows=list(rows)
+ frozen_rows[mi]=(frozen_rows[mi][0],bytes(img))
+ for index,path in quiet_companions:frozen_rows[index]=(frozen_rows[index][0],path.read_bytes())
+ frozen=arwrite([('debian-binary',b'2.0\n'),('control.tar.xz',tarwrite(controls)),('data.tar.xz',optimized_data_xz(tarwrite(frozen_rows)))])
+ (ROOT/'inputs/base-patched.deb').write_bytes(frozen)
+ (ROOT/'inputs/Orion-private.arm64e').write_bytes(orion_image)
+ (ROOT/'core-native-stubs.S').write_bytes(Path(native_stubs).read_bytes())
+ (ROOT/'inputs/base-patched.json').write_text(json.dumps({
+  'version':VERSION,'frozen_deb_sha256':hashlib.sha256(frozen).hexdigest(),
+  'frozen_deb_bytes':len(frozen),'core_sha256':hashlib.sha256(bytes(img)).hexdigest(),
+  'core_bytes':len(img),'orion_sha256':hashlib.sha256(orion_image).hexdigest(),
+  'patch_entries':{hex(a):hex(t) for a,(_,t) in changes.items()},
+  'native_bridges':native_bridges,'merged_springboard_runtime':True,
+  'system_actions':system_actions_manifest,'update18':update18_manifest,
+  'bundled_orion':orion_manifest},indent=2)+'\n')
+ print(json.dumps({'frozen':True,'deb_sha256':hashlib.sha256(frozen).hexdigest(),
+  'deb_bytes':len(frozen),'core_sha256':hashlib.sha256(bytes(img)).hexdigest(),'core_bytes':len(img)}))
+ sys.exit(0)
 signature_savings={}
 for p in [core,orion,viewport_binary,action_binary]+[p for _,p in quiet_companions]:
  run('codesign','--force','--sign','-','--timestamp=none',p,stderr=subprocess.STDOUT)
