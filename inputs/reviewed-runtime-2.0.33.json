@@ -150,7 +150,7 @@
     "ViewportStartup.m": "645caafa93792cea87048825345a740b30b6ff5c671945cc5e03da95725042ca",
     "VisibilityPolicy.h": "0f5b52752f5d76a715f0b3a226a464378c7d68ea8feaa661739736a4dc5d201e",
     "ScreenAwake.h": "2b045370dd4402a2fe37c38c3e553086e5738363a336b6d94f6e58c3647382b5",
-    "ScreenAwake.m": "e2c1c45131c4c3115fa564e9266e1586169577ec83147cc29f6c6104b21f6430"
+    "ScreenAwake.m": "2ef62c69b8cc1a21eaa08d477bc2eb7e2ecb173a692976c380f4e265c0527710"
   },
   "scope": "post-launch main-application isolation and cached screen getter"
 }
