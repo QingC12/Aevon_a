@@ -1,3 +1,5 @@
+# 构建只产出 Actions artifact，不创建 Release，也不打 Tag。
+# permissions 固定为 contents: read，从权限层面阻止任何写 ref / 发布行为。
 name: Build arm64e gesture test
 on:
   workflow_dispatch:
