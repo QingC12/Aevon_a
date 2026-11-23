@@ -1,14 +1,19 @@
+"""Build stheno_2.0.33 from the frozen base.
+
+Every binary patch that used to run at build time is already baked into
+inputs/base-patched.deb and recorded in inputs/base-patched.json. This script
+only compiles the two source-linked dylibs and repacks the deb, so it needs
+nothing but a clang/swiftc toolchain and the debian archive tools.
+"""
 from pathlib import Path
-import hashlib,struct,subprocess,json,tarfile,io,copy,os,re,lzma
-from embed_orion import prepare
-from system_action_patch import patch_system_actions
-from update18_patch import patch_update18
-from core_native_bridge import migrate_native_bridge
+import hashlib,subprocess,json,tarfile,io,copy,os,re,lzma
+from concurrent.futures import ThreadPoolExecutor
 from compact_sign import compact_signature
 ROOT=Path(__file__).resolve().parent
-VERSION='2.0.33'
 os.chdir(ROOT)
 OUT=ROOT/'build';OUT.mkdir(exist_ok=True)
+FROZEN=json.loads((ROOT/'inputs/base-patched.json').read_text())
+VERSION=FROZEN['version']
 def run(*args,**kw): return subprocess.check_output([str(x) for x in args],**kw)
 def arread(data):
  assert data[:8]==b'!<arch>\n';out={};p=8
@@ -25,19 +30,6 @@ def arwrite(parts):
   out+=h+b
   if len(b)%2:out+=b'\n'
  return out
-def sections(b):
- n=struct.unpack_from('<I',b,16)[0];p=32;secs={};cmds=[]
- for _ in range(n):
-  cmd,size=struct.unpack_from('<II',b,p);cmds.append((cmd,p,size))
-  if cmd==0x19:
-   count=struct.unpack_from('<I',b,p+64)[0]
-   for j in range(count):
-    q=p+72+80*j;name=b[q:q+16].split(b'\0')[0].decode();a,s,o=struct.unpack_from('<QQI',b,q+32);secs[name]=(a,s,o)
-  p+=size
- return secs,cmds
-def branch(a,b):
- d=b-a;assert d%4==0 and -(1<<27)<=d<(1<<27)
- return struct.pack('<I',0x14000000|((d//4)&0x3ffffff))
 def tarread(raw):
  with tarfile.open(fileobj=io.BytesIO(raw)) as t:
   return [(x,t.extractfile(x).read() if x.isfile() else b'') for x in t]
@@ -48,91 +40,27 @@ def tarwrite(rows):
    m=copy.copy(m);m.size=len(data);t.addfile(m,io.BytesIO(data) if m.isfile() else None)
  return buf.getvalue()
 def optimized_data_xz(blob):
- # Only repack the data archive. Decompressed TAR bytes (paths, modes,
- # timestamps, scripts, signatures and binary payloads) remain identical.
+ # Only repack the data archive. Decompressed TAR bytes remain identical.
  raw=lzma.decompress(blob)
  packed=lzma.compress(raw,format=lzma.FORMAT_XZ,check=lzma.CHECK_CRC64,
   filters=[{'id':lzma.FILTER_LZMA2,'preset':6,'lc':0,'lp':2,'pb':2}])
  assert lzma.decompress(packed)==raw and len(packed)<=len(blob)
  return packed
-base=ROOT/'inputs/base.deb'
-assert hashlib.sha256(base.read_bytes()).hexdigest()=='67937ea54f1a79d43bb48242c436e0c78b0177ef79d251e4c21465286ee1dace'
+base=ROOT/'inputs/base-patched.deb'
+assert hashlib.sha256(base.read_bytes()).hexdigest()==FROZEN['frozen_deb_sha256'],'base-patched.deb 与冻结记录不符'
 members=arread(base.read_bytes());rows=tarread(members['data.tar.xz']);controls=tarread(members['control.tar.xz'])
-mi=next(i for i,(m,b) in enumerate(rows) if m.name.endswith('/Stheno.dylib'));img=bytearray(rows[mi][1])
-assert hashlib.sha256(img).hexdigest()=='d5612f269f5a63347d8187fd25f75a0dca45c1608bdf38986112a5bb770fb9e7'
-secs,cmds=sections(img)
-assert img[0xd9000:0xdc000]==bytes(0x3000)
-# Assemble and link a position-fixed, self-contained dispatcher into existing executable padding.
-run('xcrun','clang','-target','arm64e-apple-ios16.1','-c','dispatch.S','-o',OUT/'dispatch.o')
-temp=(OUT/'dispatch.o').read_bytes();sec,cmds_o=sections(temp);_,size,off=sec['__text'];code=bytearray(temp[off:off+size]);address=0xd9000
-symbols=[];rel=None
-for cmd,p,sz in cmds_o:
- if cmd==2:
-  so,nn,st,ss=struct.unpack_from('<4I',temp,p+8)
-  for j in range(nn):
-   si,typ,se,desc,val=struct.unpack_from('<IBBHQ',temp,so+j*16);name=temp[st+si:st+ss].split(b'\0')[0].decode();symbols.append((name,typ,se,val))
- if cmd==0x19:
-  ns=struct.unpack_from('<I',temp,p+64)[0]
-  for j in range(ns):
-   q=p+72+j*80
-   if temp[q:q+16].split(b'\0')[0]==b'__text':rel=struct.unpack_from('<II',temp,q+56)
-absolute={'_dlsym':0xb03bc,'_original_setup_plus4':0x4994c,'_original_update_plus4':0x4ad48,'_original_end_plus4':0x4c368,'_original_long_plus4':0x3e420,'_original_tap_plus4':0x3e77c,
-          '_original_present_plus4':0x41aa0}
-assert rel is not None
-for j in range(rel[1]):
- r,info=struct.unpack_from('<II',temp,rel[0]+8*j);ix=info&0xffffff;typ=info>>28;external=(info>>27)&1
- assert typ==2 and external==1,(hex(r),hex(info))
- name,symtype,sect,value=symbols[ix];target=absolute.get(name)
- if target is None:
-  assert sect==1,(name,sect);target=address+value
- inst=struct.unpack_from('<I',code,r)[0];delta=target-(address+r)
- assert delta%4==0 and -(1<<27)<=delta<(1<<27)
- struct.pack_into('<I',code,r,(inst&0xfc000000)|((delta//4)&0x3ffffff))
-assert size<0x1000
-img[address:address+size]=code
-# Entry hooks are all PAC prologues, except the known classifier tail branch.
-changes={0x3dff0:(bytes.fromhex('64660214'),0xd9100),0x49948:(bytes.fromhex('7f2303d5'),0xd9140),0x4ad44:(bytes.fromhex('7f2303d5'),0xd9180),0x4c364:(bytes.fromhex('7f2303d5'),0xd91c0),0x3e41c:(bytes.fromhex('7f2303d5'),0xd9200),0x3e778:(bytes.fromhex('7f2303d5'),0xd9240)}
-# Skip only the old show/hide observer registration, preserving startup/epilogue.
-changes[0x8778c]=(bytes.fromhex('e80200f0'),0x87964)
-changes[0x41a9c]=(bytes.fromhex('7f2303d5'),0xd9440)
-for a,(old,target) in changes.items():
- assert img[a:a+4]==old,(hex(a),img[a:a+4].hex())
- img[a:a+4]=branch(a,target)
-# Quarter-second hold and a single-click recognizer; custom dispatch controls applicable zones.
-assert img[0x9b54:0x9b58]==bytes.fromhex('00106c1e')
-(OUT/'constants.S').write_text('.text\nfmov d0, #0.25\nmov x0,#1\n')
-run('xcrun','clang','-target','arm64e-apple-ios16.1','-c',OUT/'constants.S','-o',OUT/'constants.o')
-ob=(OUT/'constants.o').read_bytes();sc,_=sections(ob);_,sz,off=sc['__text'];code=ob[off:off+sz]
-img[0x9b54:0x9b58]=code[:4]
-assert img[0x9c4c:0x9c50]==bytes.fromhex('0015889a');img[0x9c4c:0x9c50]=code[4:8]
-# Always visit the end bridge so it can clear active-touch state even after a hold.
-assert struct.unpack_from('<I',img,0xaa18)[0]&0x7e000000==0x36000000
-img[0xaa18:0xaa1c]=bytes.fromhex('1f2003d5')
-# One source-linked SpringBoard runtime; all native callbacks remain exported.
-name=b'@loader_path/SthenoSystemActions.dylib\0';sz=(24+len(name)+7)&~7
-lc=struct.pack('<6I',0xc,sz,24,2,0x10000,0x10000)+name;lc+=bytes(sz-len(lc))
-n,nbytes=struct.unpack_from('<II',img,16);at=32+nbytes
-assert at+sz<0x4000 and img[at:at+sz]==bytes(sz)
-img[at:at+sz]=lc;struct.pack_into('<II',img,16,n+1,nbytes+sz)
-img,system_actions_manifest=patch_system_actions(img,OUT)
-img,update18_manifest=patch_update18(img,OUT)
-changes[0x41a9c]=(changes[0x41a9c][0],0xd9500)
-changes[0x47e8]=(bytes.fromhex('7f2303d5'),0xd9700)
-# Preserve the COMPLETE native close/update recognition and animation routines.
-# Only their entry instructions above are hooked; the body and release predicate remain original.
-for start,stop in [(0x4c368,0x4c8a8),(0x507bc,0x50a58),(0x4473c,0x447d4),(0x447d8,0x449dc),
-                   (0x4994c,0x4ad44),(0x4ad48,0x4b82c),(0x4d3dc,0x4d4e0),(0x51454,0x51588)]:
- assert img[start:stop]==rows[mi][1][start:stop],(hex(start),hex(stop))
-img,orion_image,orion_manifest=prepare(img,(ROOT/'inputs/Orion.arm64e').read_bytes())
-img,native_bridges,native_stubs=migrate_native_bridge(img,OUT,['xcrun','clang'])
-core=OUT/'Stheno.dylib';core.write_bytes(img)
-orion=OUT/'Orion';orion.write_bytes(orion_image)
-# No original keyboard libraries or editor-transform adapters are loaded.
+mi=next(i for i,(m,b) in enumerate(rows) if m.name.endswith('/Stheno.dylib'))
+cam=next(i for i,(m,b) in enumerate(rows) if m.name.endswith('/CameraFix.dylib'))
+assert hashlib.sha256(rows[mi][1]).hexdigest()==FROZEN['core_sha256'],'基座 Stheno.dylib 与冻结记录不符'
+core=OUT/'Stheno.dylib';core.write_bytes(rows[mi][1])
+orion=OUT/'Orion';orion.write_bytes((ROOT/'inputs/Orion-private.arm64e').read_bytes())
+assert hashlib.sha256(orion.read_bytes()).hexdigest()==FROZEN['orion_sha256'],'Orion 与冻结记录不符'
+camera=OUT/'CameraFix.dylib';camera.write_bytes(rows[cam][1])
 sdk=run('xcrun','--sdk','iphoneos','--show-sdk-path').decode().strip()
 viewport_binary=OUT/'SthenoViewport.dylib'
 run('xcrun','clang','-target','arm64e-apple-ios16.1','-isysroot',sdk,'-fobjc-arc','-Oz','-dynamiclib','ViewportClient.m','ViewportStartup.m','AppSceneReflow.m','ViewportBus.m','ViewportDiagnostics.m','-framework','UIKit','-framework','Foundation','-framework','CoreGraphics','-framework','QuartzCore','-install_name','@loader_path/SthenoViewport.dylib','-o',viewport_binary)
 action_binary=OUT/'SthenoSystemActions.dylib'
-action_sources=['SystemActions.m','SystemActionRuntime.m','SystemActionPicker.m','SystemActionIcons.m','SystemActionHooks.m','SystemCapture.m','SystemActionNative.S','ChooserCatalog.m','ChooserState.m','ChooserNative.S','CenterChooserBridge.m','CenterChooserNative.S','SystemVisibilityBridge.m','DockQueueBridge.m','DockQueueNative.S','Gesture.m','DefaultSize.m','ViewportHost.m','ViewportBus.m','ViewportDiagnostics.m','ChooserInputNative.m',native_stubs]
+action_sources=['SystemActions.m','SystemActionRuntime.m','SystemActionPicker.m','SystemActionIcons.m','SystemActionHooks.m','SystemCapture.m','SystemActionNative.S','ChooserCatalog.m','ChooserState.m','ChooserNative.S','CenterChooserBridge.m','CenterChooserNative.S','SystemVisibilityBridge.m','DockQueueBridge.m','DockQueueNative.S','Gesture.m','DefaultSize.m','ViewportHost.m','ViewportBus.m','ViewportDiagnostics.m','ChooserInputNative.m','core-native-stubs.S']
 def compile_source(source):
  obj=OUT/(Path(source).stem+'.o')
  args=['xcrun','clang','-target','arm64e-apple-ios16.1','-isysroot',sdk,'-Oz','-c',source,'-o',obj]
@@ -140,7 +68,6 @@ def compile_source(source):
  proc=subprocess.run([str(x) for x in args],capture_output=True)
  if proc.returncode:raise RuntimeError(f'{source}: {proc.stderr.decode()[-1200:]}')
  return obj
-from concurrent.futures import ThreadPoolExecutor
 with ThreadPoolExecutor(max_workers=min(8,os.cpu_count() or 2)) as pool:
  action_objects=list(pool.map(compile_source,action_sources))
 action_link=['xcrun','swiftc','-swift-version','5','-target','arm64e-apple-ios16.1','-sdk',sdk,'-Osize','-emit-library','-import-objc-header','RuntimeBridge.h','-module-name','SthenoRuntime','CenterChooser.swift','CenterSelection.swift','DockQueue.swift','ChooserSearch.swift','CenterGlyphGeometry.swift','ChooserInput.swift','ChooserFocusPolicy.swift',*action_objects,'-Xlinker','-install_name','-Xlinker','@loader_path/SthenoSystemActions.dylib','-Xlinker','-rpath','-Xlinker','/usr/lib/swift','-o',action_binary]
@@ -152,39 +79,13 @@ export_list=OUT/'runtime-exports.txt';export_list.write_text('\n'.join(keep)+'\n
 run(*action_link,'-Xlinker','-exported_symbols_list','-Xlinker',export_list)
 for binary in [action_binary,viewport_binary,orion]:
  run('xcrun','strip','-S','-x',binary)
-quiet_companions=[]
-for filename,address,marker in [('CameraFix.dylib',0x40e4,b'CameraFixDiag.txt')]:
- index=next(i for i,(m,b) in enumerate(rows) if m.name.endswith('/'+filename));image=bytearray(rows[index][1])
- assert marker in image and image[address:address+4]==bytes.fromhex('7f2303d5')
- image[address:address+4]=bytes.fromhex('c0035fd6');path=OUT/filename;path.write_bytes(image);quiet_companions.append((index,path))
-if os.environ.get('STHENO_FREEZE'):
- # One-shot export: bake every binary patch into a fixed base for later builds.
- import sys
- frozen_rows=list(rows)
- frozen_rows[mi]=(frozen_rows[mi][0],bytes(img))
- for index,path in quiet_companions:frozen_rows[index]=(frozen_rows[index][0],path.read_bytes())
- frozen=arwrite([('debian-binary',b'2.0\n'),('control.tar.xz',tarwrite(controls)),('data.tar.xz',optimized_data_xz(tarwrite(frozen_rows)))])
- (ROOT/'inputs/base-patched.deb').write_bytes(frozen)
- (ROOT/'inputs/Orion-private.arm64e').write_bytes(orion_image)
- (ROOT/'core-native-stubs.S').write_bytes(Path(native_stubs).read_bytes())
- (ROOT/'inputs/base-patched.json').write_text(json.dumps({
-  'version':VERSION,'frozen_deb_sha256':hashlib.sha256(frozen).hexdigest(),
-  'frozen_deb_bytes':len(frozen),'core_sha256':hashlib.sha256(bytes(img)).hexdigest(),
-  'core_bytes':len(img),'orion_sha256':hashlib.sha256(orion_image).hexdigest(),
-  'patch_entries':{hex(a):hex(t) for a,(_,t) in changes.items()},
-  'native_bridges':native_bridges,'merged_springboard_runtime':True,
-  'system_actions':system_actions_manifest,'update18':update18_manifest,
-  'bundled_orion':orion_manifest},indent=2)+'\n')
- print(json.dumps({'frozen':True,'deb_sha256':hashlib.sha256(frozen).hexdigest(),
-  'deb_bytes':len(frozen),'core_sha256':hashlib.sha256(bytes(img)).hexdigest(),'core_bytes':len(img)}))
- sys.exit(0)
 signature_savings={}
-for p in [core,orion,viewport_binary,action_binary]+[p for _,p in quiet_companions]:
+for p in [core,orion,viewport_binary,action_binary,camera]:
  run('codesign','--force','--sign','-','--timestamp=none',p,stderr=subprocess.STDOUT)
  signature_savings[p.name]=compact_signature(p)
  run('codesign','--verify','--strict',p,stderr=subprocess.STDOUT)
- rows[mi]=(rows[mi][0],core.read_bytes())
-for index,path in quiet_companions:rows[index]=(rows[index][0],path.read_bytes())
+rows[mi]=(rows[mi][0],core.read_bytes())
+rows[cam]=(rows[cam][0],camera.read_bytes())
 helper=copy.copy(rows[mi][0]);helper.name='./Library/MobileSubstrate/DynamicLibraries/SthenoSystemActions.dylib'
 retired_keyboard_files={'SthenoKeyboard.dylib','SthenoKeyboard.plist','SthenoKb.dylib','SthenoKb.plist','KeyboardFix.dylib','KeyboardFix.plist','SthenoKeyboardInset.dylib'}
 rows=[(m,b) for m,b in rows if Path(m.name).name not in retired_keyboard_files]
@@ -206,11 +107,10 @@ rows.append((license_entry,license_bytes))
 icon_resources={}
 icon_directory=copy.copy(directory);icon_directory.name='./Library/Application Support/Stheno/SystemActions';rows.append((icon_directory,b''))
 for icon in ('screenshot','screen-recording','app-picker'):
- for suffix in ('',):
-  filename=icon+suffix+'.png';raw=(ROOT/'resources/system-actions'/filename).read_bytes()
-  assert raw[:8]==b'\x89PNG\r\n\x1a\n'
-  entry=copy.copy(license_entry);entry.name=icon_directory.name+'/'+filename
-  rows.append((entry,raw));icon_resources[filename]=hashlib.sha256(raw).hexdigest()
+ filename=icon+'.png';raw=(ROOT/'resources/system-actions'/filename).read_bytes()
+ assert raw[:8]==b'\x89PNG\r\n\x1a\n'
+ entry=copy.copy(license_entry);entry.name=icon_directory.name+'/'+filename
+ rows.append((entry,raw));icon_resources[filename]=hashlib.sha256(raw).hexdigest()
 for i,(m,b) in enumerate(controls):
  if Path(m.name).name=='postinst':
   controls[i]=(m,(ROOT/'installer/postinst').read_bytes());continue
@@ -240,5 +140,5 @@ result=OUT/f'stheno_{VERSION}_iphoneos-arm64e.deb'
 result.write_bytes(arwrite([(n,(OUT/n).read_bytes()) for n in ('debian-binary','control.tar.xz','data.tar.xz')]))
 verify=tarread(arread(result.read_bytes())['data.tar.xz']);assert len(verify)==len(rows)
 for (a,b),(c,d) in zip(rows,verify):assert a.name==c.name and b==d
-manifest={'artifact':result.name,'sha256':hashlib.sha256(result.read_bytes()).hexdigest(),'size':result.stat().st_size,'data_tar_default_xz_bytes':len(default_data_archive),'data_tar_optimized_xz_bytes':len(data_archive),'data_tar_bytes_saved':len(default_data_archive)-len(data_archive),'data_tar_uncompressed_bytes':len(data_tar_uncompressed),'data_tar_uncompressed_sha256':hashlib.sha256(data_tar_uncompressed).hexdigest(),'patch_entries':{hex(a):hex(t) for a,(_,t) in changes.items()},'device_tested':False,'merged_springboard_runtime':True,'native_bridges':native_bridges,'signature_compaction':signature_savings,'runtime_export_count':len(keep),'bundled_orion':orion_manifest,'keyboard_inset_adapter':False,'viewport_keyboard_rebuild':{'version':32,'legacy_files_removed':sorted(retired_keyboard_files),'original_keyboard_observer_registration_disabled':True,'single_coordinate_authority':True,'springboard_physical_source_only':True,'independent_scene_reflow':True,'main_application_post_launch_only':True,'extension_hooks_installed':False,'reflow_cached_getter':True,'private_scene_update_hook':False,'editor_transforms':False,'device_diagnostics':True},'system_actions':system_actions_manifest,'center_app_chooser':{'version':3,'pins_apps':False,'native_catalog':True,'native_animated_launch':True,'native_pan_trigger':True,'release_admission':True,'ring_auto_dismiss_preserved':True,'ring_geometry_modified':False},'visibility_restores_from_observed_state':True,'initial_model_position':'native_screen_center','icon_resources':icon_resources,'update18':update18_manifest,'diagnostic_logging_removed':False,'legacy_diagnostic_logging_removed':True}
-(OUT/'build-manifest.json').write_text(json.dumps(manifest,indent=2));print(json.dumps(manifest))
+manifest={'artifact':result.name,'sha256':hashlib.sha256(result.read_bytes()).hexdigest(),'size':result.stat().st_size,'data_tar_default_xz_bytes':len(default_data_archive),'data_tar_optimized_xz_bytes':len(data_archive),'data_tar_bytes_saved':len(default_data_archive)-len(data_archive),'data_tar_uncompressed_bytes':len(data_tar_uncompressed),'data_tar_uncompressed_sha256':hashlib.sha256(data_tar_uncompressed).hexdigest(),'patch_entries':FROZEN['patch_entries'],'device_tested':False,'merged_springboard_runtime':FROZEN['merged_springboard_runtime'],'native_bridges':FROZEN['native_bridges'],'signature_compaction':signature_savings,'runtime_export_count':len(keep),'bundled_orion':FROZEN['bundled_orion'],'keyboard_inset_adapter':False,'viewport_keyboard_rebuild':{'version':32,'legacy_files_removed':sorted(retired_keyboard_files),'original_keyboard_observer_registration_disabled':True,'single_coordinate_authority':True,'springboard_physical_source_only':True,'independent_scene_reflow':True,'main_application_post_launch_only':True,'extension_hooks_installed':False,'reflow_cached_getter':True,'private_scene_update_hook':False,'editor_transforms':False,'device_diagnostics':True},'system_actions':FROZEN['system_actions'],'center_app_chooser':{'version':3,'pins_apps':False,'native_catalog':True,'native_animated_launch':True,'native_pan_trigger':True,'release_admission':True,'ring_auto_dismiss_preserved':True,'ring_geometry_modified':False},'visibility_restores_from_observed_state':True,'initial_model_position':'native_screen_center','icon_resources':icon_resources,'update18':FROZEN['update18'],'diagnostic_logging_removed':False,'legacy_diagnostic_logging_removed':True,'base':{'frozen_deb_sha256':FROZEN['frozen_deb_sha256'],'frozen_deb_bytes':FROZEN['frozen_deb_bytes'],'core_sha256':FROZEN['core_sha256'],'core_bytes':FROZEN['core_bytes']}}
+(OUT/'build-manifest.json').write_text(json.dumps(manifest,indent=2));print(json.dumps({k:manifest[k] for k in ('artifact','sha256','size','data_tar_uncompressed_bytes','data_tar_uncompressed_sha256')}))

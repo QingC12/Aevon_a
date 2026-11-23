@@ -100,7 +100,7 @@ def main():
     setter(actions, '_STHChooserClearMinimized')
     getter(gesture, '_STHNativeMinimized')
     getter(actions, '_STHDockNativeMinimized')
-    from embed_orion import exports
+    from macho import exports
     assert '_STHViewportModelMinimized' in exports(actions.data if manifest.get('merged_springboard_runtime') else gesture.data), 'Dock cleanup callback must be dynamically visible'
     orient = actions.words('_STHDockNativeOrientation')
     assert 0x910083e8 in orient, 'Orientation result must use sp+32, outside saved x19'

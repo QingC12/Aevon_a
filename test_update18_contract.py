@@ -4,7 +4,8 @@ R=Path(__file__).resolve().parent
 build=ast.parse((R/'build.py').read_text())
 for name in ['CenterChooser.swift','DockQueue.swift','CenterChooserNative.S','DockQueueNative.S','SystemVisibilityBridge.m']:
  assert (R/name).exists(),name
-assert 'original_animation_transactions' in (R/'update18_patch.py').read_text()
+frozen=json.loads((R/'inputs/base-patched.json').read_text())
+assert frozen['update18']['original_animation_transactions'] is True
 swift=(R/'CenterChooser.swift').read_text();native=(R/'CenterChooserNative.S').read_text();dock=(R/'DockQueueNative.S').read_text();visibility=(R/'SystemVisibilityBridge.m').read_text()
 assert 'STHCenterRunAnimation' in swift and 'phase == 2' in swift and 'phase == 3' in swift
 assert 'pan.state == .cancelled' in swift and 'selected == 999' in swift

@@ -1,6 +1,6 @@
 from pathlib import Path
 import json
-from embed_orion import exports
+from macho import exports
 R=Path(__file__).resolve().parent
 manifest=json.loads((R/'build/build-manifest.json').read_text())
 image=(R/'build/SthenoSystemActions.dylib').read_bytes()

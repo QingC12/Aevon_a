@@ -1,0 +1,410 @@
+{
+  "version": "2.0.33",
+  "frozen_deb_sha256": "dc5407afcb35ef67fde75962a439b3929196c4e1dddda83dd84e2592457c3483",
+  "frozen_deb_bytes": 355864,
+  "core_sha256": "1065b3455fed3d372b4b4d969f3357ed9bbf56962ee64c3323fb6f8767a46e3d",
+  "core_bytes": 1110640,
+  "orion_sha256": "b4092fd80a4812d357b0006ecd683bd0f46679127ca44c78120edf87757d45cc",
+  "patch_entries": {
+    "0x3dff0": "0xd9100",
+    "0x49948": "0xd9140",
+    "0x4ad44": "0xd9180",
+    "0x4c364": "0xd91c0",
+    "0x3e41c": "0xd9200",
+    "0x3e778": "0xd9240",
+    "0x8778c": "0x87964",
+    "0x41a9c": "0xd9500",
+    "0x47e8": "0xd9700"
+  },
+  "native_bridges": {
+    "base": 894464,
+    "limit": 901120,
+    "capacity": 6656,
+    "size": 1432,
+    "end": 895896,
+    "file_offset": 894464,
+    "exports": {
+      "_STHNativeClassify": 894736,
+      "_STHNativeCopyBundleID": 895736,
+      "_STHNativeDock": 895132,
+      "_STHNativeEnd": 895488,
+      "_STHNativeGetOffset": 895632,
+      "_STHNativeGetScale": 895596,
+      "_STHNativeInitialSize": 895844,
+      "_STHNativeLong": 895520,
+      "_STHNativeMinimized": 894464,
+      "_STHNativeMove": 894808,
+      "_STHNativeOrientation": 895292,
+      "_STHNativePresent": 895808,
+      "_STHNativeRect": 894844,
+      "_STHNativeRefreshGeometry": 895772,
+      "_STHNativeReset": 894880,
+      "_STHNativeSetMinimized": 894608,
+      "_STHNativeSetViewportGeometry": 895668,
+      "_STHNativeSetup": 895424,
+      "_STHNativeTap": 895556,
+      "_STHNativeTranslation": 894772,
+      "_STHNativeUpdate": 895456
+    },
+    "callbacks": {
+      "LresetSize": 895040
+    },
+    "original_callbacks": {
+      "dock": 316612,
+      "initializer": 327456
+    },
+    "base_loads": 10,
+    "source_base_load_pairs": 9,
+    "direct_calls": [
+      {
+        "rva": 894508,
+        "target": 723228,
+        "symbol": "_STHCoreRVA_0xb091c",
+        "type": "BRANCH26"
+      },
+      {
+        "rva": 894536,
+        "target": 723228,
+        "symbol": "_STHCoreRVA_0xb091c",
+        "type": "BRANCH26"
+      },
+      {
+        "rva": 894560,
+        "target": 716492,
+        "symbol": "_STHCoreRVA_0xaeecc",
+        "type": "BRANCH26"
+      },
+      {
+        "rva": 894576,
+        "target": 723468,
+        "symbol": "_STHCoreRVA_0xb0a0c",
+        "type": "BRANCH26"
+      },
+      {
+        "rva": 894584,
+        "target": 723468,
+        "symbol": "_STHCoreRVA_0xb0a0c",
+        "type": "BRANCH26"
+      },
+      {
+        "rva": 894656,
+        "target": 723228,
+        "symbol": "_STHCoreRVA_0xb091c",
+        "type": "BRANCH26"
+      },
+      {
+        "rva": 894684,
+        "target": 723228,
+        "symbol": "_STHCoreRVA_0xb091c",
+        "type": "BRANCH26"
+      },
+      {
+        "rva": 894696,
+        "target": 723500,
+        "symbol": "_STHCoreRVA_0xb0a2c",
+        "type": "BRANCH26"
+      },
+      {
+        "rva": 894716,
+        "target": 716508,
+        "symbol": "_STHCoreRVA_0xaeedc",
+        "type": "BRANCH26"
+      },
+      {
+        "rva": 894756,
+        "target": 882716,
+        "symbol": "_STHCoreRVA_0xd781c",
+        "type": "BRANCH26"
+      },
+      {
+        "rva": 894792,
+        "target": 716844,
+        "symbol": "_STHCoreRVA_0xaf02c",
+        "type": "BRANCH26"
+      },
+      {
+        "rva": 894828,
+        "target": 644176,
+        "symbol": "_STHCoreRVA_0x9d450",
+        "type": "BRANCH26"
+      },
+      {
+        "rva": 894864,
+        "target": 253412,
+        "symbol": "_STHCoreRVA_0x3dde4",
+        "type": "BRANCH26"
+      },
+      {
+        "rva": 894952,
+        "target": 723452,
+        "symbol": "_STHCoreRVA_0xb09fc",
+        "type": "BRANCH26"
+      },
+      {
+        "rva": 895024,
+        "target": 717212,
+        "symbol": "_STHCoreRVA_0xaf19c",
+        "type": "BRANCH26"
+      },
+      {
+        "rva": 895104,
+        "target": 649072,
+        "symbol": "_STHCoreRVA_0x9e770",
+        "type": "BRANCH26"
+      },
+      {
+        "rva": 895112,
+        "target": 280912,
+        "symbol": "_STHCoreRVA_0x44950",
+        "type": "BRANCH26"
+      },
+      {
+        "rva": 895156,
+        "target": 332884,
+        "symbol": "_STHCoreRVA_0x51454",
+        "type": "BRANCH26"
+      },
+      {
+        "rva": 895172,
+        "target": 332884,
+        "symbol": "_STHCoreRVA_0x51454",
+        "type": "BRANCH26"
+      },
+      {
+        "rva": 895188,
+        "target": 719708,
+        "symbol": "_STHCoreRVA_0xafb5c",
+        "type": "BRANCH26"
+      },
+      {
+        "rva": 895264,
+        "target": 717212,
+        "symbol": "_STHCoreRVA_0xaf19c",
+        "type": "BRANCH26"
+      },
+      {
+        "rva": 895272,
+        "target": 723468,
+        "symbol": "_STHCoreRVA_0xb0a0c",
+        "type": "BRANCH26"
+      },
+      {
+        "rva": 895340,
+        "target": 723228,
+        "symbol": "_STHCoreRVA_0xb091c",
+        "type": "BRANCH26"
+      },
+      {
+        "rva": 895356,
+        "target": 723228,
+        "symbol": "_STHCoreRVA_0xb091c",
+        "type": "BRANCH26"
+      },
+      {
+        "rva": 895380,
+        "target": 716492,
+        "symbol": "_STHCoreRVA_0xaeecc",
+        "type": "BRANCH26"
+      },
+      {
+        "rva": 895388,
+        "target": 723468,
+        "symbol": "_STHCoreRVA_0xb0a0c",
+        "type": "BRANCH26"
+      },
+      {
+        "rva": 895396,
+        "target": 723468,
+        "symbol": "_STHCoreRVA_0xb0a0c",
+        "type": "BRANCH26"
+      },
+      {
+        "rva": 895440,
+        "target": 889600,
+        "symbol": "_STHCoreRVA_0xd9300",
+        "type": "BRANCH26"
+      },
+      {
+        "rva": 895472,
+        "target": 889616,
+        "symbol": "_STHCoreRVA_0xd9310",
+        "type": "BRANCH26"
+      },
+      {
+        "rva": 895504,
+        "target": 889632,
+        "symbol": "_STHCoreRVA_0xd9320",
+        "type": "BRANCH26"
+      },
+      {
+        "rva": 895540,
+        "target": 889648,
+        "symbol": "_STHCoreRVA_0xd9330",
+        "type": "BRANCH26"
+      },
+      {
+        "rva": 895580,
+        "target": 889664,
+        "symbol": "_STHCoreRVA_0xd9340",
+        "type": "BRANCH26"
+      },
+      {
+        "rva": 895616,
+        "target": 641756,
+        "symbol": "_STHCoreRVA_0x9cadc",
+        "type": "BRANCH26"
+      },
+      {
+        "rva": 895652,
+        "target": 259552,
+        "symbol": "_STHCoreRVA_0x3f5e0",
+        "type": "BRANCH26"
+      },
+      {
+        "rva": 895704,
+        "target": 648112,
+        "symbol": "_STHCoreRVA_0x9e3b0",
+        "type": "BRANCH26"
+      },
+      {
+        "rva": 895712,
+        "target": 258896,
+        "symbol": "_STHCoreRVA_0x3f350",
+        "type": "BRANCH26"
+      },
+      {
+        "rva": 895756,
+        "target": 720076,
+        "symbol": "_STHCoreRVA_0xafccc",
+        "type": "BRANCH26"
+      },
+      {
+        "rva": 895792,
+        "target": 640636,
+        "symbol": "_STHCoreRVA_0x9c67c",
+        "type": "BRANCH26"
+      },
+      {
+        "rva": 895828,
+        "target": 889984,
+        "symbol": "_STHCoreRVA_0xd9480",
+        "type": "BRANCH26"
+      },
+      {
+        "rva": 895876,
+        "target": 258896,
+        "symbol": "_STHCoreRVA_0x3f350",
+        "type": "BRANCH26"
+      },
+      {
+        "rva": 895880,
+        "target": 640636,
+        "symbol": "_STHCoreRVA_0x9c67c",
+        "type": "BRANCH26"
+      }
+    ],
+    "source_sha256": "aa2f55ffbaeb10ae835bb94d6963d6249f1236fc1c0c45ea06c08a9eb30c7f83",
+    "code_sha256": "17bca33b23edc68cb7932e19fb58148ae0ea614c6ff71644ab244db3d722f4d4",
+    "stub_source": "core-native-stubs.S"
+  },
+  "merged_springboard_runtime": true,
+  "system_actions": {
+    "version": 1,
+    "ids": [
+      "com.nx.stheno.action.screenshot",
+      "com.nx.stheno.action.screen-recording"
+    ],
+    "picker": "system-top-native-app-records",
+    "icon_container": "original-app",
+    "ring_geometry_modified": false,
+    "dispatch_base": "0xd9500",
+    "dispatch_bytes": 2248,
+    "patches": {
+      "0x47e8": {
+        "target": "0xd9700",
+        "kind": "b",
+        "original": "7f2303d5"
+      },
+      "0x41a9c": {
+        "target": "0xd9500",
+        "kind": "b",
+        "original": "695e0214"
+      },
+      "0xfe30": {
+        "target": "0xd9a00",
+        "kind": "bl",
+        "original": "a8835af8"
+      },
+      "0x81968": {
+        "target": "0xd9b00",
+        "kind": "b",
+        "original": "fcfaffb5"
+      },
+      "0x81c78": {
+        "target": "0xd9d00",
+        "kind": "b",
+        "original": "760100b5"
+      }
+    }
+  },
+  "update18": {
+    "quiet_core_logger": {
+      "address": "0x3c11c",
+      "kind": "ret"
+    },
+    "center": {
+      "dispatch_base": "0xda000",
+      "dispatch_bytes": 440,
+      "gesture": "native-ring-pan",
+      "ring_geometry_modified": false,
+      "patches": {
+        "0x56630": {
+          "target": "0xda000",
+          "kind": "b",
+          "original": "7f2303d5"
+        },
+        "0x56fcc": {
+          "target": "0xda080",
+          "kind": "b",
+          "original": "7f2303d5"
+        },
+        "0x578e0": {
+          "target": "0xda100",
+          "kind": "b",
+          "original": "7f2303d5"
+        }
+      }
+    },
+    "dock": {
+      "dispatch_base": "0xda400",
+      "dispatch_bytes": 424,
+      "patches": {
+        "0x447d4": {
+          "kind": "b",
+          "target": "0xda400",
+          "original": "7f2303d5"
+        },
+        "0x449dc": {
+          "kind": "b",
+          "target": "0xda480",
+          "original": "7f2303d5"
+        },
+        "0x9d7f4": {
+          "kind": "b",
+          "target": "0xda500",
+          "original": "7f2303d5"
+        }
+      }
+    },
+    "original_animation_transactions": true
+  },
+  "bundled_orion": {
+    "version": "1.0.2",
+    "required_symbols": 79,
+    "resolved_symbols": 79,
+    "load_path": "@loader_path/.stheno/Orion",
+    "private_id": "@rpath/SthenoOrion",
+    "substrate_path": "@loader_path/../.jbroot/usr/lib/libsubstrate.dylib",
+    "source_arm64e_sha256": "e7cbd6e055d9ec30c750741c9a2831d73c5ce7efaf812053e7b279a4e92dbe85"
+  }
+}

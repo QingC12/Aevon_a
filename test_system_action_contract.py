@@ -1,22 +1,27 @@
 """Static contract for native picker/ring routing and opt-in system actions."""
 from pathlib import Path
-import ast,json,struct,hashlib,sys
+import io,json,struct,hashlib,tarfile
 R=Path(__file__).resolve().parent
-sys.path.insert(0,str(R))
-from system_action_patch import instruction
-assert instruction(0x47e8,0xd9700)==bytes.fromhex('c6530314')
-assert instruction(0xfe30,0xd9a00,True)==bytes.fromhex('f4260394')
-# Byte proofs are against the original pinned arm64e input, not the arm64
-# disassembly or guessed cross-architecture deltas.
-raw=(R/'inputs/base.deb').read_bytes();parts={};p=8
+def branch(at,target,link=False):
+ delta=target-at
+ assert delta%4==0 and -(1<<27)<=delta<(1<<27)
+ return struct.pack('<I',(0x94000000 if link else 0x14000000)|((delta//4)&0x3ffffff))
+assert branch(0x47e8,0xd9700)==bytes.fromhex('c6530314')
+assert branch(0xfe30,0xd9a00,True)==bytes.fromhex('f4260394')
+# Byte proofs are against the frozen base: every hook must already be a branch,
+# and the two untouched prologues must still carry their original encoding.
+frozen=json.loads((R/'inputs/base-patched.json').read_text())
+raw=(R/'inputs/base-patched.deb').read_bytes();parts={};p=8
 while p<len(raw):
  h=raw[p:p+60];n=int(h[48:58]);name=h[:16].decode().strip().rstrip('/');parts[name]=raw[p+60:p+60+n];p+=60+n+n%2
-import io,tarfile
 with tarfile.open(fileobj=io.BytesIO(parts['data.tar.xz'])) as t:
  core=t.extractfile('./Library/MobileSubstrate/DynamicLibraries/Stheno.dylib').read()
-assert hashlib.sha256(core).hexdigest()=='d5612f269f5a63347d8187fd25f75a0dca45c1608bdf38986112a5bb770fb9e7'
-for offset,value in {0x47e8:'7f2303d5',0xfe30:'a8835af8',0x41a9c:'7f2303d5',0x47710:'7f2303d5',0x59870:'7f2303d5',0x81968:'fcfaffb5',0x81c78:'760100b5'}.items():
- assert core[offset:offset+4]==bytes.fromhex(value),(hex(offset),value)
+assert hashlib.sha256(core).hexdigest()==frozen['core_sha256']
+for at,target,link in ((0x47e8,0xd9700,False),(0x41a9c,0xd9500,False),(0xfe30,0xd9a00,True),
+                       (0x81968,0xd9b00,False),(0x81c78,0xd9d00,False)):
+ assert core[at:at+4]==branch(at,target,link),(hex(at),core[at:at+4].hex())
+for offset in (0x47710,0x59870):
+ assert core[offset:offset+4]==bytes.fromhex('7f2303d5'),hex(offset)
 picker=(R/'SystemActionPicker.m').read_text()
 for value in ('STHSystemGrowApps(0,','STHSystemMakeSwiftString(@"截图"','STHSystemMakeSwiftString(@"录屏"','STHSystemStableFront','count+missing'):
  assert value in picker,value

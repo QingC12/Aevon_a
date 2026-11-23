@@ -1,6 +1,6 @@
 from pathlib import Path
 import hashlib,io,json,struct,sys,tarfile
-from embed_orion import exports
+from macho import exports
 R=Path(__file__).resolve().parent
 folder=Path(sys.argv[1]) if len(sys.argv)>1 else R/'build'
 m=json.loads((folder/'build-manifest.json').read_text())
@@ -31,7 +31,7 @@ assert len(meta['exports'])==21
 names=exports(new['data']['./Library/MobileSubstrate/DynamicLibraries/SthenoSystemActions.dylib'])
 required=set(meta['exports'])|{'_STHClassify','_STHSetup','_STHUpdate','_STHEnd','_STHTap','_STHLong','_STHFirstPresentation','_STHViewportPhysicalWill','_STHViewportSetLocalInput','_STHViewportKeyboardExcludes','_STHCreateChooserInputWindow','_STHAcquireChooserKeyboardFocus','_STHReleaseChooserKeyboardFocus','_STHViewportModelMinimized','_STHCenterRingPan','_STHDockReflow','_STHSystemActionPresent'}
 assert required<=names,sorted(required-names)
-assert exports((R/'inputs/Orion.arm64e').read_bytes())==exports(new['data']['./Library/MobileSubstrate/DynamicLibraries/.stheno/Orion'])
+assert exports((R/'inputs/Orion-private.arm64e').read_bytes())==exports(new['data']['./Library/MobileSubstrate/DynamicLibraries/.stheno/Orion'])
 retired=set(m['viewport_keyboard_rebuild']['legacy_files_removed'])
 assert not any(Path(k).name in retired for k in new['data'])
 for path,value in old['data'].items():

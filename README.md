@@ -66,7 +66,7 @@ Chooser input selects the same-display active SpringBoard window scene independe
 
 # Stheno 2.0.26 native bridge integration, input ownership and footprint
 
-Native entry/exit code from `native.S` is now assembled into 1,504 bytes of existing executable core padding at RVA `0xda600`. All 23 original C bridge names retain ABI-equivalent helper tail stubs; the core bodies directly call original native RVAs. No original function body or native animation target is moved. Exact byte-semantic, relocation, PAC, ownership and scratch-register tests cover the migration. All SpringBoard gesture, layout and action source is linked into one runtime image. The application-side adapter remains a separate process boundary.
+Native entry/exit code is already assembled into 1,504 bytes of existing executable core padding at RVA `0xda600` and baked into `inputs/base-patched.deb`, with `core-native-stubs.S` keeping the tail jumps source-linked. All 23 original C bridge names retain ABI-equivalent helper tail stubs; the core bodies directly call original native RVAs. No original function body or native animation target is moved. Exact byte-semantic, relocation, PAC, ownership and scratch-register tests cover the migration. All SpringBoard gesture, layout and action source is linked into one runtime image. The application-side adapter remains a separate process boundary.
 
 The old enlargement candidate was set only from a SwiftUI window-drag setup, while native content hit 6 returns the touch to the hosted application without invoking that drag. The application now reports actual first-responder editing and real keyboard delivery over a versioned, timestamped Darwin-notify claim. SpringBoard matches the claim against non-minimized native floating models, including late-arriving claims with the current physical keyboard frame. Passive hits no longer confer input ownership. The existing native spring, expansion geometry, original snapshot restoration and minimized-owner cleanup are retained. SpringBoard-local chooser input explicitly suspends app-card geometry until teardown.
 
@@ -218,7 +218,7 @@ Existing native keyboard spring, full-width/restore, first-open default size, ge
 - Blue bottom-left: hold for .25s to switch from portrait to landscape. In landscape, hold the middle of either original side edge or the lower-left blue segment for .25s to return to portrait.
 - Blue bottom-right: hold for .25s to restore the model initializer's four scale values (.8,1,1,.8) and clear native aspect trim.
 - Yellow bottom-center: touch and drag immediately to move; release is passed once to the original Stheno edge-middle drag-end routine with hit class 4 and its long-press latch cleared. Native flick threshold, cleanup and animation decide closing. There is no .25s hold requirement, 24pt threshold or custom close action.
-- Yellow continuous movement never changes its saved edge-middle hit class. The native close recognition code is byte-for-byte preserved, and build.py asserts this before signing.
+- Yellow continuous movement never changes its saved edge-middle hit class. The native close recognition code is byte-for-byte preserved, and test_runtime_package.py proves no drift outside the recorded patch words.
 - Movement and corner scaling use original Stheno update paths. Docking uses the original SwiftUI spring transaction; closing uses the original native release path. Restoring a docked window and switching orientations retain their original callbacks.
 - Sileo lists `stheno` at `2.0.28`. The Debian control file retains `stheno` as its short description.
 - Keyboard: the touched portrait floating card is sized to the full screen width and horizontally centered, without the old 12pt margin or 35% cap. Hide restores the snapshot, unless the user changed it while typing. Hardware/floating keyboards and landscape retain native behavior.
@@ -246,7 +246,7 @@ Existing native keyboard spring, full-width/restore, first-open default size, ge
 
 ## Build
 
-`python3 build.py` on macOS with Xcode's iPhoneOS SDK. The workflow is `.github/workflows/build.yml`.
+`python3 build.py` on macOS with Xcode's iPhoneOS SDK. It compiles only the two source-linked dylibs and repacks the deb; every binary patch is already baked into `inputs/base-patched.deb`. The workflow is `.github/workflows/build.yml`.
 
 The script verifies the input DEB and exact arm64e main-image SHA-256, assembles PAC-preserving entry stubs and original-entry trampolines, compiles the explicitly enumerated main/helper sources, signs each changed Mach-O file, verifies signatures, packs a Debian archive, and reads every archive member back. It recompresses only the data TAR and asserts decompression is byte-identical before packaging. The resulting file count is recorded in `build-manifest.json`. Eight original components and the gesture helper remain arm64e-only; the bundled Orion runtime is arm64e-only as well.
 
@@ -264,7 +264,7 @@ Release archive SHA-256: `67ea96da8983a792bc9e5549472c2e597b84024c66bce888ce19e7
 
 Input arm64e runtime SHA-256: `e7cbd6e055d9ec30c750741c9a2831d73c5ce7efaf812053e7b279a4e92dbe85`
 
-The MIT license is preserved as `.stheno/Orion-LICENSE.txt` in the DEB. `test_embed_orion.py` verifies all imports, private resolution, unchanged load-command ordinals and code/fixup bytes, rejects a modified runtime, and checks the license. CI signs and verifies the private runtime along with the patched core and gesture helper.
+The MIT license is preserved as `.stheno/Orion-LICENSE.txt` in the DEB. `test_frozen_base.py` verifies the frozen base hash, every recorded hook, private Orion resolution and the license. CI signs and verifies the private runtime along with the patched core and gesture helper.
 
 Future versions use `2.0.2`, `2.0.3`, etc., without `+fix` suffixes.
 

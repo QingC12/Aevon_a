@@ -5,16 +5,17 @@ R=Path(__file__).resolve().parent
 retired=json.loads((R/'inputs/viewport31-retirement.json').read_text())
 for name in retired['production']+retired['tests']:
  assert not (R/name).exists(),('Retired implementation survived',name)
-client=(R/'ViewportClient.m').read_text();host=(R/'ViewportHost.m').read_text();build=(R/'build.py').read_text();dispatch=(R/'dispatch.S').read_text();native=(R/'native.S').read_text()
+client=(R/'ViewportClient.m').read_text();host=(R/'ViewportHost.m').read_text();build=(R/'build.py').read_text()
 for source in [client,host]:
  for pattern in [r'\.transform\s*=',r'\.frame\s*=',r'\.bounds\s*=',r'\.center\s*=',r'\.contentInset\s*=',r'\.additionalSafeAreaInsets\s*=',r'\.text\b']:
   assert not re.search(pattern,source),('A leaf/container is being rewritten',pattern)
 for old in ['STHNativeKeyboardShow','STHNativeKeyboardHide','STHNativeSetKeyboardGeometry','_original_keyboard_show_plus4','_original_keyboard_hide_target']:
- assert old not in native+dispatch+host+client,old
+ assert old not in host+client,old
 for old in ['KeyboardCoordinates.m','KeyboardInset.m','EditorGuard.m','LayoutPublisher.m','KeyboardFocusBus.m']:
  assert "'"+old+"'" not in build,old
-assert "changes[0x8778c]=(bytes.fromhex('e80200f0'),0x87964)" in build
-assert 'changes[0x87b8c]' not in build and 'changes[0x87dfc]' not in build
+frozen=json.loads((R/'inputs/base-patched.json').read_text())
+assert frozen['patch_entries'].get('0x8778c')=='0x87964'
+assert '0x87b8c' not in frozen['patch_entries'] and '0x87dfc' not in frozen['patch_entries']
 assert 'STHCenterRunAnimation' in host and 'writeCard' in host
 assert 'STHVAuthoritativeMap' in client and 'STHVInset' in client
 assert 'toCoordinateSpace:scene.screen.coordinateSpace' in client
