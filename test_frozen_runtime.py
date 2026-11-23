@@ -11,6 +11,6 @@ build=(R/'build.py').read_text()
 for name in ['ViewportHost.m','ViewportClient.m','ViewportBus.m','ViewportDiagnostics.m']:
  assert "'"+name+"'" in build,name
 for name in m['retired_production']:assert "'"+name+"'" not in build,('Retired compiler input',name)
-assert 'migrate_native_bridge(img,OUT' in build and 'compact_signature(p)' in build
+assert 'base-patched.deb' in build and 'compact_signature(p)' in build
 assert "OUT/'SthenoGesture.dylib'" not in build
-print('Runtime33 audit lock passed:',len(m['preserved_nonkeyboard_sources']),'unrelated production files preserved;',len(m['reviewed_active_production']),'active sources reviewed;',len(m['retired_production']),'legacy keyboard files absent')
+print('Runtime33 audit lock passed:',len(m['preserved_nonkeyboard_sources']),'unrelated production files preserved;',len(m['reviewed_active_production']),'active sources reviewed;',len(m['retired_production']),'retired production files absent')
