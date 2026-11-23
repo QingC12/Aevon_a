@@ -21,6 +21,9 @@ static NSMutableDictionary<NSString *,Packet *> *requests,*layouts;
 static uint64_t offeredKey,events;
 static double now;
 static BOOL enabled=YES,unavailable,registryMissing,oversized;
+static NSUInteger awakeCount;
+void STHScreenAwakeUpdate(NSUInteger n){awakeCount=n;}
+BOOL STHScreenAwakeHeld(void){return awakeCount>0;}
 static STHVRect testScreen={0,0,400,850},realKeys={0,550,400,300};
 static int writes,transaction,interruptions,refreshes;
 STHVRect STHVHostTestScreen(void){return testScreen;}
@@ -58,6 +61,7 @@ int main(void){@autoreleasepool{
  requests=[NSMutableDictionary new];layouts=[NSMutableDictionary new];
  for(int cycle=0;cycle<200;cycle++){
   now=10+cycle*10;Card *a=make(@"a"),*b=make(@"b");cards=@[a,b];[requests removeAllObjects];offeredKey=0;sample(YES);registry();
+  assert(awakeCount==2);
   assert(layouts[@"a"].hosted&&!layouts[@"a"].active&&!layouts[@"a"].keyboardVisible);
   int before=writes;claim(@"a",YES,realKeys);registry();assert(!viewportOwner&&writes==before); // App frame cannot create SB authority.
   claim(@"fullscreen",YES,realKeys);sample(NO);assert(!viewportOwner&&writes==before);
@@ -77,7 +81,7 @@ int main(void){@autoreleasepool{
   claim(@"b",YES,(STHVRect){0});registry();cards=@[a];registry();assert(!viewportOwner&&!layouts[@"b"].hosted);
   claim(@"a",YES,(STHVRect){0});registry();registryMissing=YES;claim(@"a",NO,(STHVRect){0});registry();assert(!viewportOwner);registryMissing=NO;
   claim(@"a",YES,(STHVRect){0});registry();oversized=YES;unavailable=YES;now+=4;registry();assert(!viewportOwner);oversized=NO;unavailable=NO;
-  enabled=NO;registry();assert(!layouts[@"a"].hosted);enabled=YES;sample(YES);
+  enabled=NO;registry();assert(!layouts[@"a"].hosted);assert(awakeCount==0);enabled=YES;sample(YES);
  }
  // Exact uploaded device geometry. Only the declared SB sample is the oracle.
  testScreen=(STHVRect){0,0,430,932};realKeys=(STHVRect){0,590,430,342};Card *a=make(@"a");cards=@[a];[requests removeAllObjects];offeredKey=0;sample(YES);
