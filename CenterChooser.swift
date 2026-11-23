@@ -362,6 +362,9 @@ private final class CenterController: NSObject {
         let selected = STHCenterRingSelected(ring)
         let eligible = selected == 999 && s.scale > 0.5 && gap > 0
         let cancelled = pan.state == .cancelled || pan.state == .failed
+        // The disc opens around the summoning finger, so a finger that is
+        // already in the hole when it finishes opening never crossed into it.
+        if s.scale >= 0.98 { session.settle(inside: inside) }
         if phase == 2 {
             session.update(inside: inside && !cancelled, eligible: eligible, moved: moved)
             session.willFinish(inside: inside, eligible: eligible, cancelled: cancelled)

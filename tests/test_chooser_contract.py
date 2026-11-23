@@ -46,6 +46,12 @@ assert 'phase == 2' in center and 'bl \\original' in center
 assert 'STHCenterRunAnimation({ self.state.hover = hovered; self.state.lift = lift }, 0)' in ui
 assert '.offset(y: state.lift * CGFloat(state.scale))' in ui
 assert 'STHChooserSubmitCenterSelection()' in ui and 'session.didFinish()' in ui
+selection=(R/'CenterSelection.swift').read_text()
+# Summoning the disc expands it around the finger: a center release only commits
+# after the disc is fully open and the finger crosses back into the hole.
+assert 'mutating func settle(inside: Bool)' in selection and 'outsideAfterSettle' in selection
+assert 'if s.scale >= 0.98 { session.settle(inside: inside) }' in ui
+assert 'sawOutside && moved && eligible && settled && outsideAfterSettle' in selection
 assert 'pan.location(in: sourceView)' in ui and 'sourceView.convert(nativeCenter, from: screen.fixedCoordinateSpace)' in ui
 assert 'callcore 0x5421c' not in native # NOT a rings-array rebuild getter.
 assert 'STHChooserHideBeforeCapture();' in (R/'SystemActions.m').read_text()
