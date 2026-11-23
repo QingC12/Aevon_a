@@ -57,6 +57,14 @@ assert set(new)==(set(old)-retired)|added,(set(old)-set(new),set(new)-set(old)-a
 changed={path for path in old if path in new and old[path]!=new[path]}
 allowed={'./Library/MobileSubstrate/DynamicLibraries/'+n for n in ['Stheno.dylib','CameraFix.dylib']}
 assert changed==allowed,changed
+# The retired SthenoKeyboard hook replaced the openURL return value with the URL
+# object and stripped UIApplicationOpenURLOptionUniversalLinksOnly, which broke
+# payment jumps that rely on the BOOL/completion contract (Alipay) while leaving
+# custom-scheme jumps (weixin://) intact. No shipped binary may reference that
+# option again, and the manifest must record the removal.
+assert manifest['legacy_url_hook']['shipped'] is False
+for path,blob in new.items():
+ assert path.endswith('.dylib') is False or b'UIApplicationOpenURLOptionUniversalLinksOnly' not in blob,('universal-link interception reintroduced',path)
 for path in ['./usr/local/share/stheno/com.nx.stheno.plist',
  './Library/PreferenceBundles/SthenoPreference.bundle/Info.plist',
  './Library/PreferenceBundles/SthenoPreference.bundle/Root.plist',
@@ -78,6 +86,7 @@ for p in ['control.tar.xz']:
   assert aa['postrm']==bb['postrm']
   assert bb['postinst']==(R/'installer/postinst').read_bytes()
   assert b'SthenoInstall.txt' not in bb['postinst']
+  assert b'/SthenoKeyboard.dylib' in bb['postinst'] and b'/SthenoKeyboard.plist' in bb['postinst']
 local=plistlib.loads(new['./Library/Application Support/Stheno/zh-Hans.lproj/Localizable.strings'])
 for key in ['BlockInterceptor','SSInterceptor','SSInterceptorSilence','SSListen','SSNoUniversalLinks','SSNoSafariViewService','ForegroundNotify','FrontmostNotify','HookUIKit']:
  assert key in local,key

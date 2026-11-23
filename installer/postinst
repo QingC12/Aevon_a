@@ -5,6 +5,20 @@ set +e
 KEYVAL=REXIIUA5FF8288VP
 DOM=/var/mobile/Library/Preferences/com.nx.stheno
 
+# The retired SthenoKeyboard module swizzles
+# -[UIApplication openURL:options:completionHandler:] in every injected app. Its
+# replacement returns the URL object where a BOOL is required and, whenever the
+# universal-link option is present, re-issues the open with an empty options
+# dictionary and a nil completion handler. Payment jumps that depend on that
+# contract never run their fallback (Alipay), while custom-scheme jumps (WeChat)
+# are unaffected. Drop any copy an earlier installation left behind so the module
+# can never load again. Only these two exact paths are touched.
+for L in /Library/MobileSubstrate/DynamicLibraries \
+         /var/jb/Library/MobileSubstrate/DynamicLibraries ; do
+  [ -d "$L" ] || continue
+  rm -f "$L/SthenoKeyboard.dylib" "$L/SthenoKeyboard.plist" 2>/dev/null
+done
+
 :
 :
 
