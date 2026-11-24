@@ -78,5 +78,5 @@ assert b'_$s7SwiftUI5ColorV5blackACvgZ' in core
 # The plate still goes through Color(uiColor:), so the branch structure is intact.
 assert b'_$s7SwiftUI5ColorVyACSo7UIColorCcfC' in core
 
-assert frozen['version'] == '2.0.44'
+assert frozen['version'] == '2.0.45'
 print('Icon plate: light branch uses black through one selref; dark branch keeps Color.black')

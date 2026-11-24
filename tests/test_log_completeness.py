@@ -32,6 +32,15 @@ for reason in ['local-barrier', 'no-visible-keyboard', 'local-input', 'minimized
     assert '"' + reason + '"' in host, ('Unrecorded refusal', reason)
 assert 'host-owner-skip' in host and 'keyboardClearance' in host
 
+# A single attempt at install used to be a session long failure whenever the
+# loader happened to order the two libraries the other way. The install is now a
+# function with an idempotence flag and a bounded retry, and the retry is what
+# removes the "respring until it works" symptom.
+assert 'static void installGeometry(NSString *trigger)' in host
+assert 'geometryInstalled=YES' in host and 'if(geometryInstalled)return' in host
+assert 'installGeometry(@"launch")' in host and 'installGeometry([NSString stringWithFormat:@"retry-%d"' in host
+assert 'attempts>=20' in host and 'host-runtime-wait' in host
+
 # The client records the one measurement a keyboard session is judged by, the
 # clearance between the edited field and the delivered keyboard, plus every event
 # it refuses. None of these entries changes delivery.

@@ -237,22 +237,17 @@ void STHViewportPhysicalWill(CGRect frame,BOOL hiding){
  updateRegistry(YES);
 }
 #if !defined(STH_VIEWPORT_HOST_TEST)
-__attribute__((constructor)) static void installViewportHost(void){dispatch_async(dispatch_get_main_queue(),^{
- // Record only. These observers never write geometry, never publish layout and
- // never run an animation: they answer one question the geometry path cannot,
- // namely whether springboard saw a keyboard at all in a session where the
- // runtime below declined to install. Without them that session left an empty
- // log and could not be compared with a working one.
- BOOL runtimeReady=STHSystemActionRuntimeReady();
- STHVLog(@"host-runtime",@"com.apple.springboard",@{@"ready":@(runtimeReady),@"enabled":@(STHSystemActionsEnabled()),@"home":NSHomeDirectory()});
- for(NSString *name in @[UIKeyboardWillShowNotification,UIKeyboardDidShowNotification,UIKeyboardWillChangeFrameNotification,UIKeyboardDidChangeFrameNotification,UIKeyboardWillHideNotification,UIKeyboardDidHideNotification]){
-  [NSNotificationCenter.defaultCenter addObserverForName:name object:nil queue:NSOperationQueue.mainQueue usingBlock:^(NSNotification *note){
-   id value=note.userInfo[UIKeyboardFrameEndUserInfoKey];
-   CGRect frame=[value isKindOfClass:NSValue.class]?[value CGRectValue]:CGRectNull;
-   STHVLog(@"sb-keyboard-seen",@"com.apple.springboard",@{@"notification":note.name,@"object":note.object?NSStringFromClass([note.object class]):@"-",@"raw":STHVRectJSON(vr(frame)),@"geometryRuntime":@(STHSystemActionRuntimeReady()),@"enabled":@(STHSystemActionsEnabled()),@"visible":@(sbKeyboardVisible),@"generation":@(sbPhysicalGeneration),@"docked":@(!CGRectIsNull(frame)&&STHVKeyboard(vr(frame),viewportScreen())),@"owner":ownerBundle?:@"-"});
-  }];
- }
- if(!runtimeReady){STHVLog(@"host-core-not-ready",@"com.apple.springboard",nil);return;}
+static BOOL geometryInstalled;
+static void installGeometry(NSString *trigger){
+ if(geometryInstalled)return;
+ // The core image is injected into springboard as well, but dyld order between
+ // the two libraries is not fixed. This used to be a single attempt: when the
+ // order went the other way the host gave up for the whole springboard session,
+ // so a keyboard in a floating card only aligned after several resprings and
+ // not on every one of them. Installing late is harmless: nothing below holds
+ // state from the moment of loading.
+ if(!STHSystemActionRuntimeReady()){STHVLog(@"host-runtime-wait",@"com.apple.springboard",@{@"trigger":trigger});return;}
+ geometryInstalled=YES;
  STHVObserveRequests(^{STHCenterRunAnimation(^{updateRegistry(YES);},0);});
  for(NSString *name in @[UIKeyboardWillShowNotification,UIKeyboardWillChangeFrameNotification,UIKeyboardWillHideNotification]){
   [NSNotificationCenter.defaultCenter addObserverForName:name object:nil queue:NSOperationQueue.mainQueue usingBlock:^(NSNotification *note){
@@ -269,6 +264,37 @@ __attribute__((constructor)) static void installViewportHost(void){dispatch_asyn
  static dispatch_source_t registryTimer;registryTimer=dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER,0,0,dispatch_get_main_queue());
  dispatch_source_set_timer(registryTimer,dispatch_time(DISPATCH_TIME_NOW,NSEC_PER_SEC/2),NSEC_PER_SEC,NSEC_PER_SEC/10);
  dispatch_source_set_event_handler(registryTimer,^{updateRegistry(NO);});dispatch_resume(registryTimer);
- STHVLog(@"host-start",@"com.apple.springboard",@{@"architecture":@"viewport32",@"legacyAvoidanceCalled":@NO});
+ STHVLog(@"host-start",@"com.apple.springboard",@{@"architecture":@"viewport32",@"legacyAvoidanceCalled":@NO,@"trigger":trigger});
+}
+__attribute__((constructor)) static void installViewportHost(void){dispatch_async(dispatch_get_main_queue(),^{
+ // Record only. These observers never write geometry, never publish layout and
+ // never run an animation: they answer one question the geometry path cannot,
+ // namely whether springboard saw a keyboard at all in a session where the
+ // runtime below declined to install. Without them that session left an empty
+ // log and could not be compared with a working one.
+ BOOL runtimeReady=STHSystemActionRuntimeReady();
+ STHVLog(@"host-runtime",@"com.apple.springboard",@{@"ready":@(runtimeReady),@"enabled":@(STHSystemActionsEnabled()),@"home":NSHomeDirectory()});
+ for(NSString *name in @[UIKeyboardWillShowNotification,UIKeyboardDidShowNotification,UIKeyboardWillChangeFrameNotification,UIKeyboardDidChangeFrameNotification,UIKeyboardWillHideNotification,UIKeyboardDidHideNotification]){
+  [NSNotificationCenter.defaultCenter addObserverForName:name object:nil queue:NSOperationQueue.mainQueue usingBlock:^(NSNotification *note){
+   id value=note.userInfo[UIKeyboardFrameEndUserInfoKey];
+   CGRect frame=[value isKindOfClass:NSValue.class]?[value CGRectValue]:CGRectNull;
+   STHVLog(@"sb-keyboard-seen",@"com.apple.springboard",@{@"notification":note.name,@"object":note.object?NSStringFromClass([note.object class]):@"-",@"raw":STHVRectJSON(vr(frame)),@"geometryRuntime":@(STHSystemActionRuntimeReady()),@"enabled":@(STHSystemActionsEnabled()),@"visible":@(sbKeyboardVisible),@"generation":@(sbPhysicalGeneration),@"docked":@(!CGRectIsNull(frame)&&STHVKeyboard(vr(frame),viewportScreen())),@"owner":ownerBundle?:@"-"});
+  }];
+ }
+ installGeometry(@"launch");
+ if(geometryInstalled)return;
+ // Twenty tries at 100 ms covers the loader without leaving a timer behind on
+ // springboard for the rest of its life.
+ __block int attempts=0;
+ dispatch_source_t retry=dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER,0,0,dispatch_get_main_queue());
+ dispatch_source_set_timer(retry,dispatch_time(DISPATCH_TIME_NOW,100*NSEC_PER_MSEC),100*NSEC_PER_MSEC,20*NSEC_PER_MSEC);
+ dispatch_source_set_event_handler(retry,^{
+  installGeometry([NSString stringWithFormat:@"retry-%d",++attempts]);
+  if(geometryInstalled||attempts>=20){
+   dispatch_source_cancel(retry);
+   if(!geometryInstalled)STHVLog(@"host-core-not-ready",@"com.apple.springboard",@{@"attempts":@(attempts)});
+  }
+ });
+ dispatch_resume(retry);
 });}
 #endif
