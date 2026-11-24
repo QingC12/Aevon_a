@@ -132,19 +132,22 @@ private struct AppPanel: View {
             HStack(spacing: 8) {
                 HStack(spacing: 6) {
                     Image(systemName: "magnifyingglass").font(.system(size: 13, weight: .semibold)).foregroundColor(.secondary)
-                    ChooserSearchField(text: $query, input: input).frame(minHeight: 20)
+                    ChooserSearchField(text: $query, input: input).frame(height: 22)
                     if !query.isEmpty {
                         Button { query = "" } label: {
                             Image(systemName: "xmark.circle.fill").font(.system(size: 14)).foregroundColor(Color(uiColor: .tertiaryLabel))
                         }.buttonStyle(.plain)
                     }
                 }
-                .padding(.horizontal, 10).padding(.vertical, 7)
+                .padding(.horizontal, 10)
+                .frame(height: 36)
                 .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color(uiColor: .secondarySystemFill)))
                 Button { select(nil) } label: {
                     Text("取消").font(.system(size: 13, weight: .semibold)).foregroundColor(.accentColor)
                 }.buttonStyle(.plain)
             }
+            .frame(height: 36)
+            .fixedSize(horizontal: false, vertical: true)
             .padding(.horizontal, 16).padding(.bottom, 8)
             if let error = input.routingError {
                 Text(error).font(.system(size: 10)).foregroundColor(.secondary)

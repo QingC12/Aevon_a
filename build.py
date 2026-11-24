@@ -1,4 +1,4 @@
-"""Build stheno_2.0.38 from the frozen base.
+"""Build stheno_2.0.39 from the frozen base.
 
 Every binary patch that used to run at build time is already baked into
 inputs/base-patched.deb and recorded in inputs/base-patched.json. This script
@@ -99,14 +99,15 @@ mi=next(i for i,(m,b) in enumerate(rows) if m.name.endswith('/Stheno.dylib'))
 cam=next(i for i,(m,b) in enumerate(rows) if m.name.endswith('/CameraFix.dylib'))
 assert hashlib.sha256(rows[mi][1]).hexdigest()==FROZEN['core_sha256'],'base Stheno.dylib does not match the frozen record'
 core=OUT/'Stheno.dylib';core.write_bytes(rows[mi][1])
-# The ring paints its light-mode icon plate through a single
-# Color(uiColor: UIColor.systemGray4) call. Near-background colours made that plate
-# invisible on a bright wallpaper, so the frozen base carries a length preserving
-# rename of the one selector that branch resolves. Fail fast if it ever regresses.
+# The ring paints its light-mode icon plate through a single Color(uiColor:) call and
+# composites it at about a quarter strength, so any near-background base colour made
+# the plate invisible on pale wallpapers. The frozen base carries a length preserving
+# rename of the one selector that branch resolves, now to darkGray. Fail fast if it
+# ever regresses.
 _core_bytes=core.read_bytes()
-assert _core_bytes.count(b'systemGray4Color')==1,'icon plate selector is not the reviewed one'
-assert b'secondarySystemBackgroundColor' not in _core_bytes,'icon plate still resolves to secondarySystemBackground'
-assert b'secondarySystemFillColor' not in _core_bytes,'icon plate still resolves to the too faint secondarySystemFill'
+assert _core_bytes.count(b'darkGrayColor')==1,'icon plate selector is not the reviewed one'
+for _stale in (b'secondarySystemBackgroundColor',b'secondarySystemFillColor',b'systemGray4Color'):
+    assert _stale not in _core_bytes,'icon plate still resolves to a too faint colour'
 orion=OUT/'Orion';orion.write_bytes((ROOT/'inputs/Orion-private.arm64e').read_bytes())
 assert hashlib.sha256(orion.read_bytes()).hexdigest()==FROZEN['orion_sha256'],'Orion does not match the frozen record'
 camera=OUT/'CameraFix.dylib';camera.write_bytes(rows[cam][1])

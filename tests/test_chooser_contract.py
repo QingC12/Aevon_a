@@ -29,6 +29,12 @@ assert 'ChooserPressStyle()' in ui and 'minimumScaleFactor(0.7)' in ui
 inputSource=(R/'ChooserInput.swift').read_text()
 inputNative=(R/'ChooserInputNative.m').read_text()
 assert 'ChooserSearchField(text: $query, input: input)' in ui
+# The search row is a fixed 36pt bar. A UITextField bridge has no intrinsic height, so
+# without the explicit frame it swallowed the sheet's leftover space and the field
+# grew into a tall grey block that pushed the grid off screen.
+assert 'ChooserSearchField(text: $query, input: input).frame(height: 22)' in ui
+assert '.frame(height: 36)' in ui and '.fixedSize(horizontal: false, vertical: true)' in ui
+assert '.frame(minHeight: 20)' not in ui
 assert 'ChooserSearch.matches(query: query, name: $0.name, identifier: $0.id)' in ui
 assert 'field.markedTextRange == nil' in inputSource
 # A bottom sheet must not summon the keyboard on its own: the keyboard would push the
