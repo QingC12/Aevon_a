@@ -84,8 +84,8 @@ assert 'control' in scripts
 mode, preinst = scripts['preinst']
 assert mode == 0o755, oct(mode)
 assert normalize(preinst) == normalize((R / 'installer/preinst').read_bytes())
-assert b'mkdir -p' in preinst
-assert b'/var/jb/usr/local/share/stheno' in preinst and b'/usr/local/share/stheno' in preinst
+assert b'mkdir -p "$D"' in preinst
+assert b'for R in /var/jb /' in preinst and b'usr/local/share/stheno' in preinst
 assert b'rm ' not in preinst and b'rmdir' not in preinst, 'the preinst must never delete anything'
 assert normalize(scripts['postinst'][1]) == normalize((R / 'installer/postinst').read_bytes())
 assert scripts['postinst'][0] == 0o755
