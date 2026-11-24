@@ -40,6 +40,37 @@ private struct AppRow: Identifiable {
 private final class PanelState: ObservableObject {
     @Published var visible = false
 }
+// The sheet uses a shape with rounded top corners only, so it sits flush on the
+// bottom edge the way a native sheet does.
+private struct ChooserSheet: Shape {
+    let radius: CGFloat
+    func path(in rect: CGRect) -> Path {
+        let corner = min(radius, min(rect.width, rect.height) * 0.5)
+        var path = Path()
+        path.move(to: CGPoint(x: rect.minX, y: rect.maxY))
+        path.addLine(to: CGPoint(x: rect.minX, y: rect.minY + corner))
+        path.addArc(tangent1End: CGPoint(x: rect.minX, y: rect.minY),
+                    tangent2End: CGPoint(x: rect.maxX, y: rect.minY), radius: corner)
+        path.addLine(to: CGPoint(x: rect.maxX - corner, y: rect.minY))
+        path.addArc(tangent1End: CGPoint(x: rect.maxX, y: rect.minY),
+                    tangent2End: CGPoint(x: rect.maxX, y: rect.maxY), radius: corner)
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
+        path.closeSubpath()
+        return path
+    }
+}
+private func chooserIcon(_ identifier: String) -> UIImage {
+    if let icon = STHChooserAppIcon(identifier) { return icon }
+    if let fallback = UIImage(systemName: "app.fill") { return fallback }
+    return UIImage()
+}
+private struct ChooserPressStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.9 : 1)
+            .animation(.easeOut(duration: 0.14), value: configuration.isPressed)
+    }
+}
 private struct AppPanel: View {
     let items: [AppRow]
     let state: PanelState
@@ -47,66 +78,124 @@ private struct AppPanel: View {
     @State private var query = ""
     @ObservedObject var input: ChooserInputSession
     @ObservedObject private var motion: PanelState
+    @Environment(\.colorScheme) private var scheme
+    private let columns = Array(repeating: GridItem(.flexible(), spacing: 0), count: 6)
     init(items: [AppRow], state: PanelState, input: ChooserInputSession, select: @escaping (String?) -> Void) {
         self.items = items; self.state = state; self.input = input; self.select = select; self.motion = state
     }
     private var matches: [AppRow] {
         items.filter { ChooserSearch.matches(query: query, name: $0.name, identifier: $0.id) }
     }
-    private func resultsHeight(_ count: Int, available: CGFloat) -> CGFloat {
-        if count == 0 { return 48 }
-        let reserved = available > 300 ? 180 : 150
-        let cap = max(36, min(244, available - CGFloat(reserved)))
-        return min(CGFloat(count) * 61, cap)
+    private var caption: String {
+        if query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return "共 \(items.count) 个应用可选 · 未加入圆盘"
+        }
+        return "找到 \(matches.count) 个应用"
+    }
+    private func sheetHeight(_ total: CGFloat) -> CGFloat {
+        let preferred = min(total * 0.66, 620)
+        return max(280, min(preferred, total - 110))
     }
     var body: some View {
-        GeometryReader { geometry in
-            let available = max(180, geometry.size.height - 24)
-            ZStack {
-                Color.black.opacity(motion.visible ? 0.18 : 0).ignoresSafeArea().onTapGesture { select(nil) }
-                VStack(spacing: available > 300 ? 10 : 8) {
-                    HStack {
-                        Image(uiImage: STHAppChooserIcon(1)).resizable().frame(width: 32, height: 32).cornerRadius(8)
-                        Text("打开应用").font(.title3.bold())
-                        Spacer()
-                        Button { select(nil) } label: { Image(systemName: "xmark.circle.fill").foregroundColor(.secondary).font(.title2) }
+        GeometryReader { proxy in
+            let height = sheetHeight(proxy.size.height)
+            ZStack(alignment: .bottom) {
+                Color.black.opacity(scheme == .dark ? 0.55 : 0.26)
+                    .contentShape(Rectangle())
+                    .onTapGesture { select(nil) }
+                sheet(height: height)
+                    .offset(y: motion.visible ? 0 : height + 30)
+                    .opacity(motion.visible ? 1 : 0)
+            }
+            .ignoresSafeArea()
+            .animation(.spring(response: 0.34, dampingFraction: 0.88), value: motion.visible)
+        }
+    }
+    private func sheet(height: CGFloat) -> some View {
+        VStack(spacing: 0) {
+            Capsule().fill(Color(uiColor: .tertiaryLabel)).frame(width: 36, height: 5).padding(.top, 8)
+            HStack(alignment: .center, spacing: 10) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("应用选择器").font(.system(size: 17, weight: .bold)).foregroundColor(Color(uiColor: .label))
+                    Text(caption).font(.system(size: 11)).foregroundColor(.secondary).lineLimit(1)
+                }
+                Spacer(minLength: 4)
+                Button { select(nil) } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(.secondary)
+                        .frame(width: 28, height: 28)
+                        .background(Circle().fill(Color(uiColor: .secondarySystemFill)))
+                }.buttonStyle(.plain)
+            }
+            .padding(.horizontal, 16).padding(.top, 6).padding(.bottom, 10)
+            HStack(spacing: 8) {
+                HStack(spacing: 6) {
+                    Image(systemName: "magnifyingglass").font(.system(size: 13, weight: .semibold)).foregroundColor(.secondary)
+                    ChooserSearchField(text: $query, input: input).frame(minHeight: 20)
+                    if !query.isEmpty {
+                        Button { query = "" } label: {
+                            Image(systemName: "xmark.circle.fill").font(.system(size: 14)).foregroundColor(Color(uiColor: .tertiaryLabel))
+                        }.buttonStyle(.plain)
                     }
-                    if available > 300 {
-                        Text("仅显示未加入圆盘的应用").font(.caption).foregroundColor(.secondary).frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .padding(.horizontal, 10).padding(.vertical, 7)
+                .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color(uiColor: .secondarySystemFill)))
+                Button { select(nil) } label: {
+                    Text("取消").font(.system(size: 13, weight: .semibold)).foregroundColor(.accentColor)
+                }.buttonStyle(.plain)
+            }
+            .padding(.horizontal, 16).padding(.bottom, 8)
+            if let error = input.routingError {
+                Text(error).font(.system(size: 10)).foregroundColor(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 16).padding(.bottom, 6)
+            }
+            grid
+        }
+        .frame(height: height).frame(maxWidth: .infinity)
+        .background(ChooserSheet(radius: 26).fill(Color(uiColor: .secondarySystemGroupedBackground)))
+        .overlay(ChooserSheet(radius: 26).stroke(Color(uiColor: .separator).opacity(0.5), lineWidth: 0.5))
+        .clipShape(ChooserSheet(radius: 26))
+        .shadow(color: Color.black.opacity(scheme == .dark ? 0.5 : 0.16), radius: 26, x: 0, y: -8)
+    }
+    private var grid: some View {
+        ScrollView(showsIndicators: false) {
+            if matches.isEmpty {
+                VStack(spacing: 10) {
+                    Image(systemName: "magnifyingglass").font(.system(size: 22, weight: .regular)).foregroundColor(Color(uiColor: .tertiaryLabel))
+                    Text(items.isEmpty ? "没有未加入圆盘的应用" : "没有匹配的应用")
+                        .font(.system(size: 12)).foregroundColor(.secondary)
+                }
+                .frame(maxWidth: .infinity).padding(.top, 44)
+            } else {
+                LazyVGrid(columns: columns, spacing: 12) {
+                    ForEach(matches) { app in
+                        Button { select(app.id) } label: { cell(app) }.buttonStyle(ChooserPressStyle())
                     }
-                    HStack {
-                        Image(systemName: "magnifyingglass").foregroundColor(.secondary)
-                        ChooserSearchField(text: $query, input: input)
-                            .frame(minHeight: 20)
-                    }.padding(12).background(Color.primary.opacity(0.06)).cornerRadius(12)
-                    if let error = input.routingError {
-                        Text(error).font(.caption).foregroundColor(.secondary).frame(maxWidth: .infinity, alignment: .leading)
-                    }
-                    if matches.isEmpty {
-                        Text(items.isEmpty ? "没有未加入圆盘的应用" : "没有匹配的应用").foregroundColor(.secondary).frame(maxWidth: .infinity).frame(height: 48)
-                    } else {
-                        ScrollView {
-                            LazyVStack(spacing: 0) {
-                                ForEach(matches) { app in
-                                    Button { select(app.id) } label: {
-                                        HStack(spacing: 14) {
-                                            Image(uiImage: STHChooserAppIcon(app.id) ?? UIImage(systemName: "app")!).resizable().frame(width: 40, height: 40).cornerRadius(9)
-                                            Text(app.name).foregroundColor(.primary).lineLimit(1)
-                                            Spacer()
-                                        }.frame(height: 60).contentShape(Rectangle())
-                                    }.buttonStyle(.plain)
-                                    Divider().padding(.leading, 54)
-                                }
-                            }
-                        }.frame(height: resultsHeight(matches.count, available: available))
-                    }
-                }.padding(16).frame(maxWidth: 360)
-                    .background(.regularMaterial).cornerRadius(24)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .scaleEffect(motion.visible ? 1 : 0.12).opacity(motion.visible ? 1 : 0)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity).padding(.horizontal, 16).padding(.vertical, 12)
+                }
+                .padding(.horizontal, 8).padding(.top, 6).padding(.bottom, 34)
             }
         }
+        .frame(maxHeight: .infinity)
+    }
+    private func cell(_ app: AppRow) -> some View {
+        VStack(spacing: 5) {
+            Image(uiImage: chooserIcon(app.id))
+                .resizable().scaledToFit()
+                .frame(width: 44, height: 44)
+                .clipShape(RoundedRectangle(cornerRadius: 11.5, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 11.5, style: .continuous)
+                    .strokeBorder(Color(uiColor: .separator).opacity(0.3), lineWidth: 0.5))
+            Text(app.name)
+                .font(.system(size: 9.5))
+                .foregroundColor(Color(uiColor: .label))
+                .lineLimit(1).minimumScaleFactor(0.7)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: .infinity)
+        }
+        .padding(.vertical, 3)
+        .contentShape(Rectangle())
     }
 }
 

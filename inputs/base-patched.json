@@ -1,8 +1,8 @@
 {
-  "version": "2.0.37",
-  "frozen_deb_sha256": "f617e429b7daaf87c126943dbcbc2b0db51267b455d854d938a08b9b5ddadee3",
-  "frozen_deb_bytes": 355836,
-  "core_sha256": "d09711e282534e7b78c0424800be5f93cdbc17a5a510817d3f0d3b9d835c64a3",
+  "version": "2.0.38",
+  "frozen_deb_sha256": "d58a9b98f610bd6fcbdb32f9d92c3a88af62827a307d8075160d24d3cb156d0f",
+  "frozen_deb_bytes": 355824,
+  "core_sha256": "23f45b17afba4e4c84eef83b726ae723e01c5fa5d362012795c5679be0e405e6",
   "core_bytes": 1110640,
   "orion_sha256": "b4092fd80a4812d357b0006ecd683bd0f46679127ca44c78120edf87757d45cc",
   "patch_entries": {
@@ -408,26 +408,27 @@
     "source_arm64e_sha256": "e7cbd6e055d9ec30c750741c9a2831d73c5ce7efaf812053e7b279a4e92dbe85"
   },
   "icon_pad": {
-    "version": 1,
+    "version": 2,
     "module": "Stheno.dylib",
     "surface": "ring icon background plate",
-    "light_branch": "UIColor.secondarySystemBackgroundColor -> Color(uiColor:)",
+    "light_branch": "UIColor.systemGray4Color -> Color(uiColor:)",
     "dark_branch": "SwiftUI Color.black (unchanged)",
     "selector_ref_offset": "0xe6798",
     "selector_name_offset": "0xd3114",
     "original": "secondarySystemBackgroundColor",
-    "replacement": "secondarySystemFillColor",
+    "replacement": "systemGray4Color",
     "patched_bytes": "31 equal-length bytes, NUL padded",
-    "defect": "the light-mode plate is the opaque secondarySystemBackground (242,242,247), which is within a few levels of a bright wallpaper and of the ring capsule, so the plate that separates every icon from the backdrop disappears",
-    "effect": "the plate now resolves through the dynamic secondarySystemFill (rgba 120,120,128,0.16) and reads as a soft grey disc on light backgrounds without turning into the pure black plate the dark branch uses",
+    "defect": "the light-mode plate is drawn with a near-background colour: the shipped secondarySystemBackground (242,242,247) was within a few levels of a bright wallpaper, and the first follow-up fix (secondarySystemFill, rgba 120,120,128,0.16) still sat only about eighteen levels below the ring capsule, so the plate that separates every icon from the backdrop stayed hard to see",
+    "effect": "the plate now resolves through systemGray4 (opaque D1D1D6 in light mode), about thirty levels below the ring capsule, so every icon sits on a clearly readable grey disc without the pure black plate of the dark branch",
     "scope": "one selector reference in one branch; ring geometry, icon placement, animation and the dark branch are untouched",
-    "regression_gate": "the core must reference secondarySystemFillColor through exactly one selref and must not contain secondarySystemBackgroundColor",
+    "regression_gate": "the core must reference systemGray4Color through exactly one selref and must contain neither secondarySystemBackgroundColor nor secondarySystemFillColor",
     "byte_patch": {
       "offset": "0xd3114",
       "length": 31,
       "original": "secondarySystemBackgroundColor",
-      "replacement": "secondarySystemFillColor",
+      "replacement": "systemGray4Color",
       "note": "the 31 bytes are one NUL-terminated selector name plus its padding; no instruction stream, header or fixup word is touched"
-    }
+    },
+    "previous": "secondarySystemFillColor"
   }
 }

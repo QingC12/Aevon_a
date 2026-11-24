@@ -5,6 +5,11 @@ final class ChooserInputSession: NSObject, ObservableObject {
     private var policy = ChooserFocusPolicy()
     private var appeared = false
     private var presented = false
+    // The panel opens as a bottom sheet with the grid on screen, so it must not
+    // summon the keyboard on its own: the sheet would be pushed up and the grid
+    // would lose most of its rows. The keyboard is requested only after the user
+    // taps the search field.
+    private var searchRequested = false
     private weak var window: UIWindow?
     private weak var field: UITextField?
     private var assertion: NSObject?
@@ -26,7 +31,14 @@ final class ChooserInputSession: NSObject, ObservableObject {
     }
     func attach(_ field: UITextField) { self.field = field; offerFocus() }
     func didAppear() { appeared = true; offerFocus() }
-    func open() { presented = true; offerFocus() }
+    func open() { presented = true }
+    // First tap on the search field: mark the sheet presented, then let UIKit make
+    // the field first responder through the normal shouldBeginEditing path.
+    func allowSearchEditing() -> Bool {
+        searchRequested = true
+        presented = true
+        return allowEditing()
+    }
     func prepareRouting() -> Bool {
         guard !closing else { return false }
         if routingAttempted { return assertion != nil }
@@ -49,7 +61,7 @@ final class ChooserInputSession: NSObject, ObservableObject {
         return true
     }
     private func offerFocus() {
-        guard let window, let field else { return }
+        guard searchRequested, let window, let field else { return }
         guard policy.offer(appeared: appeared && presented, attached: field.window === window,
                            key: window.isKeyWindow, active: window.windowScene?.activationState == .foregroundActive,
                            blocked: STHSystemUIBlocked(), routingReady: assertion != nil) else { return }
@@ -105,7 +117,7 @@ struct ChooserSearchField: UIViewRepresentable {
         let input: ChooserInputSession
         init(text: Binding<String>, input: ChooserInputSession) { self.text = text; self.input = input }
         @objc func changed(_ sender: UITextField) { text.wrappedValue = sender.text ?? "" }
-        func textFieldShouldBeginEditing(_ textField: UITextField) -> Bool { input.allowEditing() }
+        func textFieldShouldBeginEditing(_ textField: UITextField) -> Bool { input.allowSearchEditing() }
     }
 }
 

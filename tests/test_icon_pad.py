@@ -1,11 +1,13 @@
-"""Icon plate contrast gate: the ring's light-mode plate must use a dynamic fill.
+"""Icon plate contrast gate: the ring's light-mode plate must use a legible grey.
 
 The ring draws a rounded plate behind every icon. Its colour is chosen by the
-colour scheme: SwiftUI Color.black in dark mode, Color(uiColor: .secondarySystemBackground)
-in light mode. secondarySystemBackground is opaque (242,242,247 in light mode), which
-lands within a few levels of a bright wallpaper and of the ring capsule, so the plate
-that separates the icons from the backdrop disappears. The frozen base renames the one
-selector that branch resolves so it returns the dynamic secondarySystemFill instead.
+colour scheme: SwiftUI Color.black in dark mode, Color(uiColor: ...) in light mode.
+The shipped colour was secondarySystemBackground (opaque 242,242,247 in light mode),
+which lands within a few levels of a bright wallpaper and of the ring capsule, so the
+plate that separates the icons from the backdrop disappeared. A first attempt used
+secondarySystemFill (rgba 120,120,128,0.16), which still sat only about eighteen
+levels below the capsule. The frozen base now renames the one selector that branch
+resolves to systemGray4 (opaque D1D1D6 in light mode).
 
 This gate pins the rename to the exact offsets and proves nothing else moved.
 """
@@ -37,7 +39,8 @@ assert len(core) == frozen['core_bytes']
 
 record = frozen['icon_pad']
 assert record['original'] == 'secondarySystemBackgroundColor'
-assert record['replacement'] == 'secondarySystemFillColor'
+assert record['previous'] == 'secondarySystemFillColor'
+assert record['replacement'] == 'systemGray4Color'
 assert record['selector_name_offset'] == '0xd3114'
 assert record['selector_ref_offset'] == '0xe6798'
 
@@ -52,6 +55,7 @@ assert core[name_at + len(replacement)] == 0
 assert core[name_at + 31:name_at + 36] == b'self\0'
 assert core.count(replacement) == 1
 assert b'secondarySystemBackgroundColor' not in core
+assert b'secondarySystemFillColor' not in core
 
 # The single selector reference must still resolve to that string (the fixup keeps its
 # chain bits; only the low 32 bits carry the rebase target), so dyld registers the
@@ -63,5 +67,5 @@ assert b'_$s7SwiftUI5ColorV5blackACvgZ' in core
 # The plate still goes through Color(uiColor:), so the branch structure is intact.
 assert b'_$s7SwiftUI5ColorVyACSo7UIColorCcfC' in core
 
-assert frozen['version'] == '2.0.37'
-print('Icon plate: light branch uses secondarySystemFill through one selref; dark branch keeps Color.black')
+assert frozen['version'] == '2.0.38'
+print('Icon plate: light branch uses systemGray4 through one selref; dark branch keeps Color.black')

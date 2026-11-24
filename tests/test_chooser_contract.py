@@ -14,12 +14,27 @@ assert 'UIBezierPath(ovalIn: hitArea).contains(point)' in ui and 'w.addSubview(s
 assert 'surface.convert(native, from: screen.fixedCoordinateSpace)' in ui and 'renderedCenter(nativeCenter, in: w)' in ui
 assert 'CenterGlyphGeometry.visibleHitArea' in ui and 'liftedY: state.lift' in ui
 assert 'state.scale = snapshot.scale' in ui
-assert 'resultsHeight(matches.count, available: available)' in ui and '.frame(maxWidth: 360)' in ui
+# The picker is a bottom sheet with a six column icon grid: the whole catalog is
+# browsable at once instead of one tall row at a time, and the sheet keeps only its
+# own surfaces so the system light/dark appearance drives every colour.
+assert 'ChooserSheet(radius: 26)' in ui and 'func path(in rect: CGRect) -> Path' in ui
+assert 'LazyVGrid(columns: columns, spacing: 12)' in ui and 'count: 6' in ui
+assert 'LazyVStack(spacing: 0)' not in ui and 'resultsHeight' not in ui
+assert 'Color(uiColor: .secondarySystemGroupedBackground)' in ui
+assert 'Color(uiColor: .secondarySystemFill)' in ui and 'Color(uiColor: .label)' in ui
+assert 'scheme == .dark ? 0.55 : 0.26' in ui
+assert 'offset(y: motion.visible ? 0 : height + 30)' in ui
+assert '.animation(.spring(response: 0.34, dampingFraction: 0.88), value: motion.visible)' in ui
+assert 'ChooserPressStyle()' in ui and 'minimumScaleFactor(0.7)' in ui
 inputSource=(R/'ChooserInput.swift').read_text()
 inputNative=(R/'ChooserInputNative.m').read_text()
 assert 'ChooserSearchField(text: $query, input: input)' in ui
 assert 'ChooserSearch.matches(query: query, name: $0.name, identifier: $0.id)' in ui
 assert 'field.markedTextRange == nil' in inputSource
+# A bottom sheet must not summon the keyboard on its own: the keyboard would push the
+# sheet up and hide most of the grid. Focus is requested only from the search field.
+assert 'guard searchRequested' in inputSource and 'func allowSearchEditing() -> Bool' in inputSource
+assert 'textFieldShouldBeginEditing' in inputSource and 'input.allowSearchEditing()' in inputSource
 assert 'viewDidAppear' in inputSource and 'didMoveToWindow' in inputSource
 assert 'window.isKeyWindow' in inputSource and 'field.window === window' in inputSource
 routing=(R/'ChooserFocusRouting.inc').read_text()
