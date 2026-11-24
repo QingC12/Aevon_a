@@ -9,6 +9,11 @@ extern "C" {
 #endif
 
 typedef struct {
+    double width;
+    double height;
+} STHRSize;
+
+typedef struct {
     bool inject;
     bool settingMaskPresent;
     bool settingBit31;

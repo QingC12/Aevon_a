@@ -36,11 +36,11 @@ static double reflowNow(void){
 static BOOL finiteRect(CGRect r){return isfinite(r.origin.x)&&isfinite(r.origin.y)&&isfinite(r.size.width)&&isfinite(r.size.height)&&r.size.width>0&&r.size.height>0;}
 static STHRSize hrSize(CGRect r){return (STHRSize){r.size.width,r.size.height};}
 static STHVRect vr(CGRect r){return (STHVRect){r.origin.x,r.origin.y,r.size.width,r.size.height};}
-typedef struct {BOOL armed;CGRect scene,physical;} STHCacheView;
+typedef struct {BOOL armed;CGRect scene;} STHCacheView;
 static STHCacheView cacheView(void){
- STHCacheView view={NO,CGRectZero,CGRectZero};
+ STHCacheView view={NO,CGRectZero};
  os_unfair_lock_lock(&cacheLock);
- view.physical=cachedPhysicalBounds;view.scene=cachedSceneBounds;
+ view.scene=cachedSceneBounds;
  view.armed=cacheEnabled&&reflowNow()<=cacheExpires;
  os_unfair_lock_unlock(&cacheLock);
  return view;
