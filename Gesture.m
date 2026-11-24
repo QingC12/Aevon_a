@@ -77,6 +77,31 @@ static BOOL portrait(void) {
 #endif
  return YES;
 }
+// A reset hands back the size tuple from the initializer, but the origin is not
+// part of that tuple: the card stays wherever it was dragged. A fresh card rests
+// in the middle of the screen, so the same long press gives back the resting
+// place as well. A card's centre follows its offset from the screen centre and
+// not its size, so the delta holds even when the restored size lands on a later
+// layout pass.
+static CGRect screenBounds(void) {
+#if defined(STH_ROUTING_TEST)
+ extern CGRect STHTestScreenBounds(void);
+ return STHTestScreenBounds();
+#else
+ return UIScreen.mainScreen.bounds;
+#endif
+}
+static CGSize centerDelta(CGRect card,CGRect screen) {
+ if(CGRectIsEmpty(card)||CGRectIsNull(card)||CGRectIsEmpty(screen))return CGSizeZero;
+ if(!isfinite(card.origin.x)||!isfinite(card.origin.y)||!isfinite(card.size.width)||!isfinite(card.size.height))return CGSizeZero;
+ if(!isfinite(screen.origin.x)||!isfinite(screen.origin.y)||!isfinite(screen.size.width)||!isfinite(screen.size.height))return CGSizeZero;
+ return CGSizeMake(CGRectGetMidX(screen)-CGRectGetMidX(card),CGRectGetMidY(screen)-CGRectGetMidY(card));
+}
+static void recenterCard(void *m) {
+ CGSize d=centerDelta(STHNativeRect(m),screenBounds());
+ if(fabs(d.width)<0.5&&fabs(d.height)<0.5)return;
+ STHNativeMove(m,d);
+}
 static void finishGestureState(STHGestureState *s){
  if(!s)return;
  s.active=NO;s.dragActive=NO;s.pendingRehit=NO;s.lastActivity=0;
@@ -299,6 +324,9 @@ void STHLong(void *m) {
   s.acted=YES;
   // Restore the actual tuple from ReflectManager's initializer and clear aspect trim.
   STHNativeReset(m);
+  // The size comes back from the same tuple a new card starts from, and the
+  // place belongs to that resting state too, so one long press returns both.
+  recenterCard(m);
  }
 }
 void STHTap(void *m,NSUInteger count) {

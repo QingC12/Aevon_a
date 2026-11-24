@@ -16,4 +16,10 @@ assert "blockedSides" in dock and "STHDockMayApply" in dock
 assert "STHViewportModelMinimized" in keyboard and "restoreOwner" in keyboard and "maintainOwner" in keyboard
 assert "UIBezierPath(ovalIn: hitArea).contains(point)" in center
 assert "CenterGlyphGeometry.visibleHitArea" in center
-print("Global logic contract: stale gesture recovery, dock restore, orientation ABI, keyboard ownership and center hit geometry")
+# The size-reset long press also returns the card to its resting place.
+assert "static CGSize centerDelta(CGRect card,CGRect screen)" in gesture
+assert "static void recenterCard(void *m)" in gesture
+assert "STHNativeReset(m);" in gesture and "recenterCard(m);" in gesture
+assert gesture.index("STHNativeReset(m);")<gesture.index("recenterCard(m);")
+assert "UIScreen.mainScreen.bounds" in gesture and "STHTestScreenBounds" in gesture
+print("Global logic contract: stale gesture recovery, dock restore, orientation ABI, keyboard ownership, reset place and center hit geometry")

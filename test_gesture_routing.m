@@ -40,6 +40,7 @@ void STHNativeDock(void *m) { docked++;testMinimized=NO; }
 void STHNativeLong(void *m) { longs++; }
 void STHNativeReset(void *m) {}
 void STHNativeTap(void *m,NSUInteger c) {}
+CGRect STHTestScreenBounds(void) { return CGRectMake(0,0,600,600); }
 
 static void beginYellow(TestModel *model,Drag *drag) {
  void *m=(__bridge void *)model;
@@ -112,6 +113,20 @@ int main(void) {
    assert(docked==prior+1&&!testMinimized&&ends==priorEnds&&setups==priorSetups);
    assert(STHClassify(m,CGPointMake(120,120))==10);
   }
+  // The right-bottom middle long press returns the size AND the resting place:
+  // the card is centred on the screen, and a centred card is left alone.
+  testMinimized=NO;nativeHit=4;
+  drag=(Drag){CGSizeZero,NO};
+  assert(STHClassify(m,CGPointMake(160,400))==3);
+  assert(state(m).zone==ZReset);
+  int movesAt=moves;
+  STHLong(m);
+  assert(moves==movesAt+1);
+  assert(fabs(movedBy.width-180)<.001&&fabs(movedBy.height-80)<.001);
+  CGSize rest=centerDelta(CGRectMake(200,100,200,400),CGRectMake(0,0,600,600));
+  assert(fabs(rest.width)<.001&&fabs(rest.height)<.001);
+  CGSize empty=centerDelta(CGRectZero,CGRectMake(0,0,600,600));
+  assert(empty.width==0&&empty.height==0);
   puts("Gesture dock regression: keyboard exclusion preserved except the visible minimized hit target; one restore per gesture");
  }
  return 0;
