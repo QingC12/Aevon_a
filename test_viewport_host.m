@@ -53,6 +53,7 @@ BOOL STHVReadClientFrames(NSString *b,STHVSnapshot *out){return NO;}
 BOOL STHVReadProbe(NSString *b,STHVRect *a,STHVRect *p){return NO;}
 NSDictionary *STHVRectJSON(STHVRect r){return @{@"x":@(r.x),@"y":@(r.y),@"w":@(r.w),@"h":@(r.h)};}
 void STHVLog(NSString *e,NSString *b,NSDictionary *v){}
+void STHVLogInstallRelay(void){}
 static Card *make(NSString *b){Card *c=[Card new];c.bundle=b;c.scale=.8;return c;}
 static void claim(NSString *b,BOOL active,STHVRect raw){Packet *p=[Packet new];p.active=active;p.keyboard=raw;p.event=++events;requests[b]=p;if(active)offeredKey=STHVKey(b);}
 static void registry(void){STHCenterRunAnimation(^{updateRegistry(YES);},0);}

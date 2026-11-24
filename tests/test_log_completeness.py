@@ -50,4 +50,22 @@ for token in ['client-editing-began', 'client-editing-ended', 'client-ignored', 
 for reason in ['non-local', 'no-scene', 'not-main-screen', 'not-portrait', 'no-end-frame',
                'foreign-screen', 'no-responder']:
     assert '"' + reason + '"' in client, ('Unrecorded refusal', reason)
-print('Log completeness contract: append only with no line or size cap; springboard records a keyboard without the geometry runtime; every refusal and the input to keyboard clearance are recorded')
+
+# One file has to hold both halves of a keyboard session. A sandboxed application
+# cannot open /var/mobile/Documents, so its record is forwarded over a message
+# port and appended by springboard as received, keeping its own pid and process.
+assert 'CFMessagePortCreateLocal' in diag and 'CFMessagePortSetDispatchQueue' in diag
+assert 'CFMessagePortCreateRemote' in diag and 'kCFMessagePortSendNoReply' in diag
+assert 'if(!logSharedWritable&&!logRelayHost)forward=line;' in diag, 'forwarding must be one condition'
+assert 'static void appendForwarded(NSData *line)' in diag
+# The forwarded line is written byte for byte; re-encoding would lose the very
+# pid and process fields that identify the sender.
+assert 'fwrite(line.bytes,1,line.length,logSinks[i]);' in diag
+# A process that can open the shared file does not forward, including the host.
+assert 'if([path isEqualToString:shared])logSharedWritable=YES;' in diag
+assert 'if(logRelayHost)return;' in diag
+# The relay is opened before the first record, so an application that loads later
+# can already reach the file.
+assert host.index('STHVLogInstallRelay();') < host.index('STHVLog(@"host-runtime"')
+assert 'log-relay-listen' in diag and 'log-relay-client' in diag
+print('Log completeness contract: append only with no line or size cap; springboard records a keyboard without the geometry runtime; every refusal and the input to keyboard clearance are recorded; an application record reaches the shared file over a message port')

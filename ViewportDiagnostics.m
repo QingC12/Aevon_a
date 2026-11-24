@@ -17,13 +17,24 @@ NSDictionary *STHVRectJSON(STHVRect r){
 static FILE *logSinks[4];
 static int logSinkCount=-1;
 static NSString *logPrimaryPath;
+static BOOL logSharedWritable;
 static os_unfair_lock logLock=OS_UNFAIR_LOCK_INIT;
 static uint64_t logSequence;
+// A sandboxed application cannot open /var/mobile/Documents, and a store
+// signature cannot be given the extension that would let it. Its records are
+// therefore handed to springboard over a message port and appended there
+// verbatim: the record already carries its own pid, process and bundle, so the
+// line stays readable in the shared file exactly as it was produced. This is
+// the only way one file holds the decision and its consequence together.
+#define STHVLogPort "com.nx.stheno.viewport32.log"
+static BOOL logRelayHost;
+static void relaySend(NSData *line);
 static void openSinks(void){
  if(logSinkCount>0)return;
  logSinkCount=0;
  NSString *leaf=@"SthenoViewport33.log";
- NSArray<NSString *> *paths=@[[@"/var/mobile/Documents" stringByAppendingPathComponent:leaf],
+ NSString *shared=[@"/var/mobile/Documents" stringByAppendingPathComponent:leaf];
+ NSArray<NSString *> *paths=@[shared,
   [NSHomeDirectory() stringByAppendingPathComponent:@"Documents/SthenoViewport33.log"],
   [NSTemporaryDirectory() stringByAppendingPathComponent:leaf]];
  NSMutableSet<NSString *> *seen=[NSMutableSet set];
@@ -39,15 +50,17 @@ static void openSinks(void){
   setvbuf(file,NULL,_IONBF,0);
   logSinks[logSinkCount++]=file;
   if(!logPrimaryPath)logPrimaryPath=path;
+  if([path isEqualToString:shared])logSharedWritable=YES;
   if(logSinkCount>=(int)(sizeof(logSinks)/sizeof(logSinks[0])))break;
  }
 }
 void STHVLog(NSString *event,NSString *bundle,NSDictionary *values){
+ NSData *forward=nil;
  os_unfair_lock_lock(&logLock);
  openSinks();
  NSMutableDictionary *record=[NSMutableDictionary dictionaryWithDictionary:values?:@{}];
  record[@"event"]=event?:@"unknown";record[@"bundle"]=bundle?:@"unknown";
- record[@"build"]=@"2.0.48";record[@"uptime"]=@(NSProcessInfo.processInfo.systemUptime);
+ record[@"build"]=@"2.0.49";record[@"uptime"]=@(NSProcessInfo.processInfo.systemUptime);
  // seq orders records across threads and across processes only within one
  // process; pid is what separates a springboard session from an app session.
  record[@"seq"]=@(++logSequence);record[@"pid"]=@(getpid());
@@ -60,6 +73,80 @@ void STHVLog(NSString *event,NSString *bundle,NSDictionary *values){
  if(json&&!error){
   NSMutableData *line=[json mutableCopy];[line appendBytes:"\n" length:1];
   for(int i=0;i<logSinkCount;i++)fwrite(line.bytes,1,line.length,logSinks[i]);
+  // Nothing written here can reach the shared file, so the line travels to the
+  // process that can write it. The host never forwards to itself.
+  if(!logSharedWritable&&!logRelayHost)forward=line;
  }
  os_unfair_lock_unlock(&logLock);
+ if(forward)relaySend(forward);
+}
+// The record is appended as received, including its own pid and process name, so
+// a forwarded line differs from a local one only by those fields.
+static void appendForwarded(NSData *line){
+ os_unfair_lock_lock(&logLock);
+ openSinks();
+ for(int i=0;i<logSinkCount;i++)fwrite(line.bytes,1,line.length,logSinks[i]);
+ os_unfair_lock_unlock(&logLock);
+}
+static void relaySend(NSData *line){
+ static dispatch_queue_t queue;
+ static dispatch_once_t once;
+ static int pending;
+ dispatch_once(&once,^{queue=dispatch_queue_create("com.nx.stheno.viewport32.log.relay",DISPATCH_QUEUE_SERIAL);});
+ // A stalled reader must not grow a queue without bound; the newest records are
+ // the ones that explain a failure, so the oldest excess is dropped instead.
+ if(__atomic_add_fetch(&pending,1,__ATOMIC_RELAXED)>8192){
+  __atomic_sub_fetch(&pending,1,__ATOMIC_RELAXED);return;
+ }
+ dispatch_async(queue,^{
+  // Confined to the serial queue, so the cached port needs no lock.
+  static CFMessagePortRef port;
+  static int failures;
+  if(failures<=200){
+   if(!port){
+    port=CFMessagePortCreateRemote(NULL,CFSTR(STHVLogPort));
+    if(!port)failures++;
+   }
+   if(port){
+    SInt32 status=CFMessagePortSendRequest(port,0,(__bridge CFDataRef)line,0.3,0.3,kCFMessagePortSendNoReply,NULL);
+    if(status!=kCFMessagePortSuccess){CFRelease(port);port=NULL;failures++;}else failures=0;
+   }
+  }
+  __atomic_sub_fetch(&pending,1,__ATOMIC_RELAXED);
+ });
+}
+static CFDataRef relayReceive(CFMessagePortRef port,SInt32 identifier,CFDataRef data,void *info){
+ (void)port;(void)identifier;(void)info;
+ if(!data)return NULL;
+ NSData *line=(__bridge NSData *)data;
+ if(!line.length||line.length>16384)return NULL;
+ appendForwarded(line);
+ // One line per joining process, so a session that ends covered still shows
+ // whether the application side was speaking at all.
+ static NSMutableSet *pids;
+ static BOOL noticed;
+ if(!noticed){
+  noticed=YES;
+  STHVLog(@"log-relay-ready",@"com.apple.springboard",@{@"port":@STHVLogPort});
+ }
+ NSDictionary *parsed=[NSJSONSerialization JSONObjectWithData:line options:0 error:NULL];
+ NSNumber *pid=[parsed isKindOfClass:NSDictionary.class]?parsed[@"pid"]:nil;
+ if(![pid isKindOfClass:NSNumber.class])return NULL;
+ if(!pids)pids=[NSMutableSet new];
+ if([pids containsObject:pid])return NULL;
+ [pids addObject:pid];
+ STHVLog(@"log-relay-client",@"com.apple.springboard",@{@"originPid":pid,
+  @"originProcess":parsed[@"process"]?:@"unknown",@"originBundle":parsed[@"bundle"]?:@"unknown",
+  @"originBuild":parsed[@"build"]?:@"unknown"});
+ return NULL;
+}
+void STHVLogInstallRelay(void){
+ if(logRelayHost)return;
+ logRelayHost=YES;
+ if(!NSThread.isMainThread)return;
+ CFMessagePortRef port=CFMessagePortCreateLocal(NULL,CFSTR(STHVLogPort),relayReceive,NULL,NULL);
+ if(!port)return;
+ CFMessagePortSetDispatchQueue(port,dispatch_get_main_queue());
+ STHVLog(@"log-relay-listen",@"com.apple.springboard",@{@"port":@STHVLogPort,
+  @"sharedWritable":@(logSharedWritable)});
 }

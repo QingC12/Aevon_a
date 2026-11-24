@@ -352,6 +352,11 @@ static void installGeometry(NSString *trigger){
  STHVLog(@"host-start",@"com.apple.springboard",@{@"architecture":@"viewport32",@"legacyAvoidanceCalled":@NO,@"trigger":trigger});
 }
 __attribute__((constructor)) static void installViewportHost(void){dispatch_async(dispatch_get_main_queue(),^{
+ // The port is opened before anything else, and before the first record is
+ // written, so an application that loads later can already reach the file. A
+ // sandboxed application cannot open the shared file itself; its records are
+ // appended here instead, verbatim, keeping their own pid and process name.
+ STHVLogInstallRelay();
  // Record only. These observers never write geometry, never publish layout and
  // never run an animation: they answer one question the geometry path cannot,
  // namely whether springboard saw a keyboard at all in a session where the
