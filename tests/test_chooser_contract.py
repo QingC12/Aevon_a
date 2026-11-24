@@ -27,16 +27,22 @@ assert 'Color(uiColor: .secondarySystemGroupedBackground)' in ui
 assert 'Color(uiColor: .secondarySystemFill)' in ui and 'Color(uiColor: .label)' in ui
 assert 'scheme == .dark ? 0.55 : 0.26' in ui
 # The sheet ignores every safe area, including the keyboard one, so SwiftUI never
-# moves it and the keyboard used to cover the search bar. The published keyboard
-# overlap now only translates the sheet: the height is a pure function of the screen
-# and must never take the keyboard as an argument. Animating the height re-laid out
-# the lazy grid and re-anchored the scroll view while the sheet was still moving,
-# which is what made the panel wobble, slide out of place and then settle.
+# moves it and the keyboard used to cover the search bar. The height is a pure
+# function of the screen and must never take the keyboard as an argument, and the
+# keyboard never translates the sheet by its own height either: it floats above the
+# sheet and only grows the grid's run out. Animating the height re-laid out the lazy
+# grid and re-anchored the scroll view while the sheet was still moving, which is
+# what made the panel wobble, slide out of place and then settle.
 assert 'offset(y: motion.visible ? -raised : height + 30)' in ui
 assert 'private func sheetHeight(_ total: CGFloat) -> CGFloat {' in ui
 assert 'keyboard overlap: CGFloat' not in ui
-assert 'let raised = lift(total, height: height)' in ui
-assert 'min(keyboard.overlap, max(0, total - height - 48))' in ui
+assert 'let raised = lift(height)' in ui
+# The keyboard floats over the sheet; the sheet keeps its height and its place. It may
+# only nudge up by the points needed to keep the search row clear of the keyboard, so
+# a tall keyboard never carries a 62% panel to the top edge of the screen.
+assert 'min(keyboard.overlap, max(0, keyboard.overlap - height + searchRowBottom + margin))' in ui
+assert 'total - height - 48' not in ui
+assert 'let searchRowBottom: CGFloat = 112' in ui
 assert '.padding(.bottom, 30 + covered)' in ui
 assert 'UIResponder.keyboardWillChangeFrameNotification' in ui
 assert 'UIResponder.keyboardFrameEndUserInfoKey' in ui

@@ -74,8 +74,9 @@ private struct ChooserPressStyle: ButtonStyle {
 // The sheet lives in its own full screen window and deliberately ignores every safe
 // area, including the keyboard one, so SwiftUI never moves it on its own. That is what
 // let the keyboard cover the search bar: the sheet stayed pinned to the bottom edge.
-// The observer below publishes the real keyboard overlap and the sheet lifts itself by
-// exactly that much, which keeps the search bar on screen and the height predictable.
+// The observer below publishes the real keyboard overlap, which is used for one thing
+// only: the strip of the grid that ends up behind the keyboard grows that much so the
+// last row can still be scrolled clear. The sheet itself does not move for it.
 private final class ChooserKeyboard: ObservableObject {
     @Published var overlap: CGFloat = 0
     private var tokens: [NSObjectProtocol] = []
@@ -129,22 +130,30 @@ private struct AppPanel: View {
     // A frame that animates its height re-lays out the lazy grid on every pass, and the
     // scroll view re-anchors while the sheet is still moving: that is what made the
     // panel wobble, slide out of place and then settle. The height is therefore a pure
-    // function of the screen, and the keyboard only translates the sheet.
+    // function of the screen, and nothing about the keyboard feeds into it.
     private func sheetHeight(_ total: CGFloat) -> CGFloat {
         min(max(340, total * 0.62), 560)
     }
-    // The keyboard cannot be pushed away, only dodged. The sheet lifts by the keyboard
-    // height, except for the part that would carry its top edge under the status bar;
-    // the remainder simply stays behind the keyboard, the way a native sheet behaves.
-    private func lift(_ total: CGFloat, height: CGFloat) -> CGFloat {
+    // The keyboard belongs to the screen, not to the sheet: it floats above whatever is
+    // already there, so the sheet keeps its height and its place while the keyboard sits
+    // on top of its lower half. The sheet only nudges up when the keyboard is tall enough
+    // to reach the search row, and then by exactly the handful of points that keeps that
+    // row clear. Lifting it by the whole keyboard height pushed a 62% panel to the top
+    // edge of the screen and made it read as a full screen page, which is not the shape
+    // of a bottom drawer.
+    private func lift(_ height: CGFloat) -> CGFloat {
         guard keyboard.overlap > 0 else { return 0 }
-        return min(keyboard.overlap, max(0, total - height - 48))
+        // Distance from the sheet's top edge to the bottom of the search row, plus a
+        // margin so the row never sits flush against the keyboard.
+        let searchRowBottom: CGFloat = 112
+        let margin: CGFloat = 8
+        return min(keyboard.overlap, max(0, keyboard.overlap - height + searchRowBottom + margin))
     }
     var body: some View {
         GeometryReader { proxy in
             let total = proxy.size.height
             let height = sheetHeight(total)
-            let raised = lift(total, height: height)
+            let raised = lift(height)
             ZStack(alignment: .bottom) {
                 Color.black.opacity(scheme == .dark ? 0.55 : 0.26)
                     .contentShape(Rectangle())
