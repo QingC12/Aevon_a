@@ -28,16 +28,24 @@ assert 'Color(uiColor: .secondarySystemFill)' in ui and 'Color(uiColor: .label)'
 assert 'scheme == .dark ? 0.55 : 0.26' in ui
 # The sheet ignores every safe area, including the keyboard one, so SwiftUI never
 # moves it and the keyboard used to cover the search bar. The published keyboard
-# overlap both lifts the sheet and caps its height, which keeps the search bar and the
-# header on screen while the height stays fixed whenever no keyboard is up.
-assert 'offset(y: motion.visible ? -keyboard.overlap : height + 30)' in ui
-assert 'sheetHeight(proxy.size.height, keyboard: keyboard.overlap)' in ui
+# overlap now only translates the sheet: the height is a pure function of the screen
+# and must never take the keyboard as an argument. Animating the height re-laid out
+# the lazy grid and re-anchored the scroll view while the sheet was still moving,
+# which is what made the panel wobble, slide out of place and then settle.
+assert 'offset(y: motion.visible ? -raised : height + 30)' in ui
+assert 'private func sheetHeight(_ total: CGFloat) -> CGFloat {' in ui
+assert 'keyboard overlap: CGFloat' not in ui
+assert 'let raised = lift(total, height: height)' in ui
+assert 'min(keyboard.overlap, max(0, total - height - 48))' in ui
+assert '.padding(.bottom, 30 + covered)' in ui
 assert 'UIResponder.keyboardWillChangeFrameNotification' in ui
 assert 'UIResponder.keyboardFrameEndUserInfoKey' in ui
 assert 'UIResponder.keyboardWillHideNotification' in ui
 assert 'min(max(340, total * 0.62), 560)' in ui
-assert 'total - overlap - 48' in ui
 assert '@StateObject private var keyboard = ChooserKeyboard()' in ui
+# The geometry itself must not inherit the keyboard safe area, otherwise the screen
+# height it reports shrinks as the keyboard opens and the fixed height is not fixed.
+assert '        .ignoresSafeArea()\n    }\n    private func sheet(height: CGFloat, covered: CGFloat)' in ui
 assert '.animation(.spring(response: 0.34, dampingFraction: 0.88), value: motion.visible)' in ui
 assert 'ChooserPressStyle()' in ui and 'minimumScaleFactor(0.7)' in ui
 inputSource=(R/'ChooserInput.swift').read_text()

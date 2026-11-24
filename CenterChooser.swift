@@ -125,31 +125,42 @@ private struct AppPanel: View {
         }
         return "找到 \(matches.count) 个应用"
     }
-    // The sheet has one fixed height for a given screen so the grid does not jump when
-    // the result count changes. It only gives ground when the keyboard needs the room,
-    // and then it is capped so its top edge still clears the status bar and the header
-    // stays readable.
-    private func sheetHeight(_ total: CGFloat, keyboard overlap: CGFloat) -> CGFloat {
-        let base = min(max(340, total * 0.62), 560)
-        guard overlap > 0 else { return base }
-        return max(240, min(base, total - overlap - 48))
+    // The sheet has one height for a given screen and the keyboard must never change it.
+    // A frame that animates its height re-lays out the lazy grid on every pass, and the
+    // scroll view re-anchors while the sheet is still moving: that is what made the
+    // panel wobble, slide out of place and then settle. The height is therefore a pure
+    // function of the screen, and the keyboard only translates the sheet.
+    private func sheetHeight(_ total: CGFloat) -> CGFloat {
+        min(max(340, total * 0.62), 560)
+    }
+    // The keyboard cannot be pushed away, only dodged. The sheet lifts by the keyboard
+    // height, except for the part that would carry its top edge under the status bar;
+    // the remainder simply stays behind the keyboard, the way a native sheet behaves.
+    private func lift(_ total: CGFloat, height: CGFloat) -> CGFloat {
+        guard keyboard.overlap > 0 else { return 0 }
+        return min(keyboard.overlap, max(0, total - height - 48))
     }
     var body: some View {
         GeometryReader { proxy in
-            let height = sheetHeight(proxy.size.height, keyboard: keyboard.overlap)
+            let total = proxy.size.height
+            let height = sheetHeight(total)
+            let raised = lift(total, height: height)
             ZStack(alignment: .bottom) {
                 Color.black.opacity(scheme == .dark ? 0.55 : 0.26)
                     .contentShape(Rectangle())
                     .onTapGesture { select(nil) }
-                sheet(height: height)
-                    .offset(y: motion.visible ? -keyboard.overlap : height + 30)
+                sheet(height: height, covered: max(0, keyboard.overlap - raised))
+                    .offset(y: motion.visible ? -raised : height + 30)
                     .opacity(motion.visible ? 1 : 0)
             }
             .ignoresSafeArea()
             .animation(.spring(response: 0.34, dampingFraction: 0.88), value: motion.visible)
         }
+        // Without this the geometry would inherit the keyboard safe area and the sheet
+        // height would shrink as the keyboard opens, which is the other half of the jump.
+        .ignoresSafeArea()
     }
-    private func sheet(height: CGFloat) -> some View {
+    private func sheet(height: CGFloat, covered: CGFloat) -> some View {
         VStack(spacing: 0) {
             Capsule().fill(Color(uiColor: .tertiaryLabel)).frame(width: 36, height: 5).padding(.top, 8)
             HStack(alignment: .center, spacing: 10) {
@@ -192,7 +203,7 @@ private struct AppPanel: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 16).padding(.bottom, 6)
             }
-            grid
+            grid(covered: covered)
         }
         .frame(height: height).frame(maxWidth: .infinity)
         .background(ChooserSheet(radius: 26).fill(Color(uiColor: .secondarySystemGroupedBackground)))
@@ -200,7 +211,7 @@ private struct AppPanel: View {
         .clipShape(ChooserSheet(radius: 26))
         .shadow(color: Color.black.opacity(scheme == .dark ? 0.5 : 0.16), radius: 26, x: 0, y: -8)
     }
-    private var grid: some View {
+    private func grid(covered: CGFloat) -> some View {
         ScrollView(showsIndicators: false) {
             if matches.isEmpty {
                 VStack(spacing: 10) {
@@ -216,9 +227,11 @@ private struct AppPanel: View {
                     }
                 }
                 .padding(.horizontal, 12).padding(.top, 8)
-                // With the keyboard up the sheet already ends above it, so the extra
-                // bottom run out is only what the rows need to scroll clear.
-                .padding(.bottom, keyboard.overlap > 0 ? 12 : 30)
+                // The sheet is tall enough that part of its lower edge can end up behind
+                // the keyboard, so the run out grows by that covered strip and the last
+                // row still scrolls clear. Padding only extends the scrollable extent,
+                // it never moves a row, so nothing on screen shifts when it changes.
+                .padding(.bottom, 30 + covered)
             }
         }
         .frame(maxHeight: .infinity)
