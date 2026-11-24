@@ -322,6 +322,110 @@ void STHViewportPhysicalWill(CGRect frame,BOOL hiding){
  updateRegistry(YES);
 }
 #if !defined(STH_VIEWPORT_HOST_TEST)
+// A store signed application can neither open /var/mobile/Documents nor look up
+// a Mach service that is not in its sandbox profile. Both were tried and both
+// were refused, which left the collected file holding springboard records only
+// while the decisions lived in containers nobody opened. What it can do is write
+// its own container, and this process may read those. The collector copies whole
+// records out of them into the shared file, so the decision and the consequence
+// finally sit in one place.
+static NSMutableDictionary<NSString *,NSNumber *> *collectorOffsets;
+static NSMutableArray<NSString *> *collectorFiles;
+static NSDate *collectorStarted;
+static BOOL collectorDenied;
+static NSString *collectorState(void){return @"/var/mobile/Documents/.stheno-collector.json";}
+static void collectorLoad(void){
+ collectorOffsets=[NSMutableDictionary new];
+ NSData *saved=[NSData dataWithContentsOfFile:collectorState()];
+ if(!saved)return;
+ NSDictionary *parsed=[NSJSONSerialization JSONObjectWithData:saved options:0 error:NULL];
+ if(![parsed isKindOfClass:NSDictionary.class])return;
+ for(NSString *key in parsed)if([parsed[key] isKindOfClass:NSNumber.class])collectorOffsets[key]=parsed[key];
+}
+static void collectorSave(void){
+ if(!collectorOffsets)return;
+ NSData *data=[NSJSONSerialization dataWithJSONObject:collectorOffsets options:0 error:NULL];
+ if(data)[data writeToFile:collectorState() atomically:YES];
+}
+static void collectorRescan(void){
+ NSString *root=@"/var/mobile/Containers/Data/Application";
+ NSError *error=nil;
+ NSArray<NSString *> *names=[NSFileManager.defaultManager contentsOfDirectoryAtPath:root error:&error];
+ if(!names){
+  if(!collectorDenied){collectorDenied=YES;
+   STHVLog(@"collector-denied",@"com.apple.springboard",@{@"root":root,@"error":error.localizedDescription?:@"-"});
+  }
+  collectorFiles=[NSMutableArray new];
+  return;
+ }
+ NSFileManager *manager=NSFileManager.defaultManager;
+ NSMutableArray<NSString *> *found=[NSMutableArray new];
+ for(NSString *name in names){
+  for(NSString *leaf in @[@"Documents/SthenoViewport33.log",@"tmp/SthenoViewport33.log"]){
+   NSString *path=[root stringByAppendingPathComponent:[name stringByAppendingPathComponent:leaf]];
+   if([manager fileExistsAtPath:path])[found addObject:path];
+  }
+ }
+ collectorFiles=found;
+ STHVLog(@"collector-scan",@"com.apple.springboard",@{@"applications":@(names.count),@"files":@(found.count),@"denied":@(error!=nil)});
+}
+static void collectorSweep(void){
+ if(!collectorFiles)collectorRescan();
+ if(!collectorFiles)return;
+ NSFileManager *manager=NSFileManager.defaultManager;
+ for(NSString *path in collectorFiles){
+  NSDictionary *attributes=[manager attributesOfItemAtPath:path error:NULL];
+  unsigned long long size=[attributes[NSFileSize] unsignedLongLongValue];
+  if(!size)continue;
+  NSNumber *known=collectorOffsets[path];
+  unsigned long long offset=0;
+  if(known)offset=known.unsignedLongLongValue;
+  else{
+   // A file that predates this session already holds sessions nobody needs
+   // twice, so it is adopted at its end; a file created after this springboard
+   // started is the current session and is read from the beginning.
+   NSDate *modified=attributes[NSFileModificationDate];
+   BOOL fresh=collectorStarted&&modified&&[modified compare:collectorStarted]!=NSOrderedAscending;
+   offset=fresh?0:size;
+   STHVLog(@"collector-adopt",@"com.apple.springboard",@{@"container":[[path stringByDeletingLastPathComponent] stringByDeletingLastPathComponent].lastPathComponent?:@"-",@"size":@(size),@"from":@(offset)});
+  }
+  if(size<offset){offset=0;STHVLog(@"collector-reset",@"com.apple.springboard",@{@"size":@(size)});}
+  if(size<=offset){collectorOffsets[path]=@(offset);continue;}
+  NSFileHandle *handle=[NSFileHandle fileHandleForReadingAtPath:path];
+  if(!handle)continue;
+  NSData *data=nil;
+  @try{[handle seekToFileOffset:offset];data=[handle readDataToEndOfFile];}
+  @catch(NSException *exception){data=nil;}
+  [handle closeFile];
+  if(!data.length)continue;
+  // Only whole records are copied; a half written line waits for the next sweep.
+  const char *bytes=data.bytes;NSUInteger length=data.length,whole=0;
+  for(NSUInteger i=0;i<length;i++)if(bytes[i]=='\n')whole=i+1;
+  if(!whole)continue;
+  STHVLogAppendFromFile([data subdataWithRange:NSMakeRange(0,whole)]);
+  collectorOffsets[path]=@(offset+whole);
+ }
+ collectorSave();
+}
+static void startCollector(void){
+ static dispatch_source_t timer;
+ if(timer)return;
+ dispatch_queue_t queue=dispatch_queue_create("com.nx.stheno.viewport32.collector",DISPATCH_QUEUE_SERIAL);
+ dispatch_async(queue,^{
+  collectorStarted=[NSDate date];
+  collectorLoad();
+  STHVLog(@"collector-start",@"com.apple.springboard",@{@"known":@(collectorOffsets.count)});
+ });
+ timer=dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER,0,0,queue);
+ dispatch_source_set_timer(timer,dispatch_time(DISPATCH_TIME_NOW,2ull*NSEC_PER_SEC),2ull*NSEC_PER_SEC,200ull*NSEC_PER_MSEC);
+ __block NSUInteger ticks=0;
+ dispatch_source_set_event_handler(timer,^{
+  if(!collectorFiles||ticks%15==0)collectorRescan();
+  collectorSweep();
+  ticks++;
+ });
+ dispatch_resume(timer);
+}
 static BOOL geometryInstalled;
 static void installGeometry(NSString *trigger){
  if(geometryInstalled)return;
@@ -357,6 +461,7 @@ __attribute__((constructor)) static void installViewportHost(void){dispatch_asyn
  // sandboxed application cannot open the shared file itself; its records are
  // appended here instead, verbatim, keeping their own pid and process name.
  STHVLogInstallRelay();
+ startCollector();
  // Record only. These observers never write geometry, never publish layout and
  // never run an animation: they answer one question the geometry path cannot,
  // namely whether springboard saw a keyboard at all in a session where the

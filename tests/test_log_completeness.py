@@ -63,10 +63,39 @@ assert 'static void appendForwarded(NSData *line)' in diag
 # pid and process fields that identify the sender.
 assert 'fwrite(line.bytes,1,line.length,logSinks[i]);' in diag
 # A process that can open the shared file does not forward, including the host.
-assert 'if([path isEqualToString:shared])logSharedWritable=YES;' in diag
+assert "if([path isEqualToString:shared]){" in diag
+assert 'logSharedWritable=YES;' in diag
 assert 'if(logRelayHost)return;' in diag
 # The relay is opened before the first record, so an application that loads later
 # can already reach the file.
 assert host.index('STHVLogInstallRelay();') < host.index('STHVLog(@"host-runtime"')
 assert 'log-relay-listen' in diag and 'log-relay-client' in diag
-print('Log completeness contract: append only with no line or size cap; springboard records a keyboard without the geometry runtime; every refusal and the input to keyboard clearance are recorded; an application record reaches the shared file over a message port')
+
+# Neither route works from a store signed application: the shared file is not in
+# its sandbox and neither is a foreign Mach service. It does write its own
+# container, which springboard may read, so a collector copies whole records out
+# of those files into the shared one. That is the route the collected file
+# depends on, so its properties are pinned here.
+assert 'collectorSweep' in host and 'collectorRescan' in host
+assert '/var/mobile/Containers/Data/Application' in host
+assert 'STHVLogAppendFromFile' in diag
+for token in ['collector-start', 'collector-scan', 'collector-adopt', 'collector-reset',
+              'collector-denied']:
+    assert token in host, token
+# Whole records only: a half written line is left for the next sweep.
+assert "if(bytes[i]=='\\n')whole=i+1;" in host
+assert 'if(!whole)continue;' in host
+# The offset is durable, so a respring does not copy the same records again.
+assert '.stheno-collector.json' in host and 'collectorSave()' in host
+assert 'STHVLogAppendFromFile([data subdataWithRange:NSMakeRange(0,whole)]);' in host
+# A file written before this springboard started is adopted at its end; a file
+# created after it is the current session and is read from the beginning.
+assert 'BOOL fresh=collectorStarted&&modified&&' in host
+assert 'offset=fresh?0:size;' in host
+# The collector runs off the main thread, where file reads cannot stall the shell.
+assert 'com.nx.stheno.viewport32.collector' in host
+# When the shared file opens, the container copy is not written at all, otherwise
+# the collector would copy it back out and every record would appear twice.
+assert 'logSharedWritable=YES;' in diag
+assert diag.index('logSharedWritable=YES;') < diag.index('if(logSinkCount>=')
+print('Log completeness contract: append only with no line or size cap; springboard records a keyboard without the geometry runtime; every refusal and the input to keyboard clearance are recorded; an application record reaches the shared file through a collector, because neither the shared file nor a foreign Mach service is in its sandbox')

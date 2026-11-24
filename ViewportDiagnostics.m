@@ -50,7 +50,13 @@ static void openSinks(void){
   setvbuf(file,NULL,_IONBF,0);
   logSinks[logSinkCount++]=file;
   if(!logPrimaryPath)logPrimaryPath=path;
-  if([path isEqualToString:shared])logSharedWritable=YES;
+  if([path isEqualToString:shared]){
+   logSharedWritable=YES;
+   // The shared file is the collected one. A second copy inside an application
+   // container would be copied back out by the collector and would then appear
+   // twice, so it is not written at all when the shared file was opened.
+   break;
+  }
   if(logSinkCount>=(int)(sizeof(logSinks)/sizeof(logSinks[0])))break;
  }
 }
@@ -60,7 +66,7 @@ void STHVLog(NSString *event,NSString *bundle,NSDictionary *values){
  openSinks();
  NSMutableDictionary *record=[NSMutableDictionary dictionaryWithDictionary:values?:@{}];
  record[@"event"]=event?:@"unknown";record[@"bundle"]=bundle?:@"unknown";
- record[@"build"]=@"2.0.49";record[@"uptime"]=@(NSProcessInfo.processInfo.systemUptime);
+ record[@"build"]=@"2.0.50";record[@"uptime"]=@(NSProcessInfo.processInfo.systemUptime);
  // seq orders records across threads and across processes only within one
  // process; pid is what separates a springboard session from an app session.
  record[@"seq"]=@(++logSequence);record[@"pid"]=@(getpid());
@@ -102,7 +108,7 @@ static void relaySend(NSData *line){
   // Confined to the serial queue, so the cached port needs no lock.
   static CFMessagePortRef port;
   static int failures;
-  if(failures<=200){
+  if(failures<=5){
    if(!port){
     port=CFMessagePortCreateRemote(NULL,CFSTR(STHVLogPort));
     if(!port)failures++;
@@ -143,13 +149,22 @@ static CFDataRef relayReceive(CFMessagePortRef port,SInt32 identifier,CFDataRef 
   @"originBuild":parsed[@"build"]?:@"unknown"});
  return NULL;
 }
+void STHVLogAppendFromFile(NSData *data){
+ if(data.length)appendForwarded(data);
+}
 void STHVLogInstallRelay(void){
  if(logRelayHost)return;
  logRelayHost=YES;
  if(!NSThread.isMainThread)return;
+ // Open the file before the first record so the report below states the truth.
+ os_unfair_lock_lock(&logLock);openSinks();BOOL shared=logSharedWritable;os_unfair_lock_unlock(&logLock);
  CFMessagePortRef port=CFMessagePortCreateLocal(NULL,CFSTR(STHVLogPort),relayReceive,NULL,NULL);
- if(!port)return;
+ if(!port){
+  STHVLog(@"log-relay-listen",@"com.apple.springboard",@{@"port":@STHVLogPort,
+   @"sharedWritable":@(shared),@"listening":@NO});
+  return;
+ }
  CFMessagePortSetDispatchQueue(port,dispatch_get_main_queue());
  STHVLog(@"log-relay-listen",@"com.apple.springboard",@{@"port":@STHVLogPort,
-  @"sharedWritable":@(logSharedWritable)});
+  @"sharedWritable":@(shared),@"listening":@YES});
 }
