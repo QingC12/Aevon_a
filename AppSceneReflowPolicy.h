@@ -9,11 +9,6 @@ extern "C" {
 #endif
 
 typedef struct {
-    double width;
-    double height;
-} STHRSize;
-
-typedef struct {
     bool inject;
     bool settingMaskPresent;
     bool settingBit31;
@@ -21,8 +16,10 @@ typedef struct {
     bool sceneIsOnMainScreen;
     bool hostedLayout;
     bool sceneConnected;
-    bool sceneForegroundActive;
-    bool sceneHasKeyWindow;
+    /* Connected and not backgrounded. A floating card is frequently neither the
+     * key scene nor foreground active while it resizes or plays in place, so
+     * neither of those may decide the layout size. */
+    bool sceneUsable;
     bool sceneBoundsValid;
     bool physicalBoundsValid;
     STHRSize sceneSize;
@@ -49,15 +46,16 @@ static inline bool STHRSceneDiffersFromPhysicalScreen(STHRSize scene,
     return !same;
 }
 
-/* No card scale, card frame, or keyboard geometry participates in this policy. */
+/* No card scale, card frame, or keyboard geometry participates in this policy.
+ * The scene must differ from the physical screen, which is exactly what a
+ * carded viewport does and what a full-screen application never does. */
 static inline bool STHRShouldReflow(const STHRPolicyInput *input) {
     if (!input) return false;
     if (!input->inject || !input->settingMaskPresent || !input->settingBit31)
         return false;
     if (!input->queryIsMainScreen || !input->sceneIsOnMainScreen)
         return false;
-    if (!input->hostedLayout || !input->sceneConnected ||
-        !input->sceneForegroundActive || !input->sceneHasKeyWindow)
+    if (!input->hostedLayout || !input->sceneConnected || !input->sceneUsable)
         return false;
     if (!input->sceneBoundsValid || !input->physicalBoundsValid)
         return false;

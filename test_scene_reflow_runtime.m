@@ -93,7 +93,15 @@ int main(void){@autoreleasepool{
   [NSNotificationCenter.defaultCenter postNotificationName:NSUserDefaultsDidChangeNotification object:nil];assert(!jobs.count);
   host.hosted=NO;changed();
  }
+ // A card that resigns the key window is still carded. Losing key is part of
+ // every card resize and of every background card that keeps playing, so it
+ // may not put the layout back on the physical screen.
+ prohibitUIKit=NO;host.hosted=YES;host.reflowEnabled=YES;host.card=(STHVRect){43,173.6,344,584.8};
+ scene.coordinateSpace.bounds=CGRectMake(0,0,430,731);changed();assert(cacheEnabled);
+ [NSNotificationCenter.defaultCenter postNotificationName:UIWindowDidResignKeyNotification object:window];drain();
+ assert(cacheEnabled);assert(display.bounds.size.height==731);
+ host.hosted=NO;changed();prohibitUIKit=YES;assert(!cacheEnabled);
  assert(nativeBounds&&!refreshing&&!readingNative);
- puts("Reflow33 production runtime: 200 launch/fullscreen/hosted/expiry/native-IMP-reentry cycles; 40000 bounds reads with zero UIKit traversal; extensions/no-host do not hook or query application; no defaults or private scene update interception");
+ puts("Reflow33 production runtime: 200 launch/fullscreen/hosted/expiry/native-IMP-reentry cycles; 40000 bounds reads with zero UIKit traversal; key loss keeps the carded viewport; extensions/no-host do not hook or query application; no defaults or private scene update interception");
 #endif
 }return 0;}
