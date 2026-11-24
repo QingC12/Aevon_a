@@ -1,4 +1,4 @@
-"""Build stheno_2.0.39 from the frozen base.
+"""Build stheno_2.0.40 from the frozen base.
 
 Every binary patch that used to run at build time is already baked into
 inputs/base-patched.deb and recorded in inputs/base-patched.json. This script
@@ -100,13 +100,15 @@ cam=next(i for i,(m,b) in enumerate(rows) if m.name.endswith('/CameraFix.dylib')
 assert hashlib.sha256(rows[mi][1]).hexdigest()==FROZEN['core_sha256'],'base Stheno.dylib does not match the frozen record'
 core=OUT/'Stheno.dylib';core.write_bytes(rows[mi][1])
 # The ring paints its light-mode icon plate through a single Color(uiColor:) call and
-# composites it at about a quarter strength, so any near-background base colour made
-# the plate invisible on pale wallpapers. The frozen base carries a length preserving
-# rename of the one selector that branch resolves, now to darkGray. Fail fast if it
-# ever regresses.
+# mixes it at about a quarter strength, so the plate is never darker than 0.75 of the
+# surface behind it and any base colour near the backdrop disappears on pale
+# wallpapers. The frozen base carries a length preserving rename of the one selector
+# that branch resolves, now to black (the darkest base UIColor offers). Fail fast if
+# it ever regresses.
 _core_bytes=core.read_bytes()
-assert _core_bytes.count(b'darkGrayColor')==1,'icon plate selector is not the reviewed one'
-for _stale in (b'secondarySystemBackgroundColor',b'secondarySystemFillColor',b'systemGray4Color'):
+assert _core_bytes[0xd3114:0xd3114+10]==b'blackColor','icon plate selector is not the reviewed one'
+assert _core_bytes.count(b'blackColor')==2,'unexpected blackColor count in the core'
+for _stale in (b'darkGrayColor',b'systemGray4Color',b'secondarySystemFillColor',b'secondarySystemBackgroundColor'):
     assert _stale not in _core_bytes,'icon plate still resolves to a too faint colour'
 orion=OUT/'Orion';orion.write_bytes((ROOT/'inputs/Orion-private.arm64e').read_bytes())
 assert hashlib.sha256(orion.read_bytes()).hexdigest()==FROZEN['orion_sha256'],'Orion does not match the frozen record'

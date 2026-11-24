@@ -71,6 +71,36 @@ private struct ChooserPressStyle: ButtonStyle {
             .animation(.easeOut(duration: 0.14), value: configuration.isPressed)
     }
 }
+// The sheet lives in its own full screen window and deliberately ignores every safe
+// area, including the keyboard one, so SwiftUI never moves it on its own. That is what
+// let the keyboard cover the search bar: the sheet stayed pinned to the bottom edge.
+// The observer below publishes the real keyboard overlap and the sheet lifts itself by
+// exactly that much, which keeps the search bar on screen and the height predictable.
+private final class ChooserKeyboard: ObservableObject {
+    @Published var overlap: CGFloat = 0
+    private var tokens: [NSObjectProtocol] = []
+    init() {
+        let center = NotificationCenter.default
+        tokens.append(center.addObserver(forName: UIResponder.keyboardWillChangeFrameNotification, object: nil, queue: .main) { [weak self] note in
+            self?.apply(note, hidden: false)
+        })
+        tokens.append(center.addObserver(forName: UIResponder.keyboardWillHideNotification, object: nil, queue: .main) { [weak self] note in
+            self?.apply(note, hidden: true)
+        })
+    }
+    private func apply(_ note: Notification, hidden: Bool) {
+        guard let frame = note.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect else { return }
+        // The keyboard is always docked to the bottom edge on this target, so its own
+        // height is exactly the height it hides of the sheet.
+        let value = hidden ? 0 : max(0, frame.height)
+        guard abs(value - overlap) > 0.5 else { return }
+        let raw = note.userInfo?[UIResponder.keyboardAnimationDurationUserInfoKey] as? Double
+        withAnimation(.easeOut(duration: raw.map { min(max($0, 0.15), 0.4) } ?? 0.25)) { overlap = value }
+    }
+    deinit {
+        for token in tokens { NotificationCenter.default.removeObserver(token) }
+    }
+}
 private struct AppPanel: View {
     let items: [AppRow]
     let state: PanelState
@@ -78,8 +108,11 @@ private struct AppPanel: View {
     @State private var query = ""
     @ObservedObject var input: ChooserInputSession
     @ObservedObject private var motion: PanelState
+    @StateObject private var keyboard = ChooserKeyboard()
     @Environment(\.colorScheme) private var scheme
-    private let columns = Array(repeating: GridItem(.flexible(), spacing: 0), count: 6)
+    // Five equal flexible columns: every row splits the sheet width evenly, so the
+    // icons sit on a uniform five way grid instead of drifting with the label widths.
+    private let columns = Array(repeating: GridItem(.flexible(), spacing: 0), count: 5)
     init(items: [AppRow], state: PanelState, input: ChooserInputSession, select: @escaping (String?) -> Void) {
         self.items = items; self.state = state; self.input = input; self.select = select; self.motion = state
     }
@@ -92,19 +125,23 @@ private struct AppPanel: View {
         }
         return "找到 \(matches.count) 个应用"
     }
-    private func sheetHeight(_ total: CGFloat) -> CGFloat {
-        let preferred = min(total * 0.66, 620)
-        return max(280, min(preferred, total - 110))
+    // The sheet has one fixed height for a given screen so the grid does not jump when
+    // the result count changes. It only gives ground when the keyboard needs the room,
+    // and then it is capped so the header still starts below the status bar.
+    private func sheetHeight(_ total: CGFloat, keyboard overlap: CGFloat) -> CGFloat {
+        let base = min(max(340, total * 0.62), 560)
+        guard overlap > 0 else { return base }
+        return max(240, min(base, total - overlap - 20))
     }
     var body: some View {
         GeometryReader { proxy in
-            let height = sheetHeight(proxy.size.height)
+            let height = sheetHeight(proxy.size.height, keyboard: keyboard.overlap)
             ZStack(alignment: .bottom) {
                 Color.black.opacity(scheme == .dark ? 0.55 : 0.26)
                     .contentShape(Rectangle())
                     .onTapGesture { select(nil) }
                 sheet(height: height)
-                    .offset(y: motion.visible ? 0 : height + 30)
+                    .offset(y: motion.visible ? -keyboard.overlap : height + 30)
                     .opacity(motion.visible ? 1 : 0)
             }
             .ignoresSafeArea()
@@ -172,26 +209,29 @@ private struct AppPanel: View {
                 }
                 .frame(maxWidth: .infinity).padding(.top, 44)
             } else {
-                LazyVGrid(columns: columns, spacing: 12) {
+                LazyVGrid(columns: columns, spacing: 14) {
                     ForEach(matches) { app in
                         Button { select(app.id) } label: { cell(app) }.buttonStyle(ChooserPressStyle())
                     }
                 }
-                .padding(.horizontal, 8).padding(.top, 6).padding(.bottom, 34)
+                .padding(.horizontal, 12).padding(.top, 8)
+                // With the keyboard up the sheet already ends above it, so the extra
+                // bottom run out is only what the rows need to scroll clear.
+                .padding(.bottom, keyboard.overlap > 0 ? 12 : 30)
             }
         }
         .frame(maxHeight: .infinity)
     }
     private func cell(_ app: AppRow) -> some View {
-        VStack(spacing: 5) {
+        VStack(spacing: 6) {
             Image(uiImage: chooserIcon(app.id))
                 .resizable().scaledToFit()
-                .frame(width: 44, height: 44)
-                .clipShape(RoundedRectangle(cornerRadius: 11.5, style: .continuous))
-                .overlay(RoundedRectangle(cornerRadius: 11.5, style: .continuous)
+                .frame(width: 48, height: 48)
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .strokeBorder(Color(uiColor: .separator).opacity(0.3), lineWidth: 0.5))
             Text(app.name)
-                .font(.system(size: 9.5))
+                .font(.system(size: 10))
                 .foregroundColor(Color(uiColor: .label))
                 .lineLimit(1).minimumScaleFactor(0.7)
                 .multilineTextAlignment(.center)

@@ -8,10 +8,12 @@ plate that separates the icons from the backdrop disappeared. A first attempt us
 secondarySystemFill (rgba 120,120,128,0.16), which still sat only about eighteen
 levels below the capsule, and then systemGray4 (opaque D1D1D6), which measured no
 better: on device screenshots the plate stayed six levels off the backdrop across
-all three colours, so the plate is composited at roughly a quarter strength and a
-base colour near the backdrop can never separate. The frozen base now renames the
-one selector that branch resolves to darkGray (85), which lands the composite near
-C5 on a EB capsule.
+all three colours, so the plate is mixed at roughly a quarter strength and a base
+colour near the backdrop can never separate. darkGray (85) then measured 197, still
+faint, which matches the same formula. The plate can therefore never be darker than
+0.75 * backdrop through a colour swap alone, so the frozen base now renames the one
+selector that branch resolves to black (0), the darkest base UIColor offers, landing
+the plate near B0 on a EB capsule and BF on white.
 
 This gate pins the rename to the exact offsets and proves nothing else moved.
 """
@@ -43,9 +45,9 @@ assert len(core) == frozen['core_bytes']
 
 record = frozen['icon_pad']
 assert record['original'] == 'secondarySystemBackgroundColor'
-assert record['previous'] == 'systemGray4Color'
+assert record['previous'] == 'darkGrayColor'
 assert record['composite_alpha'] == 0.25
-assert record['replacement'] == 'darkGrayColor'
+assert record['replacement'] == 'blackColor'
 assert record['selector_name_offset'] == '0xd3114'
 assert record['selector_ref_offset'] == '0xe6798'
 
@@ -58,7 +60,10 @@ replacement = record['replacement'].encode()
 assert core[name_at:name_at + len(replacement)] == replacement
 assert core[name_at + len(replacement)] == 0
 assert core[name_at + 31:name_at + 36] == b'self\0'
-assert core.count(replacement) == 1
+# blackColor already occurs once in the binary for an unrelated UIColor use, so the
+# rename makes it appear twice: the original plus ours.
+assert core.count(replacement) == 2
+assert b'darkGrayColor' not in core
 assert b'secondarySystemBackgroundColor' not in core
 assert b'secondarySystemFillColor' not in core
 assert b'systemGray4Color' not in core
@@ -73,5 +78,5 @@ assert b'_$s7SwiftUI5ColorV5blackACvgZ' in core
 # The plate still goes through Color(uiColor:), so the branch structure is intact.
 assert b'_$s7SwiftUI5ColorVyACSo7UIColorCcfC' in core
 
-assert frozen['version'] == '2.0.39'
-print('Icon plate: light branch uses darkGray through one selref; dark branch keeps Color.black')
+assert frozen['version'] == '2.0.40'
+print('Icon plate: light branch uses black through one selref; dark branch keeps Color.black')

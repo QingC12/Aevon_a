@@ -14,16 +14,30 @@ assert 'UIBezierPath(ovalIn: hitArea).contains(point)' in ui and 'w.addSubview(s
 assert 'surface.convert(native, from: screen.fixedCoordinateSpace)' in ui and 'renderedCenter(nativeCenter, in: w)' in ui
 assert 'CenterGlyphGeometry.visibleHitArea' in ui and 'liftedY: state.lift' in ui
 assert 'state.scale = snapshot.scale' in ui
-# The picker is a bottom sheet with a six column icon grid: the whole catalog is
+# The picker is a bottom sheet with a five column icon grid: the whole catalog is
 # browsable at once instead of one tall row at a time, and the sheet keeps only its
-# own surfaces so the system light/dark appearance drives every colour.
+# own surfaces so the system light/dark appearance drives every colour. The columns
+# are all flexible and carry no outer spacing, so a row divides the sheet width into
+# five equal slots and the icons line up vertically between rows.
 assert 'ChooserSheet(radius: 26)' in ui and 'func path(in rect: CGRect) -> Path' in ui
-assert 'LazyVGrid(columns: columns, spacing: 12)' in ui and 'count: 6' in ui
+assert 'LazyVGrid(columns: columns, spacing: 14)' in ui and 'count: 5' in ui
+assert "GridItem(.flexible(), spacing: 0), count: 5" in ui
 assert 'LazyVStack(spacing: 0)' not in ui and 'resultsHeight' not in ui
 assert 'Color(uiColor: .secondarySystemGroupedBackground)' in ui
 assert 'Color(uiColor: .secondarySystemFill)' in ui and 'Color(uiColor: .label)' in ui
 assert 'scheme == .dark ? 0.55 : 0.26' in ui
-assert 'offset(y: motion.visible ? 0 : height + 30)' in ui
+# The sheet ignores every safe area, including the keyboard one, so SwiftUI never
+# moves it and the keyboard used to cover the search bar. The published keyboard
+# overlap both lifts the sheet and caps its height, which keeps the search bar and the
+# header on screen while the height stays fixed whenever no keyboard is up.
+assert 'offset(y: motion.visible ? -keyboard.overlap : height + 30)' in ui
+assert 'sheetHeight(proxy.size.height, keyboard: keyboard.overlap)' in ui
+assert 'UIResponder.keyboardWillChangeFrameNotification' in ui
+assert 'UIResponder.keyboardFrameEndUserInfoKey' in ui
+assert 'UIResponder.keyboardWillHideNotification' in ui
+assert 'min(max(340, total * 0.62), 560)' in ui
+assert 'total - overlap - 20' in ui
+assert '@StateObject private var keyboard = ChooserKeyboard()' in ui
 assert '.animation(.spring(response: 0.34, dampingFraction: 0.88), value: motion.visible)' in ui
 assert 'ChooserPressStyle()' in ui and 'minimumScaleFactor(0.7)' in ui
 inputSource=(R/'ChooserInput.swift').read_text()

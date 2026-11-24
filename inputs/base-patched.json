@@ -1,8 +1,8 @@
 {
-  "version": "2.0.39",
-  "frozen_deb_sha256": "cc7ea136736c437582db2df6e53b080868d138365714a37caec7f1199e4f5b79",
-  "frozen_deb_bytes": 355752,
-  "core_sha256": "6cd1ed2a368e50dd45316930796beff335734d282426aedf0ca4f01b3c0b62b6",
+  "version": "2.0.40",
+  "frozen_deb_sha256": "1f5204430e5dba33ec8d15cffc83bf0f3c34e0cf6e493040cd55f63f9fc8d1cd",
+  "frozen_deb_bytes": 355768,
+  "core_sha256": "e3614963ca457003a14113ecb3dbea42df13c755f208dbad07bcca3fc75fcf52",
   "core_bytes": 1110640,
   "orion_sha256": "b4092fd80a4812d357b0006ecd683bd0f46679127ca44c78120edf87757d45cc",
   "patch_entries": {
@@ -408,28 +408,29 @@
     "source_arm64e_sha256": "e7cbd6e055d9ec30c750741c9a2831d73c5ce7efaf812053e7b279a4e92dbe85"
   },
   "icon_pad": {
-    "version": 3,
+    "version": 4,
     "module": "Stheno.dylib",
     "surface": "ring icon background plate",
-    "light_branch": "UIColor.darkGrayColor -> Color(uiColor:)",
+    "light_branch": "UIColor.blackColor -> Color(uiColor:)",
     "dark_branch": "SwiftUI Color.black (unchanged)",
     "selector_ref_offset": "0xe6798",
     "selector_name_offset": "0xd3114",
     "original": "secondarySystemBackgroundColor",
-    "replacement": "darkGrayColor",
+    "replacement": "blackColor",
     "patched_bytes": "31 equal-length bytes, NUL padded",
-    "defect": "the light-mode plate is composited at roughly a quarter strength, so a base colour that is itself near the backdrop disappears: secondarySystemBackground (242) gave a plate of 237 on a 235 capsule, secondarySystemFill (217) gave 229, and even opaque systemGray4 (209) only reached 229. Measured on device screenshots, the plate sat six levels off the backdrop and stayed unreadable on white and pale grey wallpapers",
-    "effect": "the plate base colour is darkGray (85), which the plate composites at about a quarter strength, landing near C5 on a EB ring capsule and D4 on a white wallpaper: clearly readable, still soft, never the black plate of the dark branch",
+    "defect": "the light-mode plate is mixed at roughly a quarter strength, so a base colour that is itself near the backdrop disappears: secondarySystemBackground (242) gave 237 on a 235 capsule, secondarySystemFill (217) gave 229, opaque systemGray4 (209) still gave 229 and darkGray (85) gave only 197, which still reads as faint next to the capsule on white and pale grey wallpapers",
+    "effect": "the plate base colour is black (0), the darkest base UIColor offers, which the plate mixes at about a quarter, so the plate lands at 0.75 * backdrop: about B0 on a EB ring capsule and BF on white. That is a clearly separated grey disc, not the near black plate of the dark branch",
     "scope": "one selector reference in one branch; ring geometry, icon placement, animation and the dark branch are untouched",
-    "regression_gate": "the core must reference darkGrayColor through exactly one selref and must contain none of secondarySystemBackgroundColor, secondarySystemFillColor or systemGray4Color",
+    "regression_gate": "the core must carry blackColor at 0xd3114 in addition to its one unrelated occurrence, and must contain none of darkGrayColor, systemGray4Color, secondarySystemFillColor or secondarySystemBackgroundColor",
     "byte_patch": {
       "offset": "0xd3114",
       "length": 31,
       "original": "secondarySystemBackgroundColor",
-      "replacement": "darkGrayColor",
+      "replacement": "blackColor",
       "note": "the 31 bytes are one NUL-terminated selector name plus its padding; no instruction stream, header or fixup word is touched"
     },
-    "previous": "systemGray4Color",
-    "composite_alpha": 0.25
+    "previous": "darkGrayColor",
+    "composite_alpha": 0.25,
+    "composite_floor": "the plate can never be darker than 0.75 * backdrop with a colour swap alone"
   }
 }
