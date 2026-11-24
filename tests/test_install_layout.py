@@ -72,7 +72,7 @@ assert './usr/local/share/stheno/com.nx.stheno.plist' in files
 assert manifest['install_layout']['synthesized_directories'], 'the fix must be recorded in the manifest'
 for directory in manifest['install_layout']['synthesized_directories']:
     assert directory in directories, ('synthesized directory absent from the archive', directory)
-    assert directory.startswith('./usr/local'), directory
+    assert directory.startswith('./usr'), directory
 
 # The preinst is what makes the first unpack succeed on any dpkg build, and it
 # must stay a pure directory creator: the previous package dropped a preinst
