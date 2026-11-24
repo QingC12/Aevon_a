@@ -121,6 +121,8 @@ jobs:
         run: python3 tests/test_runtime_package.py
       - name: Verify settings, source cleanup, and byte-identical archive payload
         run: python3 tests/test_maintenance_contract.py
+      - name: Verify clean-install layout, parent directory entries, and preinst
+        run: python3 tests/test_install_layout.py
       - uses: actions/upload-artifact@v4
         with:
           name: Stheno-arm64e-RootHide-Gestures-test

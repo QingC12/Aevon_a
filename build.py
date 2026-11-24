@@ -1,4 +1,4 @@
-"""Build stheno_2.0.35 from the frozen base.
+"""Build stheno_2.0.36 from the frozen base.
 
 Every binary patch that used to run at build time is already baked into
 inputs/base-patched.deb and recorded in inputs/base-patched.json. This script
@@ -157,6 +157,40 @@ for icon in ('screenshot','screen-recording','app-picker'):
  assert raw[:8]==b'\x89PNG\r\n\x1a\n'
  entry=copy.copy(license_entry);entry.name=icon_directory.name+'/'+filename
  rows.append((entry,raw));icon_resources[filename]=hashlib.sha256(raw).hexdigest()
+# dpkg never creates a missing parent directory while unpacking: it opens every
+# regular member with O_CREAT|O_EXCL inside the destination directory and fails
+# with ENOENT when the directory does not exist yet. The frozen base shipped
+# ./usr/local/share/stheno/com.nx.stheno.plist without the ./usr/local/share/stheno
+# chain, so a clean install aborted while an overwrite install worked only because
+# an earlier package had left the directory behind. Synthesize every missing
+# ancestor as a 0755 root:wheel entry, and prove the archive is self-contained.
+DIR_MODE=0o755
+dir_template=next(m for m,b in rows if m.isdir())
+def parent_of(name):
+ return name.rsplit('/',1)[0] if '/' in name else '.'
+present={m.name.rstrip('/') for m,b in rows if m.isdir()}
+augmented=[];synthesized_dirs=[]
+for m,b in rows:
+ missing=[];walk=parent_of(m.name)
+ while walk not in ('.','/','') and walk not in present:
+  missing.append(walk);walk=parent_of(walk)
+ for name in reversed(missing):
+  entry=tarfile.TarInfo(name.rstrip('/'))
+  entry.type=tarfile.DIRTYPE;entry.mode=DIR_MODE;entry.uid=0;entry.gid=0
+  entry.uname='root';entry.gname='wheel';entry.mtime=dir_template.mtime
+  augmented.append((entry,b''));present.add(name.rstrip('/'));synthesized_dirs.append(entry.name.rstrip('/'))
+ augmented.append((m,b))
+rows=augmented
+for m,b in rows:
+ if not m.isfile():continue
+ walk=parent_of(m.name)
+ while walk not in ('.','/',''):
+  assert walk in present,'parent directory missing from the data archive: '+walk
+  walk=parent_of(walk)
+controls=[(m,b) for m,b in controls if Path(m.name).name!='preinst']
+preinst_template=next(m for m,b in controls if Path(m.name).name=='postinst')
+preinst_entry=copy.copy(preinst_template);preinst_entry.name='./preinst';preinst_entry.mode=0o755
+controls.insert(1+next(i for i,(m,b) in enumerate(controls) if Path(m.name).name=='control'),(preinst_entry,(ROOT/'installer/preinst').read_bytes()))
 for i,(m,b) in enumerate(controls):
  if Path(m.name).name=='postinst':
   controls[i]=(m,(ROOT/'installer/postinst').read_bytes());continue
@@ -185,6 +219,6 @@ for n,b in [('debian-binary',b'2.0\n'),('control.tar.xz',tarwrite(controls)),('d
 result=OUT/f'stheno_{VERSION}_iphoneos-arm64e.deb'
 result.write_bytes(arwrite([(n,(OUT/n).read_bytes()) for n in ('debian-binary','control.tar.xz','data.tar.xz')]))
 verify=tarread(arread(result.read_bytes())['data.tar.xz']);assert len(verify)==len(rows)
-for (a,b),(c,d) in zip(rows,verify):assert a.name==c.name and b==d
-manifest={'version':VERSION,'artifact':result.name,'sha256':hashlib.sha256(result.read_bytes()).hexdigest(),'size':result.stat().st_size,'data_tar_default_xz_bytes':len(default_data_archive),'data_tar_optimized_xz_bytes':len(data_archive),'data_tar_bytes_saved':len(default_data_archive)-len(data_archive),'data_tar_uncompressed_bytes':len(data_tar_uncompressed),'data_tar_uncompressed_sha256':hashlib.sha256(data_tar_uncompressed).hexdigest(),'patch_entries':FROZEN['patch_entries'],'device_tested':False,'merged_springboard_runtime':FROZEN['merged_springboard_runtime'],'native_bridges':FROZEN['native_bridges'],'signature_compaction':signature_savings,'runtime_export_count':len(keep),'bundled_orion':FROZEN['bundled_orion'],'keyboard_inset_adapter':False,'legacy_url_hook':{'version':1,'module':'SthenoKeyboard.dylib','shipped':False,'removed_on_install':['SthenoKeyboard.dylib','SthenoKeyboard.plist'],'scope':'every app the retired module is injected into','defect':{'return_value':'the replacement returns the NSURL object where openURL:options:completionHandler: must return BOOL, so every caller sees success','options':'when UIApplicationOpenURLOptionUniversalLinksOnly is present the replacement re-opens with an empty dictionary and a nil completion handler, dropping both the universal-link contract and the caller fallback'},'effect':'payment jumps that rely on the boolean or completion contract never reach their fallback, while custom-scheme jumps such as weixin:// are untouched','regression_gate':'no shipped dylib may reference UIApplicationOpenURLOptionUniversalLinksOnly','safe_scope':'only the two retired keyboard files are touched; no other dynamic library, preference or resource changes'},'viewport_keyboard_rebuild':{'version':32,'legacy_files_removed':sorted(retired_keyboard_files),'original_keyboard_observer_registration_disabled':True,'single_coordinate_authority':True,'springboard_physical_source_only':True,'independent_scene_reflow':True,'main_application_post_launch_only':True,'extension_hooks_installed':False,'reflow_cached_getter':True,'private_scene_update_hook':False,'editor_transforms':False,'device_diagnostics':True},'system_actions':FROZEN['system_actions'],'center_app_chooser':{'version':3,'pins_apps':False,'native_catalog':True,'native_animated_launch':True,'native_pan_trigger':True,'release_admission':True,'ring_auto_dismiss_preserved':True,'ring_geometry_modified':False},'visibility_restores_from_observed_state':True,'floating_window_idle_timer':{'version':2,'scope':'visible_floating_cards','primary':'SBIdleTimerGlobalCoordinator.acquireIdleTimerDisableAssertionForReason','primary_hold':'the returned assertion object stays alive','primary_release':'invalidate the assertion object','verification':'isIdleTimerDisabled','reassert_ticks':5,'max_reasserts':3,'degrade':'resetIdleTimerForReason heartbeat','fallback':'UIApplication.isIdleTimerDisabled','reason':'com.nx.stheno.floating-window','release_on_last_card':True,'baseline_restored':True,'unavailable_grace_seconds':10},'initial_model_position':'native_screen_center','icon_resources':icon_resources,'update18':FROZEN['update18'],'diagnostic_logging_removed':False,'legacy_diagnostic_logging_removed':True,'base':{'frozen_deb_sha256':FROZEN['frozen_deb_sha256'],'frozen_deb_bytes':FROZEN['frozen_deb_bytes'],'core_sha256':FROZEN['core_sha256'],'core_bytes':FROZEN['core_bytes']}}
+for (a,b),(c,d) in zip(rows,verify):assert a.name.rstrip('/')==c.name.rstrip('/') and b==d
+manifest={'version':VERSION,'artifact':result.name,'sha256':hashlib.sha256(result.read_bytes()).hexdigest(),'size':result.stat().st_size,'data_tar_default_xz_bytes':len(default_data_archive),'data_tar_optimized_xz_bytes':len(data_archive),'data_tar_bytes_saved':len(default_data_archive)-len(data_archive),'data_tar_uncompressed_bytes':len(data_tar_uncompressed),'data_tar_uncompressed_sha256':hashlib.sha256(data_tar_uncompressed).hexdigest(),'patch_entries':FROZEN['patch_entries'],'device_tested':False,'merged_springboard_runtime':FROZEN['merged_springboard_runtime'],'native_bridges':FROZEN['native_bridges'],'signature_compaction':signature_savings,'runtime_export_count':len(keep),'bundled_orion':FROZEN['bundled_orion'],'keyboard_inset_adapter':False,'install_layout':{'version':1,'synthesized_directories':synthesized_dirs,'preinst':'installer/preinst','preinst_creates':['/usr/local/share/stheno','/var/jb/usr/local/share/stheno'],'preinst_removes_nothing':True,'defect':'the frozen base shipped ./usr/local/share/stheno/com.nx.stheno.plist without any of its parent directory entries, and dpkg never creates a missing parent while unpacking, so a clean install aborted with "unable to create ... .dpkg-new: No such file or directory" while an overwrite install succeeded because an earlier package had left the directory behind','regression_gate':'every regular member of the data archive must have its whole parent chain present as directory entries'},'legacy_url_hook':{'version':1,'module':'SthenoKeyboard.dylib','shipped':False,'removed_on_install':['SthenoKeyboard.dylib','SthenoKeyboard.plist'],'scope':'every app the retired module is injected into','defect':{'return_value':'the replacement returns the NSURL object where openURL:options:completionHandler: must return BOOL, so every caller sees success','options':'when UIApplicationOpenURLOptionUniversalLinksOnly is present the replacement re-opens with an empty dictionary and a nil completion handler, dropping both the universal-link contract and the caller fallback'},'effect':'payment jumps that rely on the boolean or completion contract never reach their fallback, while custom-scheme jumps such as weixin:// are untouched','regression_gate':'no shipped dylib may reference UIApplicationOpenURLOptionUniversalLinksOnly','safe_scope':'only the two retired keyboard files are touched; no other dynamic library, preference or resource changes'},'viewport_keyboard_rebuild':{'version':32,'legacy_files_removed':sorted(retired_keyboard_files),'original_keyboard_observer_registration_disabled':True,'single_coordinate_authority':True,'springboard_physical_source_only':True,'independent_scene_reflow':True,'main_application_post_launch_only':True,'extension_hooks_installed':False,'reflow_cached_getter':True,'private_scene_update_hook':False,'editor_transforms':False,'device_diagnostics':True},'system_actions':FROZEN['system_actions'],'center_app_chooser':{'version':3,'pins_apps':False,'native_catalog':True,'native_animated_launch':True,'native_pan_trigger':True,'release_admission':True,'ring_auto_dismiss_preserved':True,'ring_geometry_modified':False},'visibility_restores_from_observed_state':True,'floating_window_idle_timer':{'version':2,'scope':'visible_floating_cards','primary':'SBIdleTimerGlobalCoordinator.acquireIdleTimerDisableAssertionForReason','primary_hold':'the returned assertion object stays alive','primary_release':'invalidate the assertion object','verification':'isIdleTimerDisabled','reassert_ticks':5,'max_reasserts':3,'degrade':'resetIdleTimerForReason heartbeat','fallback':'UIApplication.isIdleTimerDisabled','reason':'com.nx.stheno.floating-window','release_on_last_card':True,'baseline_restored':True,'unavailable_grace_seconds':10},'initial_model_position':'native_screen_center','icon_resources':icon_resources,'update18':FROZEN['update18'],'diagnostic_logging_removed':False,'legacy_diagnostic_logging_removed':True,'base':{'frozen_deb_sha256':FROZEN['frozen_deb_sha256'],'frozen_deb_bytes':FROZEN['frozen_deb_bytes'],'core_sha256':FROZEN['core_sha256'],'core_bytes':FROZEN['core_bytes']}}
 (OUT/'build-manifest.json').write_text(json.dumps(manifest,indent=2));print(json.dumps({k:manifest[k] for k in ('artifact','sha256','size','data_tar_uncompressed_bytes','data_tar_uncompressed_sha256')}))

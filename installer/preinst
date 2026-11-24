@@ -1,0 +1,31 @@
+#!/bin/sh
+# dpkg runs preinst before it unpacks the data archive.
+#
+# The payload ships /usr/local/share/stheno/com.nx.stheno.plist, and dpkg writes
+# every archive member with open(O_CREAT|O_EXCL) straight into the destination
+# directory. It never creates a missing parent, so on a clean install the unpack
+# aborts with:
+#   unable to create '/usr/local/share/stheno/com.nx.stheno.plist.dpkg-new'
+#   (while processing './usr/local/share/stheno/com.nx.stheno.plist'):
+#   No such file or directory
+# The frozen base package only ever worked because an earlier installation had
+# already left the directory behind.
+#
+# Create the exact chain here, under both the root and the jailbreak root, so the
+# unpack always finds it. The data archive also carries matching directory
+# entries; this script is the part that makes a first-time install work on any
+# dpkg build.
+#
+# Nothing is removed on purpose: an earlier package shipped a preinst that
+# deleted SthenoFix and SthenoKb, and this script must never reintroduce that.
+set +e
+
+for R in /var/jb / ; do
+  D="$R/usr/local/share/stheno"
+  [ -d "$D" ] || mkdir -p "$D" 2>/dev/null
+  [ -d "$R/usr/local/share" ] && chmod 0755 "$R/usr/local/share" 2>/dev/null
+  [ -d "$D" ] && chmod 0755 "$D" 2>/dev/null
+  [ -d "$D" ] && chown root:wheel "$D" 2>/dev/null
+done
+
+exit 0

@@ -51,7 +51,8 @@
     "installer/postinst": "261536df86a3f27237ee8820d9b205713c4e0ac89f5916824d4c030f18dce41c",
     "resources/system-actions/app-picker.png": "0318c3cd7393af2dd03b53016562d2353d90ef7fc85a9dfb43470ed768a87d85",
     "resources/system-actions/screen-recording.png": "ebe412b69a2d516fef79b9d9441106c29ec87bbebb55095187686f08ccee058c",
-    "resources/system-actions/screenshot.png": "13ee19a2ed7f10ba5658c7453e1db70e0b59c704a452c9694b0125282688b9f0"
+    "resources/system-actions/screenshot.png": "13ee19a2ed7f10ba5658c7453e1db70e0b59c704a452c9694b0125282688b9f0",
+    "installer/preinst": "58c36d6b4866f3abb5509d0c0392da615bfe04a4003c33288107ac1e03c2254d"
   },
   "retired_production": [
     "CompositeRows.inc",
