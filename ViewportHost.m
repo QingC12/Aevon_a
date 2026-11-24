@@ -225,14 +225,24 @@ void STHViewportModelChanged(void *model){if(NSThread.isMainThread)updateRegistr
 BOOL STHViewportKeyboardExcludes(CGPoint point){
  return STHVKeyboard(physicalKeyboard,viewportScreen())&&CGRectContainsPoint(cr(physicalKeyboard),point);
 }
-void STHViewportPhysicalWill(CGRect frame,BOOL hiding){
- if(!NSThread.isMainThread)return;
- // No other entry writes physicalKeyboard/visibility/generation.
+// A keyboard that is drawn by another process announces its height in steps and
+// not always in order: the same visible keyboard is reported first as a short
+// trial frame, then taller, and an interleaved report of the previous height can
+// arrive after the tall one. Whoever follows the newest frame blindly ends up
+// laid out for a keyboard shorter than the one on screen, and the part of the
+// card that the short frame left behind the keys is the composer.
+// The rule kept here: a frame that grows is adopted at once, a frame that
+// shrinks only after it has stayed the latest report for a full second. Nothing
+// is written twice for one keyboard, and the state only ever moves toward the
+// taller frame unless the shorter one proves itself by persisting.
+static NSUInteger settleSerial,shorterSerial;
+static STHVRect pendingShorter;
+static void commitKeyboard(STHVRect keyboard,BOOL visible,NSString *source){
  sbPhysicalGeneration++;
- sbKeyboardVisible=!hiding&&STHVKeyboard(vr(frame),viewportScreen());
- physicalKeyboard=sbKeyboardVisible?vr(frame):(STHVRect){0};
- STHVLog(@"sb-keyboard-commit",@"com.apple.springboard",@{@"source":@"springboard-notification",@"physicalGeneration":@(sbPhysicalGeneration),@"visible":@(sbKeyboardVisible),@"frame":STHVRectJSON(physicalKeyboard),@"owner":ownerBundle?:@"-",@"card":STHVRectJSON(currentTarget),@"screen":STHVRectJSON(viewportScreen()),@"keyboardTop":@(physicalKeyboard.y)});
- if(!sbKeyboardVisible)restoreOwner(YES,@"physical-hide");
+ sbKeyboardVisible=visible;
+ physicalKeyboard=visible?keyboard:(STHVRect){0};
+ STHVLog(@"sb-keyboard-commit",@"com.apple.springboard",@{@"source":source,@"physicalGeneration":@(sbPhysicalGeneration),@"visible":@(sbKeyboardVisible),@"frame":STHVRectJSON(physicalKeyboard),@"owner":ownerBundle?:@"-",@"card":STHVRectJSON(currentTarget),@"screen":STHVRectJSON(viewportScreen()),@"keyboardTop":@(physicalKeyboard.y)});
+ if(!visible)restoreOwner(YES,@"physical-hide");
  // This entry is invoked only inside the unmodified original animation ABI.
  updateRegistry(YES);
  // A keyboard may announce itself with a trial frame and only settle a few
@@ -240,14 +250,58 @@ void STHViewportPhysicalWill(CGRect frame,BOOL hiding){
  // opening gesture lands aligned instead of waiting for the next event. The
  // re-evaluation is the same idempotent pass: an unchanged target writes
  // nothing, and a newer keyboard frame supersedes this one through the serial.
- static NSUInteger settleSerial;
  NSUInteger serial=++settleSerial;
- if(sbKeyboardVisible)dispatch_after(dispatch_time(DISPATCH_TIME_NOW,160*NSEC_PER_MSEC),dispatch_get_main_queue(),^{
+ if(visible)dispatch_after(dispatch_time(DISPATCH_TIME_NOW,160*NSEC_PER_MSEC),dispatch_get_main_queue(),^{
   if(serial!=settleSerial||!sbKeyboardVisible)return;
   STHVRect before=currentTarget;STHVRect keyboard=physicalKeyboard;
   STHCenterRunAnimation(^{updateRegistry(YES);},0);
   STHVLog(@"host-settle",@"com.apple.springboard",@{@"before":STHVRectJSON(before),@"after":STHVRectJSON(currentTarget),@"keyboard":STHVRectJSON(keyboard),@"changed":@(!STHVNear(before,currentTarget,.5)),@"physicalGeneration":@(sbPhysicalGeneration),@"owner":ownerBundle?:@"-"});
  });
+}
+void STHViewportPhysicalWill(CGRect frame,BOOL hiding){
+ if(!NSThread.isMainThread)return;
+ STHVRect requested=vr(frame),screen=viewportScreen();
+ if(hiding){shorterSerial++;pendingShorter=(STHVRect){0};commitKeyboard((STHVRect){0},NO,@"physical-hide");return;}
+ BOOL shaped=STHVKeyboard(requested,screen);
+ // Docked, full width and far too short to be keys: this is the trial rectangle
+ // the remote keyboard process publishes before its panel is laid out. It is
+ // neither a keyboard nor a dismissal, so the state in force is kept and the
+ // frame that follows decides. Treating it as a keyboard used to tell the card
+ // the keys were 75 points tall, which left the composer under the real panel.
+ BOOL trial=!shaped&&STHVValid(requested)&&STHVValid(screen)&&
+  requested.w>=0.7*screen.w&&requested.h>0&&requested.h<0.18*screen.h&&
+  fabs((requested.y+requested.h)-(screen.y+screen.h))<=20.0&&requested.y>=screen.y;
+ if(trial){
+  STHVLog(@"sb-keyboard-trial",@"com.apple.springboard",@{@"frame":STHVRectJSON(requested),@"held":STHVRectJSON(physicalKeyboard),@"visible":@(sbKeyboardVisible),@"physicalGeneration":@(sbPhysicalGeneration),@"owner":ownerBundle?:@"-"});
+  return;
+ }
+ if(!shaped){shorterSerial++;pendingShorter=(STHVRect){0};commitKeyboard((STHVRect){0},NO,@"physical-not-docked");return;}
+ if(!sbKeyboardVisible||requested.y<physicalKeyboard.y-0.5){
+  shorterSerial++;pendingShorter=(STHVRect){0};
+  commitKeyboard(requested,YES,sbKeyboardVisible?@"physical-taller":@"physical-show");
+  return;
+ }
+ if(STHVNear(requested,physicalKeyboard,.5)){commitKeyboard(requested,YES,@"physical-same");return;}
+ // The frame got shorter while the keyboard stayed on screen. A small step down
+ // is the shape of a re-report of the same panel (an input method dropping its
+ // tool row for a beat, two processes racing to announce the same keyboard), so
+ // it is held and only adopted if it is still the latest report a second later.
+ // A large step down is a different keyboard being shown, and is adopted at once.
+ CGFloat drop=physicalKeyboard.h-requested.h;
+ if(drop>60.0){
+  shorterSerial++;pendingShorter=(STHVRect){0};
+  commitKeyboard(requested,YES,@"physical-smaller");
+  return;
+ }
+ pendingShorter=requested;
+ NSUInteger serial=++shorterSerial;
+ STHVLog(@"sb-keyboard-hold",@"com.apple.springboard",@{@"requested":STHVRectJSON(requested),@"held":STHVRectJSON(physicalKeyboard),@"drop":@(drop),@"delay":@1.0,@"physicalGeneration":@(sbPhysicalGeneration),@"owner":ownerBundle?:@"-"});
+ dispatch_after(dispatch_time(DISPATCH_TIME_NOW,(int64_t)NSEC_PER_SEC),dispatch_get_main_queue(),^{
+  if(serial!=shorterSerial||!sbKeyboardVisible)return;
+  commitKeyboard(pendingShorter,YES,@"physical-shorter-settled");
+ });
+ // Keep the owner lease alive for the duration of the hold.
+ updateRegistry(YES);
 }
 #if !defined(STH_VIEWPORT_HOST_TEST)
 static BOOL geometryInstalled;

@@ -84,8 +84,20 @@ static BOOL mapFrame(UIWindowScene *scene,BOOL firstWill,STHVRect *mapped){
  if(!STHVAuthoritativeMap(card,host.keyboard,screen,vr(scene.coordinateSpace.bounds),host.physicalGeneration,host.keyboardVisible,mapped))return NO;
  physicalFrame=host.keyboard;visible=YES;return YES;
 }
+// The physical keyboard mapped into this scene without asking whether this
+// bundle currently owns the card. It is a lower bound on the keyboard the
+// application must be told about; it never writes card geometry.
+static BOOL STHVPhysicalFloor(UIWindowScene *scene,STHVSnapshot *authority,STHVRect *out){
+ if(!scene||!authority||!out)return NO;
+ if(!authority->hosted||!authority->keyboardVisible)return NO;
+ STHVRect screen=vr(STHVUnmodifiedScreenBounds(scene.screen));
+ if(!STHVValid(authority->card)||!STHVKeyboard(authority->keyboard,screen))return NO;
+ STHVRect mapped={0};
+ if(!STHVAuthoritativeMap(authority->card,authority->keyboard,screen,vr(scene.coordinateSpace.bounds),1,true,&mapped))return NO;
+ if(!STHVValid(mapped))return NO;
+ *out=mapped;return YES;
+}
 static CGRect notificationFrame(UIWindowScene *scene,STHVRect mapped){
- // Keyboard notification frames are screen coordinates, not scene coordinates.
  // Convert the canonical scene frame back to the screen before delivery so an
  // application's own screen->view conversion runs exactly once.
  return [scene.coordinateSpace convertRect:cr(mapped) toCoordinateSpace:scene.screen.coordinateSpace];
@@ -166,11 +178,23 @@ static void ignored(NSNotification *note,NSString *reason){
  STHVLog(@"client-ignored",bundle(),@{@"notification":note.name?:@"-",@"reason":reason,@"hasView":@(editingView!=nil),@"visible":@(visible),@"mapped":@(mappedSession),@"scene":STHVRectJSON(lastSceneFrame)});
 }
 static void reconcile(void);
+// One measurement is not enough. An application finishes its own avoidance
+// animation a few hundred milliseconds after the last keyboard event, and an
+// input method settles its panel in steps, so a session that looked clear at
+// 180 ms can end up with the composer under the keys again. The check therefore
+// stays armed for a short bounded window and stops as soon as the session ends.
+static NSUInteger reconcilePasses;
+static void armReconcile(NSUInteger delay){
+ if(reconcilePasses>=3)return;
+ reconcilePasses++;
+ dispatch_after(dispatch_time(DISPATCH_TIME_NOW,(int64_t)delay*NSEC_PER_MSEC),dispatch_get_main_queue(),^{reconcile();});
+}
 static void scheduleReconcile(void){
- dispatch_after(dispatch_time(DISPATCH_TIME_NOW,180*NSEC_PER_MSEC),dispatch_get_main_queue(),^{reconcile();});
+ reconcilePasses=0;
+ armReconcile(180);
 }
 static void resetCorrection(void){
- correctionLift=0;corrections=0;lastFixField=(STHVRect){0};localizedForeign=0;
+ correctionLift=0;corrections=0;lastFixField=(STHVRect){0};localizedForeign=0;reconcilePasses=0;
 }
 // The composer is judged by one number: the bottom edge of the field being
 // edited against the top of the keyboard that was actually handed over. When
@@ -186,9 +210,9 @@ static void reconcile(void){
  STHVRect field=vr([editingView convertRect:editingView.bounds toCoordinateSpace:scene.coordinateSpace]);
  if(!STHVValid(field))return;
  CGFloat clearance=lastSceneFrame.y-(field.y+field.h);
- if(clearance>=-0.5){STHVLog(@"client-clearance-ok",bundle(),@{@"clearance":@(clearance),@"corrections":@(corrections),@"field":STHVRectJSON(field),@"keyboardTop":@(lastSceneFrame.y)});return;}
+ if(clearance>=-0.5){STHVLog(@"client-clearance-ok",bundle(),@{@"clearance":@(clearance),@"corrections":@(corrections),@"pass":@(reconcilePasses),@"field":STHVRectJSON(field),@"keyboardTop":@(lastSceneFrame.y)});armReconcile(260);return;}
  CGFloat shortfall=-clearance+4.0;
- if(STHVNear(field,lastFixField,0.5)){STHVLog(@"client-clearance-stalled",bundle(),@{@"clearance":@(clearance),@"corrections":@(corrections),@"field":STHVRectJSON(field)});return;}
+ if(STHVNear(field,lastFixField,0.5)){STHVLog(@"client-clearance-stalled",bundle(),@{@"clearance":@(clearance),@"corrections":@(corrections),@"pass":@(reconcilePasses),@"field":STHVRectJSON(field)});return;}
  STHVRect bounds=vr(scene.coordinateSpace.bounds);
  CGFloat top=lastSceneFrame.y-shortfall;
  if(!isfinite(top)||top<bounds.y)return;
@@ -205,6 +229,7 @@ static void reconcile(void){
  for(NSString *name in @[UIKeyboardWillChangeFrameNotification,UIKeyboardDidChangeFrameNotification])
   deliver(NSNotificationCenter.defaultCenter,[NSNotification notificationWithName:name object:scene.screen userInfo:info]);
  STHVLog(@"client-clearance-fix",bundle(),@{@"before":STHVRectJSON(before),@"after":STHVRectJSON(end),@"clearance":@(clearance),@"shortfall":@(shortfall),@"field":STHVRectJSON(field),@"corrections":@(corrections),@"correctionLift":@(correctionLift)});
+ armReconcile(260);
 }
 static BOOL intercept(NSNotificationCenter *center,NSNotification *note){
  if(insideDelivery||center!=NSNotificationCenter.defaultCenter||!NSThread.isMainThread||!keyboardEvent(note.name))return NO;
@@ -257,6 +282,29 @@ static BOOL intercept(NSNotificationCenter *center,NSNotification *note){
  STHVPublishClientFrames(bundle(),diagnostic,mapped?canonical:(STHVRect){0},authority.physicalGeneration);
  if(!mapped){
   if(hide&&!live)mappedSession=NO;
+  // The frame an application computed for itself is not the panel that is
+  // drawn. For a keyboard hosted by another process UIKit subtracts the tool
+  // row and the candidate row that input method draws for itself, so an
+  // application that lays out from its own notification stops forty to sixty
+  // points short of the panel and its composer stays under the keys. Only the
+  // physical frame SpringBoard observed describes what is on screen, so that
+  // frame is mapped into this scene and delivered whenever it stands higher
+  // than the frame the application brought with it. Timing and curve stay the
+  // application's own.
+  if(!hide&&hasHost&&STHVPhysicalFloor(scene,&authority,&lastSceneFrame)){
+   CGFloat floorTop=notificationFrame(scene,lastSceneFrame).origin.y;
+   if(floorTop<screenFrame.origin.y-0.5){
+    STHVRect floorFrame=lastSceneFrame;
+    physicalFrame=authority.keyboard;visible=YES;mappedSession=YES;editingView=view;editingScene=scene;startLease();
+    if(will)STHVPublishRequest(bundle(),YES,(STHVRect){0});
+    if(!localizedForeign++)STHVLog(@"client-physical-floor",bundle(),@{@"notification":note.name,@"appTop":@(screenFrame.origin.y),@"physicalTop":@(floorTop),@"appRawDiagnostic":STHVRectJSON(diagnostic),@"delivered":STHVRectJSON(floorFrame),@"physicalGeneration":@(authority.physicalGeneration)});
+    NSDictionary *info=frameInfo(raw,scene,floorFrame,floorFrame);
+    deliver(center,[NSNotification notificationWithName:note.name object:note.object userInfo:info]);
+    probe(@"client-floor-delivery",@{@"notification":note.name,@"appRawDiagnostic":STHVRectJSON(diagnostic),@"deliveredScreen":STHVRectJSON(vr(notificationFrame(scene,floorFrame))),@"physicalGeneration":@(authority.physicalGeneration)});
+    if(did)scheduleReconcile();
+    return YES;
+   }
+  }
   // Handing over the application's own frame untouched, with the locality flag
   // corrected, is the smallest change that lets an application lay out for a
   // keyboard it would otherwise discard. The frame, the timing and the curve are

@@ -35,7 +35,33 @@ assert 'host-settle' in host
 assert '160*NSEC_PER_MSEC' in host
 assert 'if(serial!=settleSerial||!sbKeyboardVisible)return;' in host
 
+# A keyboard drawn by another process announces itself in steps. Two rules keep
+# the card and the application from settling on a shorter panel than the one on
+# screen: a trial rectangle far too short to be keys is not a keyboard at all,
+# and a small step down is held for a second before it is believed.
+assert 'sb-keyboard-trial' in host and 'sb-keyboard-hold' in host
+assert 'requested.h<0.18*screen.h' in host
+assert 'physical-shorter-settled' in host and 'drop>60.0' in host
+assert 'physical-taller' in host and 'physical-smaller' in host
+# Grow immediately, shrink only on proof.
+taller = host.index('requested.y<physicalKeyboard.y-0.5')
+hold = host.index('pendingShorter=requested;')
+assert taller < hold, 'a taller frame must be adopted before any hold is considered'
+
+# An application's own keyboard frame is not the panel: for a keyboard hosted by
+# another process UIKit subtracts the rows that input method draws for itself.
+# When the canonical mapping is unavailable the physical frame is mapped into the
+# scene and used whenever it stands higher than the application's own frame.
+assert 'STHVPhysicalFloor' in client and 'client-physical-floor' in client
+assert 'floorTop<screenFrame.origin.y-0.5' in client
+assert 'if(!authority->hosted||!authority->keyboardVisible)return NO;' in client
+
+# One measurement is not enough: the application finishes its own avoidance
+# after the last keyboard event, so the check stays armed for a bounded window.
+assert 'armReconcile' in client and 'reconcilePasses>=3' in client
+assert 'armReconcile(180)' in client and 'armReconcile(260)' in client
+
 # No system animation is rewritten: frames this client synthesises carry no
 # duration and reuse the original transaction ABI only.
 assert client.count('UIKeyboardAnimationDurationUserInfoKey]=@0') >= 2
-print('Keyboard alignment contract: foreign keyboards are delivered, a covered composer is corrected once, and the card re-settles inside the opening window')
+print('Keyboard alignment contract: foreign keyboards are delivered, the physical panel bounds what the application is told, a shrunken report is held, and a covered composer is re-measured inside the opening window')
