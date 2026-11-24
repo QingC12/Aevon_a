@@ -29,6 +29,20 @@ assert 'return native+correctionLift;' in client
 assert 'STHVInset(canonical,vr(scene.coordinateSpace.bounds))+correctionLift' in client
 assert 'if(STHVNear(field,lastFixField,0.5))' in client
 
+# Two processes describe the same keyboard and neither has the whole picture.
+# SpringBoard reports the key plane, the application's own UIKit adds the rows an
+# input method draws inside its own window. The composer has to clear both, so the
+# higher top always wins and neither side may pull the other down.
+assert 'static STHVRect unionTop(' in client
+assert 'if(!STHVValid(own)||own.y>=delivered.y-0.5)return delivered;' in client
+assert 'canonical=unionTop(canonical,appOwnFrame);' in client
+assert 'STHVRect unified=unionTop(canonical,appOwnFrame);' in client
+assert 'client-union' in client
+assert 'appOwnFrame=(STHVRect){0};' in client
+# The inset answered to UIKit carries the same rule, so a layout pass that never
+# sees a notification still clears both numbers.
+assert 'double amount=fmax((double)native,canonicalAmount);' in client
+
 # The card re-settles once inside the opening window instead of waiting for the
 # next keyboard event.
 assert 'host-settle' in host
@@ -43,6 +57,15 @@ assert 'sb-keyboard-trial' in host and 'sb-keyboard-hold' in host
 assert 'requested.h<0.18*screen.h' in host
 assert 'physical-shorter-settled' in host and 'drop>60.0' in host
 assert 'physical-taller' in host and 'physical-smaller' in host
+# The trial test cannot be gated on the shape test: a 75 point strip passes every
+# other keyboard rule, which is how it used to reach the application.
+assert host.index('BOOL trial=docked') < host.index('BOOL shaped=STHVKeyboard(requested,screen);')
+assert 'BOOL docked=STHVValid(requested)&&STHVValid(screen)&&requested.w>=0.7*screen.w' in host
+# Inside the opening window the panel is still being assembled and reported out
+# of order, so no shrink of any size is adopted before it closes.
+assert 'sb-keyboard-opening-hold' in host
+assert 'hostNow()-keyboardShownAt<0.30' in host
+assert 'if(visible&&!was)keyboardShownAt=hostNow();' in host
 # Grow immediately, shrink only on proof.
 taller = host.index('requested.y<physicalKeyboard.y-0.5')
 hold = host.index('pendingShorter=requested;')

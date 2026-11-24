@@ -6,6 +6,7 @@ static UIScreen *testDisplay;
 static UIApplication *testApp;
 @implementation TestSpace
 -(CGRect)convertRect:(CGRect)r toCoordinateSpace:(id)s{return r;}
+-(CGRect)convertRect:(CGRect)r fromCoordinateSpace:(id)s{return r;}
 @end
 @implementation UIScreen
 +(UIScreen *)mainScreen{return testDisplay;}
@@ -85,6 +86,18 @@ int main(void){@autoreleasepool{
  assert(received.count==1&&localizedForeign==1);
  assert([received.lastObject.userInfo[UIKeyboardIsLocalUserInfoKey] boolValue]);
  assert(delivered().size.height==158&&delivered().origin.y==raw[0].origin.y);
+ // SpringBoard reports the key plane, the application's own UIKit adds the rows
+ // an input method draws inside its own window, so the application's frame is
+ // sometimes the taller one. The composer has to clear both, so the higher top
+ // is delivered and the application is never pulled down into the keys.
+ [received removeAllObjects];
+ layout.hosted=YES;layout.active=YES;layout.keyboardVisible=YES;layout.card=(STHVRect){0,0,430,731};
+ layout.keyboard=(STHVRect){0,600,430,332};layout.physicalGeneration++;layout.serial++;
+ scene.coordinateSpace.bounds=CGRectMake(0,0,430,731);
+ send(UIKeyboardWillShowNotification,(CGRect){0,600,430,332});
+ assert(delivered().origin.y==600&&delivered().size.height==131);
+ send(UIKeyboardDidChangeFrameNotification,(CGRect){0,520,430,412});
+ assert(delivered().origin.y==520&&delivered().size.height==211);
  stopLease();assert(activeClaims>0);
  puts("Viewport32 client production hooks: 200 SB-visible/raw-drift/hide/late-app-show-change/reopen cycles; real notification delivery and inset reject stale positive data; fullscreen/non-hosted native fallback retained (UIKit stand-ins, not device rendering)");
 }return 0;}

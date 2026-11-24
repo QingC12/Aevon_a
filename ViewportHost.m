@@ -33,6 +33,7 @@ static STHVRect originalCard,currentTarget,physicalKeyboard;
 static double originalGeometry[3],writtenGeometry[3],lastOwnerAt;
 static BOOL hasWrittenGeometry,localInput,manualOverride;
 static BOOL sbKeyboardVisible;
+static double keyboardShownAt;
 static uint64_t sbPhysicalGeneration;
 static uint64_t localBarrierKey,localBarrierEvent;
 static STHVRect ownerKeyboard;
@@ -238,8 +239,10 @@ BOOL STHViewportKeyboardExcludes(CGPoint point){
 static NSUInteger settleSerial,shorterSerial;
 static STHVRect pendingShorter;
 static void commitKeyboard(STHVRect keyboard,BOOL visible,NSString *source){
+ BOOL was=sbKeyboardVisible;
  sbPhysicalGeneration++;
  sbKeyboardVisible=visible;
+ if(visible&&!was)keyboardShownAt=hostNow();
  physicalKeyboard=visible?keyboard:(STHVRect){0};
  STHVLog(@"sb-keyboard-commit",@"com.apple.springboard",@{@"source":source,@"physicalGeneration":@(sbPhysicalGeneration),@"visible":@(sbKeyboardVisible),@"frame":STHVRectJSON(physicalKeyboard),@"owner":ownerBundle?:@"-",@"card":STHVRectJSON(currentTarget),@"screen":STHVRectJSON(viewportScreen()),@"keyboardTop":@(physicalKeyboard.y)});
  if(!visible)restoreOwner(YES,@"physical-hide");
@@ -262,19 +265,20 @@ void STHViewportPhysicalWill(CGRect frame,BOOL hiding){
  if(!NSThread.isMainThread)return;
  STHVRect requested=vr(frame),screen=viewportScreen();
  if(hiding){shorterSerial++;pendingShorter=(STHVRect){0};commitKeyboard((STHVRect){0},NO,@"physical-hide");return;}
- BOOL shaped=STHVKeyboard(requested,screen);
  // Docked, full width and far too short to be keys: this is the trial rectangle
  // the remote keyboard process publishes before its panel is laid out. It is
  // neither a keyboard nor a dismissal, so the state in force is kept and the
- // frame that follows decides. Treating it as a keyboard used to tell the card
- // the keys were 75 points tall, which left the composer under the real panel.
- BOOL trial=!shaped&&STHVValid(requested)&&STHVValid(screen)&&
-  requested.w>=0.7*screen.w&&requested.h>0&&requested.h<0.18*screen.h&&
+ // frame that follows decides. The test has to come before the shape test,
+ // because a 75 point strip still passes every other keyboard rule and used to
+ // be announced as the keyboard, leaving the composer under the real panel.
+ BOOL docked=STHVValid(requested)&&STHVValid(screen)&&requested.w>=0.7*screen.w&&
   fabs((requested.y+requested.h)-(screen.y+screen.h))<=20.0&&requested.y>=screen.y;
+ BOOL trial=docked&&requested.h>0&&requested.h<0.18*screen.h;
  if(trial){
   STHVLog(@"sb-keyboard-trial",@"com.apple.springboard",@{@"frame":STHVRectJSON(requested),@"held":STHVRectJSON(physicalKeyboard),@"visible":@(sbKeyboardVisible),@"physicalGeneration":@(sbPhysicalGeneration),@"owner":ownerBundle?:@"-"});
   return;
  }
+ BOOL shaped=STHVKeyboard(requested,screen);
  if(!shaped){shorterSerial++;pendingShorter=(STHVRect){0};commitKeyboard((STHVRect){0},NO,@"physical-not-docked");return;}
  if(!sbKeyboardVisible||requested.y<physicalKeyboard.y-0.5){
   shorterSerial++;pendingShorter=(STHVRect){0};
@@ -282,11 +286,25 @@ void STHViewportPhysicalWill(CGRect frame,BOOL hiding){
   return;
  }
  if(STHVNear(requested,physicalKeyboard,.5)){commitKeyboard(requested,YES,@"physical-same");return;}
- // The frame got shorter while the keyboard stayed on screen. A small step down
- // is the shape of a re-report of the same panel (an input method dropping its
- // tool row for a beat, two processes racing to announce the same keyboard), so
- // it is held and only adopted if it is still the latest report a second later.
- // A large step down is a different keyboard being shown, and is adopted at once.
+ // Inside the opening window the panel is still being assembled by a process
+ // that reports it in pieces, and those pieces arrive out of order: the same
+ // keyboard is reported as 369, then 414 with the input method's own tool row,
+ // then 333 without it, all inside 90 ms. A report that arrives in that window
+ // is not a keyboard change, it is the same panel being described badly, so no
+ // shrink of any size is believed until the window closes. This is what lets the
+ // first frame the application receives be the final one.
+ BOOL opening=sbKeyboardVisible&&(hostNow()-keyboardShownAt<0.30);
+ if(opening&&requested.h<physicalKeyboard.h-0.5){
+  pendingShorter=requested;
+  NSUInteger serial=++shorterSerial;
+  STHVLog(@"sb-keyboard-opening-hold",@"com.apple.springboard",@{@"requested":STHVRectJSON(requested),@"held":STHVRectJSON(physicalKeyboard),@"physicalGeneration":@(sbPhysicalGeneration),@"owner":ownerBundle?:@"-"});
+  dispatch_after(dispatch_time(DISPATCH_TIME_NOW,(int64_t)NSEC_PER_SEC),dispatch_get_main_queue(),^{
+   if(serial!=shorterSerial||!sbKeyboardVisible)return;
+   commitKeyboard(pendingShorter,YES,@"physical-shorter-settled");
+  });
+  updateRegistry(YES);
+  return;
+ }
  CGFloat drop=physicalKeyboard.h-requested.h;
  if(drop>60.0){
   shorterSerial++;pendingShorter=(STHVRect){0};

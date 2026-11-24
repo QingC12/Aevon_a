@@ -8,6 +8,7 @@ typedef NS_ENUM(NSInteger,UIInterfaceOrientation){UIInterfaceOrientationUnknown,
 @interface TestSpace:NSObject
 @property(nonatomic) CGRect bounds;
 -(CGRect)convertRect:(CGRect)r toCoordinateSpace:(id)space;
+-(CGRect)convertRect:(CGRect)r fromCoordinateSpace:(id)space;
 @end
 @interface UIScreen:NSObject
 @property(strong) TestSpace *coordinateSpace,*fixedCoordinateSpace;

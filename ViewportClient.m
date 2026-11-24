@@ -29,6 +29,21 @@ static NSUInteger sessionGeneration;
 static CGFloat correctionLift;
 static NSUInteger corrections,localizedForeign;
 static STHVRect lastFixField;
+// The frame the application computed for itself, in this scene, kept for the
+// whole session. Two processes describe the same keyboard and neither has the
+// whole picture: SpringBoard sees the key plane, the application sees the plane
+// plus the rows the input method draws inside its own window. Whichever stands
+// higher is what the composer has to clear, so the higher top always wins and
+// the composer is never pulled down.
+static STHVRect appOwnFrame;
+static NSUInteger unionLogged;
+static STHVRect unionTop(STHVRect delivered,STHVRect own){
+ if(!STHVValid(delivered))return own;
+ if(!STHVValid(own)||own.y>=delivered.y-0.5)return delivered;
+ CGFloat bottom=delivered.y+delivered.h;
+ if(own.y+own.h<=delivered.y)return delivered;
+ return (STHVRect){delivered.x,own.y,delivered.w,bottom-own.y};
+}
 static void (*systemPost)(id,SEL,NSNotification *);
 static void (*systemPostName)(id,SEL,NSString *,id,NSDictionary *);
 static CGFloat (*systemInset)(id,SEL,UIWindowScene *,BOOL *,BOOL);
@@ -195,6 +210,7 @@ static void scheduleReconcile(void){
 }
 static void resetCorrection(void){
  correctionLift=0;corrections=0;lastFixField=(STHVRect){0};localizedForeign=0;reconcilePasses=0;
+ appOwnFrame=(STHVRect){0};unionLogged=0;
 }
 // The composer is judged by one number: the bottom edge of the field being
 // edited against the top of the keyboard that was actually handed over. When
@@ -278,6 +294,21 @@ static BOOL intercept(NSNotificationCenter *center,NSNotification *note){
    deliveryName=will?UIKeyboardWillChangeFrameNotification:UIKeyboardDidChangeFrameNotification;
   }else mapped=mapFrame(scene,will&&!mappedSession,&canonical);
   if(hide&&live)deliveryName=[note.name isEqualToString:UIKeyboardWillHideNotification]?UIKeyboardWillChangeFrameNotification:UIKeyboardDidChangeFrameNotification;
+  if(!hide){
+   // The application's own end frame, expressed in this scene. It is not the
+   // panel, but it is the number the application has already laid out for, and
+   // for a keyboard drawn by another process it is sometimes the taller of the
+   // two because UIKit counts the rows the input method draws inside its window
+   // while the keyboard process reports only the plane.
+   appOwnFrame=vr([scene.coordinateSpace convertRect:screenFrame fromCoordinateSpace:scene.screen.coordinateSpace]);
+   if(mapped){
+    STHVRect unified=unionTop(canonical,appOwnFrame);
+    if(!STHVNear(unified,canonical,0.5)){
+     if(!unionLogged++)STHVLog(@"client-union",bundle(),@{@"notification":note.name,@"appOwn":STHVRectJSON(appOwnFrame),@"panel":STHVRectJSON(canonical),@"delivered":STHVRectJSON(unified)});
+     canonical=unified;
+    }
+   }
+  }
  }
  STHVPublishClientFrames(bundle(),diagnostic,mapped?canonical:(STHVRect){0},authority.physicalGeneration);
  if(!mapped){
@@ -353,7 +384,11 @@ static CGFloat inset(id object,SEL selector,UIWindowScene *scene,BOOL *minimum,B
   if(correctionLift>0){if(minimum)*minimum=NO;return native+correctionLift;}
   return native;
  }
- double amount=STHVInset(canonical,vr(scene.coordinateSpace.bounds))+correctionLift;
+ double canonicalAmount=STHVInset(canonical,vr(scene.coordinateSpace.bounds))+correctionLift;
+ // The system answers this question from the application's own frame, this
+ // client answers it from the panel. The composer has to clear both, so the
+ // larger number is the answer and neither side can pull the other down.
+ double amount=fmax((double)native,canonicalAmount);
  if(minimum)*minimum=amount<=0;return amount;
 }
 static NSString *lastHostSkip;
@@ -375,6 +410,7 @@ static void hostChanged(void){
    metadata[UIKeyboardAnimationDurationUserInfoKey]=@0;
    NSDictionary *info=frameInfo(metadata,scene,lastSceneFrame,end);
    mappedSession=NO;visible=NO;predictionPending=NO;stopLease();lastSceneFrame=end;
+   appOwnFrame=(STHVRect){0};unionLogged=0;
    for(NSString *name in @[UIKeyboardWillHideNotification,UIKeyboardWillChangeFrameNotification,UIKeyboardDidChangeFrameNotification,UIKeyboardDidHideNotification])deliver(NSNotificationCenter.defaultCenter,[NSNotification notificationWithName:name object:scene.screen userInfo:info]);
    probe(@"client-host-inactive",nil);
   }
@@ -385,6 +421,10 @@ static void hostChanged(void){
  if(!visible&&host.active&&host.keyboardVisible&&host.physicalGeneration){physicalFrame=host.keyboard;visible=YES;startLease();}
  if(!visible){hostSkip(@"no-visible-session");return;}
  STHVRect canonical;if(!mapFrame(scene,NO,&canonical)){hostSkip(@"unmapped");return;}
+ // A host frame that stands lower than the number the application already laid
+ // out for would drag the composer into the keys, which is what a panel report
+ // that drops the rows an input method draws does. The higher top always wins.
+ canonical=unionTop(canonical,appOwnFrame);
  if(mappedSession&&STHVNear(canonical,lastSceneFrame,.5))return;
  STHVRect begin=mappedSession?lastSceneFrame:canonical;
  NSMutableDictionary *metadata=realMetadata?[realMetadata mutableCopy]:[NSMutableDictionary new];
