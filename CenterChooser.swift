@@ -127,11 +127,12 @@ private struct AppPanel: View {
     }
     // The sheet has one fixed height for a given screen so the grid does not jump when
     // the result count changes. It only gives ground when the keyboard needs the room,
-    // and then it is capped so the header still starts below the status bar.
+    // and then it is capped so its top edge still clears the status bar and the header
+    // stays readable.
     private func sheetHeight(_ total: CGFloat, keyboard overlap: CGFloat) -> CGFloat {
         let base = min(max(340, total * 0.62), 560)
         guard overlap > 0 else { return base }
-        return max(240, min(base, total - overlap - 20))
+        return max(240, min(base, total - overlap - 48))
     }
     var body: some View {
         GeometryReader { proxy in

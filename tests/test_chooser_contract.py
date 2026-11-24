@@ -36,7 +36,7 @@ assert 'UIResponder.keyboardWillChangeFrameNotification' in ui
 assert 'UIResponder.keyboardFrameEndUserInfoKey' in ui
 assert 'UIResponder.keyboardWillHideNotification' in ui
 assert 'min(max(340, total * 0.62), 560)' in ui
-assert 'total - overlap - 20' in ui
+assert 'total - overlap - 48' in ui
 assert '@StateObject private var keyboard = ChooserKeyboard()' in ui
 assert '.animation(.spring(response: 0.34, dampingFraction: 0.88), value: motion.visible)' in ui
 assert 'ChooserPressStyle()' in ui and 'minimumScaleFactor(0.7)' in ui
