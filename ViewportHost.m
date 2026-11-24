@@ -235,6 +235,19 @@ void STHViewportPhysicalWill(CGRect frame,BOOL hiding){
  if(!sbKeyboardVisible)restoreOwner(YES,@"physical-hide");
  // This entry is invoked only inside the unmodified original animation ABI.
  updateRegistry(YES);
+ // A keyboard may announce itself with a trial frame and only settle a few
+ // frames later; the card is re-evaluated once more inside that window so the
+ // opening gesture lands aligned instead of waiting for the next event. The
+ // re-evaluation is the same idempotent pass: an unchanged target writes
+ // nothing, and a newer keyboard frame supersedes this one through the serial.
+ static NSUInteger settleSerial;
+ NSUInteger serial=++settleSerial;
+ if(sbKeyboardVisible)dispatch_after(dispatch_time(DISPATCH_TIME_NOW,160*NSEC_PER_MSEC),dispatch_get_main_queue(),^{
+  if(serial!=settleSerial||!sbKeyboardVisible)return;
+  STHVRect before=currentTarget;STHVRect keyboard=physicalKeyboard;
+  STHCenterRunAnimation(^{updateRegistry(YES);},0);
+  STHVLog(@"host-settle",@"com.apple.springboard",@{@"before":STHVRectJSON(before),@"after":STHVRectJSON(currentTarget),@"keyboard":STHVRectJSON(keyboard),@"changed":@(!STHVNear(before,currentTarget,.5)),@"physicalGeneration":@(sbPhysicalGeneration),@"owner":ownerBundle?:@"-"});
+ });
 }
 #if !defined(STH_VIEWPORT_HOST_TEST)
 static BOOL geometryInstalled;

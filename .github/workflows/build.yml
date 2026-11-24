@@ -48,6 +48,7 @@ jobs:
           xcrun --sdk macosx clang -fobjc-arc -Wall -Wextra -Wno-unused-parameter test_viewport_client.m -framework Foundation -framework CoreGraphics -o /tmp/stheno-viewport-client
           /tmp/stheno-viewport-client
           python3 tests/test_viewport_contract.py
+          python3 tests/test_keyboard_alignment_contract.py
           python3 tests/test_log_completeness.py
       - name: Test default size only on first presentation
         run: |

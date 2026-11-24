@@ -76,6 +76,15 @@ int main(void){@autoreleasepool{
  send(UIKeyboardWillShowNotification,raw[0]);assert(delivered().size.height==158&&inset(nil,NULL,scene,NULL,NO)==123);
  layout.hosted=YES;layout.card=(STHVRect){0,100.5,430,731};scene.coordinateSpace.bounds=CGRectMake(0,0,430,932);
  send(UIKeyboardWillShowNotification,raw[0]);assert(delivered().size.height==158&&inset(nil,NULL,scene,NULL,NO)==123);
+ // A keyboard drawn by another process is the one case that used to be dropped
+ // whole. The application must still receive it, with the locality flag corrected
+ // and the frame untouched.
+ [received removeAllObjects];
+ NSDictionary *foreignInfo=@{UIKeyboardFrameEndUserInfoKey:[NSValue valueWithCGRect:raw[0]],UIKeyboardIsLocalUserInfoKey:@NO,UIKeyboardAnimationDurationUserInfoKey:@.25};
+ post(NSNotificationCenter.defaultCenter,@selector(postNotification:),[NSNotification notificationWithName:UIKeyboardWillShowNotification object:testDisplay userInfo:foreignInfo]);
+ assert(received.count==1&&localizedForeign==1);
+ assert([received.lastObject.userInfo[UIKeyboardIsLocalUserInfoKey] boolValue]);
+ assert(delivered().size.height==158&&delivered().origin.y==raw[0].origin.y);
  stopLease();assert(activeClaims>0);
  puts("Viewport32 client production hooks: 200 SB-visible/raw-drift/hide/late-app-show-change/reopen cycles; real notification delivery and inset reject stale positive data; fullscreen/non-hosted native fallback retained (UIKit stand-ins, not device rendering)");
 }return 0;}

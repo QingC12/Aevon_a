@@ -22,6 +22,13 @@ static CGFloat gapWorst;static NSUInteger gapSamples;
 static NSDictionary *realMetadata;
 static dispatch_source_t leaseTimer;
 static NSUInteger sessionGeneration;
+// One keyboard session may need two corrections that the native path never
+// makes: the keyboard it was handed may be shorter than the keyboard on screen
+// (a trial frame) and a third party input method draws its own tool row where
+// the application put its composer. Both are measured, both are bounded.
+static CGFloat correctionLift;
+static NSUInteger corrections,localizedForeign;
+static STHVRect lastFixField;
 static void (*systemPost)(id,SEL,NSNotification *);
 static void (*systemPostName)(id,SEL,NSString *,id,NSDictionary *);
 static CGFloat (*systemInset)(id,SEL,UIWindowScene *,BOOL *,BOOL);
@@ -87,6 +94,11 @@ static NSDictionary *frameInfo(NSDictionary *raw,UIWindowScene *scene,STHVRect b
  NSMutableDictionary *info=raw?[raw mutableCopy]:[NSMutableDictionary new];
  info[UIKeyboardFrameBeginUserInfoKey]=[NSValue valueWithCGRect:notificationFrame(scene,begin)];
  info[UIKeyboardFrameEndUserInfoKey]=[NSValue valueWithCGRect:notificationFrame(scene,end)];
+ // Everything this client hands over is a keyboard for this scene, whatever the
+ // process that drew it. Observable UIKit locality stays as delivered so an
+ // application that gates on it can decide; the flag is only rewritten on the
+ // copy that describes our own canonical frame.
+ info[UIKeyboardIsLocalUserInfoKey]=@YES;
  if(info[@"UIKeyboardBoundsUserInfoKey"])info[@"UIKeyboardBoundsUserInfoKey"]=[NSValue valueWithCGRect:CGRectMake(0,0,end.w,end.h)];
  return [info copy];
 }
@@ -153,13 +165,61 @@ static BOOL keyboardEvent(NSString *name){
 static void ignored(NSNotification *note,NSString *reason){
  STHVLog(@"client-ignored",bundle(),@{@"notification":note.name?:@"-",@"reason":reason,@"hasView":@(editingView!=nil),@"visible":@(visible),@"mapped":@(mappedSession),@"scene":STHVRectJSON(lastSceneFrame)});
 }
+static void reconcile(void);
+static void scheduleReconcile(void){
+ dispatch_after(dispatch_time(DISPATCH_TIME_NOW,180*NSEC_PER_MSEC),dispatch_get_main_queue(),^{reconcile();});
+}
+static void resetCorrection(void){
+ correctionLift=0;corrections=0;lastFixField=(STHVRect){0};localizedForeign=0;
+}
+// The composer is judged by one number: the bottom edge of the field being
+// edited against the top of the keyboard that was actually handed over. When
+// that number is negative the application laid out for a shorter keyboard than
+// the one on screen, which is what a trial frame and an input method tool row
+// both produce. The answer is another canonical frame, raised by exactly the
+// shortfall, delivered through the same path and with a bounded repeat count.
+static void reconcile(void){
+ if(!NSThread.isMainThread||!visible||!mappedSession||!ready(editingView))return;
+ if(corrections>=3)return;
+ UIWindowScene *scene=editingView.window.windowScene?:editingScene;
+ if(!scene||scene.screen!=UIScreen.mainScreen)return;
+ STHVRect field=vr([editingView convertRect:editingView.bounds toCoordinateSpace:scene.coordinateSpace]);
+ if(!STHVValid(field))return;
+ CGFloat clearance=lastSceneFrame.y-(field.y+field.h);
+ if(clearance>=-0.5){STHVLog(@"client-clearance-ok",bundle(),@{@"clearance":@(clearance),@"corrections":@(corrections),@"field":STHVRectJSON(field),@"keyboardTop":@(lastSceneFrame.y)});return;}
+ CGFloat shortfall=-clearance+4.0;
+ if(STHVNear(field,lastFixField,0.5)){STHVLog(@"client-clearance-stalled",bundle(),@{@"clearance":@(clearance),@"corrections":@(corrections),@"field":STHVRectJSON(field)});return;}
+ STHVRect bounds=vr(scene.coordinateSpace.bounds);
+ CGFloat top=lastSceneFrame.y-shortfall;
+ if(!isfinite(top)||top<bounds.y)return;
+ STHVRect end={lastSceneFrame.x,top,lastSceneFrame.w,(bounds.y+bounds.h)-top};
+ if(!STHVValid(end))return;
+ STHVRect before=lastSceneFrame;
+ corrections++;lastFixField=field;correctionLift+=shortfall;
+ NSMutableDictionary *metadata=realMetadata?[realMetadata mutableCopy]:[NSMutableDictionary new];
+ metadata[UIKeyboardAnimationDurationUserInfoKey]=@0;
+ metadata[UIKeyboardAnimationCurveUserInfoKey]=@0;
+ metadata[UIKeyboardIsLocalUserInfoKey]=@YES;
+ NSDictionary *info=frameInfo(metadata,scene,lastSceneFrame,end);
+ lastSceneFrame=end;mappedSession=YES;
+ for(NSString *name in @[UIKeyboardWillChangeFrameNotification,UIKeyboardDidChangeFrameNotification])
+  deliver(NSNotificationCenter.defaultCenter,[NSNotification notificationWithName:name object:scene.screen userInfo:info]);
+ STHVLog(@"client-clearance-fix",bundle(),@{@"before":STHVRectJSON(before),@"after":STHVRectJSON(end),@"clearance":@(clearance),@"shortfall":@(shortfall),@"field":STHVRectJSON(field),@"corrections":@(corrections),@"correctionLift":@(correctionLift)});
+}
 static BOOL intercept(NSNotificationCenter *center,NSNotification *note){
  if(insideDelivery||center!=NSNotificationCenter.defaultCenter||!NSThread.isMainThread||!keyboardEvent(note.name))return NO;
  // A refused event used to disappear without a trace, which is why a session
  // could show a keyboard on screen and not one line about it. The reason is now
  // recorded and the refusal itself is unchanged.
  NSDictionary *raw=note.userInfo;
- if(![raw isKindOfClass:NSDictionary.class]||[raw[UIKeyboardIsLocalUserInfoKey] isEqual:@NO]){ignored(note,@"non-local");return NO;}
+ if(![raw isKindOfClass:NSDictionary.class]){ignored(note,@"no-user-info");return NO;}
+ // A docked keyboard drawn by another process is still the keyboard on this
+ // screen. Refusing it whole is what the third party input method case was
+ // diagnosed as: the application never hears about the keyboard, keeps its
+ // composer where it was and the keys cover it. Locality is recorded, then the
+ // same event is delivered with the flag corrected further down.
+ id locality=raw[UIKeyboardIsLocalUserInfoKey];
+ BOOL foreign=[locality isKindOfClass:NSNumber.class]&&![(NSNumber *)locality boolValue];
  BOOL hide=[note.name isEqualToString:UIKeyboardWillHideNotification]||[note.name isEqualToString:UIKeyboardDidHideNotification];
  BOOL will=[note.name isEqualToString:UIKeyboardWillShowNotification]||[note.name isEqualToString:UIKeyboardWillChangeFrameNotification];
  BOOL did=[note.name isEqualToString:UIKeyboardDidShowNotification]||[note.name isEqualToString:UIKeyboardDidChangeFrameNotification];
@@ -179,7 +239,7 @@ static BOOL intercept(NSNotificationCenter *center,NSNotification *note){
  STHVRect canonical={0};BOOL mapped=NO;NSString *deliveryName=note.name;
  if(hide&&!live){
   BOOL was=mappedSession;visible=NO;predictionPending=NO;sessionGeneration++;stopLease();STHVPublishRequest(bundle(),NO,(STHVRect){0});
-  physicalFrame=(STHVRect){0};
+  physicalFrame=(STHVRect){0};resetCorrection();
   STHVRect bounds=vr(scene.coordinateSpace.bounds);canonical=(STHVRect){bounds.x,bounds.y+bounds.h,bounds.w,0};mapped=was;
  }else{
   if(!ready(view)){ignored(note,@"no-responder");return NO;}
@@ -197,6 +257,22 @@ static BOOL intercept(NSNotificationCenter *center,NSNotification *note){
  STHVPublishClientFrames(bundle(),diagnostic,mapped?canonical:(STHVRect){0},authority.physicalGeneration);
  if(!mapped){
   if(hide&&!live)mappedSession=NO;
+  // Handing over the application's own frame untouched, with the locality flag
+  // corrected, is the smallest change that lets an application lay out for a
+  // keyboard it would otherwise discard. The frame, the timing and the curve are
+  // the ones the system already sent, so no animation is rewritten.
+  if(foreign&&ready(view)){
+   NSMutableDictionary *localized=[raw mutableCopy];
+   localized[UIKeyboardIsLocalUserInfoKey]=@YES;
+   if(!localizedForeign++)STHVLog(@"client-foreign-localized",bundle(),@{@"notification":note.name,@"reason":@"non-local",@"appRawDiagnostic":STHVRectJSON(diagnostic),@"physicalGeneration":@(hasHost?authority.physicalGeneration:0),@"scene":STHVRectJSON(vr(scene.coordinateSpace.bounds))});
+   editingView=view;editingScene=scene;startLease();
+   if(will)STHVPublishRequest(bundle(),YES,(STHVRect){0});
+   deliver(center,[NSNotification notificationWithName:note.name object:note.object userInfo:localized]);
+   probe(@"client-foreign-delivery",@{@"notification":note.name,@"appRawDiagnostic":STHVRectJSON(diagnostic),@"physicalGeneration":@(authority.physicalGeneration)});
+   if(hide)resetCorrection();
+   if(did)scheduleReconcile();
+   return YES;
+  }
   if(will||hide)probe(@"client-awaiting-sb-authority",@{@"appRawDiagnostic":STHVRectJSON(diagnostic),@"notification":note.name});
   return NO;
  }
@@ -207,7 +283,7 @@ static BOOL intercept(NSNotificationCenter *center,NSNotification *note){
  realMetadata=raw;
  deliver(center,[NSNotification notificationWithName:deliveryName object:note.object userInfo:info]);
  probe(hide?@"client-hide-observation":(will?@"client-will":@"client-did"),@{@"notification":note.name,@"deliveredNotification":deliveryName,@"appRawDiagnostic":STHVRectJSON(diagnostic),@"deliveredScreen":STHVRectJSON(vr(notificationFrame(scene,canonical))),@"sceneInset":@(STHVInset(canonical,vr(scene.coordinateSpace.bounds))),@"physicalGeneration":@(authority.physicalGeneration)});
- if(did){NSUInteger generation=++sessionGeneration;dispatch_after(dispatch_time(DISPATCH_TIME_NOW,350*NSEC_PER_MSEC),dispatch_get_main_queue(),^{if(generation==sessionGeneration&&visible)probe(@"client-settled",nil);});}
+ if(did){NSUInteger generation=++sessionGeneration;dispatch_after(dispatch_time(DISPATCH_TIME_NOW,350*NSEC_PER_MSEC),dispatch_get_main_queue(),^{if(generation==sessionGeneration&&visible)probe(@"client-settled",nil);});scheduleReconcile();}
  if(hide&&!live)realMetadata=nil;
  return YES;
 }
@@ -221,8 +297,15 @@ static CGFloat inset(id object,SEL selector,UIWindowScene *scene,BOOL *minimum,B
  if(!NSThread.isMainThread||scene!=editingScene||!ready(editingView))return native;
  STHVSnapshot authority={0};
  if(STHVReadLayout(bundle(),&authority)&&STHVClientAuthorityMode(authority.hosted,authority.card,vr(scene.coordinateSpace.bounds),vr(STHVUnmodifiedScreenBounds(scene.screen)),authority.physicalGeneration,authority.keyboardVisible)==STHVClientHidden){if(minimum)*minimum=YES;return 0;}
- STHVRect canonical;if(!mapFrame(scene,NO,&canonical))return native;
- double amount=STHVInset(canonical,vr(scene.coordinateSpace.bounds));
+ STHVRect canonical;
+ if(!mapFrame(scene,NO,&canonical)){
+  // A measured shortfall still has to reach the layout, even when the scene
+  // needs no mapping: the application asked for an inset and gets the native one
+  // plus the correction this session measured.
+  if(correctionLift>0){if(minimum)*minimum=NO;return native+correctionLift;}
+  return native;
+ }
+ double amount=STHVInset(canonical,vr(scene.coordinateSpace.bounds))+correctionLift;
  if(minimum)*minimum=amount<=0;return amount;
 }
 static NSString *lastHostSkip;
@@ -262,12 +345,15 @@ static void hostChanged(void){
  metadata[UIKeyboardIsLocalUserInfoKey]=@YES;
  NSDictionary *info=frameInfo(metadata,scene,begin,canonical);
  lastSceneFrame=canonical;mappedSession=YES;editingScene=scene;
+ // A fresh canonical frame from the host replaces whatever this session had
+ // measured, so the measurement starts again instead of stacking on top of it.
+ correctionLift=0;corrections=0;lastFixField=(STHVRect){0};
  for(NSString *name in @[UIKeyboardWillChangeFrameNotification,UIKeyboardDidChangeFrameNotification]){
   deliver(NSNotificationCenter.defaultCenter,[NSNotification notificationWithName:name object:scene.screen userInfo:info]);
  }
  lastHostSkip=nil;
  probe(@"client-host-commit",nil);
-
+ scheduleReconcile();
 }
 static void editingBegan(NSNotification *note){
  BOOL isView=[note.object isKindOfClass:UIView.class];
@@ -286,6 +372,7 @@ static void editingEnded(NSNotification *note){
   if(generation!=sessionGeneration||ready(editingView))return;
   UIView *next=responder();if(next){editingView=next;editingScene=next.window.windowScene;return;}
   STHVPublishRequest(bundle(),NO,(STHVRect){0});stopLease();visible=NO;mappedSession=NO;physicalFrame=(STHVRect){0};
+  resetCorrection();
  });
 }
 #if !defined(STH_VIEWPORT_CLIENT_TEST)
