@@ -55,7 +55,8 @@ for reason in ['non-local', 'no-scene', 'not-main-screen', 'not-portrait', 'no-e
 # cannot open /var/mobile/Documents, so its record is forwarded over a message
 # port and appended by springboard as received, keeping its own pid and process.
 assert 'CFMessagePortCreateLocal' in diag and 'CFMessagePortSetDispatchQueue' in diag
-assert 'CFMessagePortCreateRemote' in diag and 'kCFMessagePortSendNoReply' in diag
+assert 'CFMessagePortCreateRemote' in diag and 'CFMessagePortSendRequest' in diag
+assert 'CFSTR("no reply")' in diag, 'the no reply mode is a CFString literal on iOS'
 assert 'if(!logSharedWritable&&!logRelayHost)forward=line;' in diag, 'forwarding must be one condition'
 assert 'static void appendForwarded(NSData *line)' in diag
 # The forwarded line is written byte for byte; re-encoding would lose the very

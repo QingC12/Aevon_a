@@ -108,7 +108,10 @@ static void relaySend(NSData *line){
     if(!port)failures++;
    }
    if(port){
-    SInt32 status=CFMessagePortSendRequest(port,0,(__bridge CFDataRef)line,0.3,0.3,kCFMessagePortSendNoReply,NULL);
+    // The iOS SDK does not declare kCFMessagePortSendNoReply; the constant is a
+    // CFString with this exact value and the send compares by value, so the
+    // literal selects the same mode. A rejected mode only costs a record.
+    SInt32 status=CFMessagePortSendRequest(port,0,(__bridge CFDataRef)line,0.3,0.3,CFSTR("no reply"),NULL);
     if(status!=kCFMessagePortSuccess){CFRelease(port);port=NULL;failures++;}else failures=0;
    }
   }
