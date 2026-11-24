@@ -35,10 +35,26 @@ assert 'if(STHVNear(field,lastFixField,0.5))' in client
 # higher top always wins and neither side may pull the other down.
 assert 'static STHVRect unionTop(' in client
 assert 'if(!STHVValid(delivered)||!STHVValid(own)||own.y>=delivered.y-0.5)return delivered;' in client
-assert 'canonical=unionTop(canonical,appOwnFrame);' in client
-assert 'STHVRect unified=unionTop(canonical,appOwnFrame);' in client
+assert 'canonical=unionTop(canonical,ownTopInScene(canonical,appOwnFrame,host.keyboard,lastOwnScreen));' in client
+assert 'STHVRect unified=unionTop(canonical,own);' in client
 assert 'client-union' in client
 assert 'appOwnFrame=(STHVRect){0};' in client
+# The conversion above cannot be the only reading. A scene whose origin is not
+# where it is assumed to be makes the conversion agree with itself, the union
+# silently returns the panel, and the composer keeps the last row of the panel
+# over it. Both processes report the same keyboard in screen points, so the two
+# tops are also compared there: the panel is raised by exactly the difference,
+# which needs no mapping beyond the panel's own placement.
+assert 'static STHVRect ownTopInScene(' in client
+assert 'CGFloat delta=ownScreen.y-panelScreen.y;' in client
+assert 'STHVRect viaPanel={delivered.x,delivered.y+delta,delivered.w,delivered.h-delta};' in client
+assert 'if(delta>-0.5||delta<-160.0)return ownScene;' in client
+assert 'lastOwnScreen=(STHVRect){0};' in client
+# And one number no mapping can flatter: the field and the panel both converted
+# to screen points by UIKit, recorded so the next log proves where the composer
+# really ends.
+assert 'inputScreen' in client and 'clearanceScreen' in client
+assert 'physicalFrame.y-(screenField.y+screenField.h)' in client
 # The inset answered to UIKit carries the same rule, so a layout pass that never
 # sees a notification still clears both numbers.
 assert 'double amount=fmax((double)native,canonicalAmount);' in client

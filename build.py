@@ -1,4 +1,4 @@
-"""Build stheno_2.0.50 from the frozen base.
+"""Build stheno_2.0.51 from the frozen base.
 
 Every binary patch that used to run at build time is already baked into
 inputs/base-patched.deb and recorded in inputs/base-patched.json. This script

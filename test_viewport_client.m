@@ -16,7 +16,10 @@ static UIApplication *testApp;
 @implementation UIView
 -(CGRect)convertRect:(CGRect)r toCoordinateSpace:(id)s{return r;}
 @end
-@implementation UIWindow @end
+@implementation UIWindow
+-(CGRect)bounds{return CGRectMake(0,0,430,731);}
+-(CGRect)convertRect:(CGRect)r toCoordinateSpace:(id)s{return r;}
+@end
 @implementation UIApplication
 +(UIApplication *)sharedApplication{return testApp;}
 @end

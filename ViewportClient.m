@@ -43,6 +43,21 @@ static STHVRect unionTop(STHVRect delivered,STHVRect own){
  if(own.y+own.h<=delivered.y)return delivered;
  return (STHVRect){delivered.x,own.y,delivered.w,bottom-own.y};
 }
+// The last end frame the application itself was handed, in screen points. Both
+// processes report the same keyboard in the same units, so the two tops compare
+// without any scene mapping, and the panel can be raised by the rows the input
+// method draws for itself even when no scene conversion is available at all.
+static STHVRect lastOwnScreen;
+static STHVRect ownTopInScene(STHVRect delivered,STHVRect ownScene,STHVRect panelScreen,STHVRect ownScreen){
+ if(!STHVValid(delivered)||!STHVValid(panelScreen)||!STHVValid(ownScreen))return ownScene;
+ if(fabs(ownScreen.w-panelScreen.w)>20.0)return ownScene;
+ if(fabs((ownScreen.y+ownScreen.h)-(panelScreen.y+panelScreen.h))>2.0)return ownScene;
+ CGFloat delta=ownScreen.y-panelScreen.y;
+ if(delta>-0.5||delta<-160.0)return ownScene;
+ STHVRect viaPanel={delivered.x,delivered.y+delta,delivered.w,delivered.h-delta};
+ if(!STHVValid(ownScene)||viaPanel.y<ownScene.y)return viaPanel;
+ return ownScene;
+}
 static void (*systemPost)(id,SEL,NSNotification *);
 static void (*systemPostName)(id,SEL,NSString *,id,NSDictionary *);
 static CGFloat (*systemInset)(id,SEL,UIWindowScene *,BOOL *,BOOL);
@@ -155,6 +170,21 @@ static void probe(NSString *event,NSDictionary *extra){
   data[@"inputBottom"]=@(a.y+a.h);
   data[@"keyboardTop"]=@(lastSceneFrame.y);
   data[@"clearance"]=@(clearance);
+  // The one number no mapping can flatter: the field and the panel converted to
+  // screen points by UIKit itself. Everything above is expressed in this scene,
+  // and a scene whose origin is not where it is assumed to be would make every
+  // other measurement agree with itself while the composer still sits under the
+  // keys. This pair is the ground truth the eye sees.
+  UIScreen *screen=scene.screen;
+  if(screen){
+   STHVRect screenField=vr([view convertRect:view.bounds toCoordinateSpace:screen.coordinateSpace]);
+   data[@"inputScreen"]=STHVRectJSON(screenField);
+   data[@"panelScreen"]=STHVRectJSON(physicalFrame);
+   data[@"ownScreen"]=STHVRectJSON(lastOwnScreen);
+   if(STHVValid(screenField)&&STHVValid(physicalFrame))data[@"clearanceScreen"]=@(physicalFrame.y-(screenField.y+screenField.h));
+   UIWindow *window=view.window;
+   if(window)data[@"windowScreen"]=STHVRectJSON(vr([window convertRect:window.bounds toCoordinateSpace:screen.coordinateSpace]));
+  }
   if(mappedSession){
    if(!gapSamples++){gapWorst=clearance;}
    else if(clearance<gapWorst)gapWorst=clearance;
@@ -209,7 +239,7 @@ static void scheduleReconcile(void){
 }
 static void resetCorrection(void){
  correctionLift=0;corrections=0;lastFixField=(STHVRect){0};localizedForeign=0;reconcilePasses=0;
- appOwnFrame=(STHVRect){0};unionLogged=0;
+ appOwnFrame=(STHVRect){0};lastOwnScreen=(STHVRect){0};unionLogged=0;
 }
 // The composer is judged by one number: the bottom edge of the field being
 // edited against the top of the keyboard that was actually handed over. When
@@ -300,10 +330,12 @@ static BOOL intercept(NSNotificationCenter *center,NSNotification *note){
    // two because UIKit counts the rows the input method draws inside its window
    // while the keyboard process reports only the plane.
    appOwnFrame=vr([scene.coordinateSpace convertRect:screenFrame fromCoordinateSpace:scene.screen.coordinateSpace]);
+   lastOwnScreen=vr(screenFrame);
    if(mapped&&!explicitHidden&&STHVValid(canonical)){
-    STHVRect unified=unionTop(canonical,appOwnFrame);
+    STHVRect own=ownTopInScene(canonical,appOwnFrame,physicalFrame,lastOwnScreen);
+    STHVRect unified=unionTop(canonical,own);
     if(!STHVNear(unified,canonical,0.5)){
-     if(!unionLogged++)STHVLog(@"client-union",bundle(),@{@"notification":note.name,@"appOwn":STHVRectJSON(appOwnFrame),@"panel":STHVRectJSON(canonical),@"delivered":STHVRectJSON(unified)});
+     if(!unionLogged++)STHVLog(@"client-union",bundle(),@{@"notification":note.name,@"appOwn":STHVRectJSON(appOwnFrame),@"ownScreen":STHVRectJSON(lastOwnScreen),@"viaPanel":STHVRectJSON(own),@"panel":STHVRectJSON(canonical),@"delivered":STHVRectJSON(unified)});
      canonical=unified;
     }
    }
@@ -409,7 +441,7 @@ static void hostChanged(void){
    metadata[UIKeyboardAnimationDurationUserInfoKey]=@0;
    NSDictionary *info=frameInfo(metadata,scene,lastSceneFrame,end);
    mappedSession=NO;visible=NO;predictionPending=NO;stopLease();lastSceneFrame=end;
-   appOwnFrame=(STHVRect){0};unionLogged=0;
+   appOwnFrame=(STHVRect){0};lastOwnScreen=(STHVRect){0};unionLogged=0;
    for(NSString *name in @[UIKeyboardWillHideNotification,UIKeyboardWillChangeFrameNotification,UIKeyboardDidChangeFrameNotification,UIKeyboardDidHideNotification])deliver(NSNotificationCenter.defaultCenter,[NSNotification notificationWithName:name object:scene.screen userInfo:info]);
    probe(@"client-host-inactive",nil);
   }
@@ -423,7 +455,7 @@ static void hostChanged(void){
  // A host frame that stands lower than the number the application already laid
  // out for would drag the composer into the keys, which is what a panel report
  // that drops the rows an input method draws does. The higher top always wins.
- canonical=unionTop(canonical,appOwnFrame);
+ canonical=unionTop(canonical,ownTopInScene(canonical,appOwnFrame,host.keyboard,lastOwnScreen));
  if(mappedSession&&STHVNear(canonical,lastSceneFrame,.5))return;
  STHVRect begin=mappedSession?lastSceneFrame:canonical;
  NSMutableDictionary *metadata=realMetadata?[realMetadata mutableCopy]:[NSMutableDictionary new];
