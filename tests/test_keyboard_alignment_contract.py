@@ -34,7 +34,7 @@ assert 'if(STHVNear(field,lastFixField,0.5))' in client
 # input method draws inside its own window. The composer has to clear both, so the
 # higher top always wins and neither side may pull the other down.
 assert 'static STHVRect unionTop(' in client
-assert 'if(!STHVValid(own)||own.y>=delivered.y-0.5)return delivered;' in client
+assert 'if(!STHVValid(delivered)||!STHVValid(own)||own.y>=delivered.y-0.5)return delivered;' in client
 assert 'canonical=unionTop(canonical,appOwnFrame);' in client
 assert 'STHVRect unified=unionTop(canonical,appOwnFrame);' in client
 assert 'client-union' in client

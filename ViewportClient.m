@@ -38,8 +38,7 @@ static STHVRect lastFixField;
 static STHVRect appOwnFrame;
 static NSUInteger unionLogged;
 static STHVRect unionTop(STHVRect delivered,STHVRect own){
- if(!STHVValid(delivered))return own;
- if(!STHVValid(own)||own.y>=delivered.y-0.5)return delivered;
+ if(!STHVValid(delivered)||!STHVValid(own)||own.y>=delivered.y-0.5)return delivered;
  CGFloat bottom=delivered.y+delivered.h;
  if(own.y+own.h<=delivered.y)return delivered;
  return (STHVRect){delivered.x,own.y,delivered.w,bottom-own.y};
@@ -301,7 +300,7 @@ static BOOL intercept(NSNotificationCenter *center,NSNotification *note){
    // two because UIKit counts the rows the input method draws inside its window
    // while the keyboard process reports only the plane.
    appOwnFrame=vr([scene.coordinateSpace convertRect:screenFrame fromCoordinateSpace:scene.screen.coordinateSpace]);
-   if(mapped){
+   if(mapped&&!explicitHidden&&STHVValid(canonical)){
     STHVRect unified=unionTop(canonical,appOwnFrame);
     if(!STHVNear(unified,canonical,0.5)){
      if(!unionLogged++)STHVLog(@"client-union",bundle(),@{@"notification":note.name,@"appOwn":STHVRectJSON(appOwnFrame),@"panel":STHVRectJSON(canonical),@"delivered":STHVRectJSON(unified)});
