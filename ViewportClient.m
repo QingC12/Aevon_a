@@ -18,6 +18,7 @@ static __weak UIWindowScene *editingScene;
 static BOOL visible,mappedSession,insideDelivery,predictionPending;
 static uint64_t predictionSerial;
 static STHVRect physicalFrame,lastSceneFrame;
+static CGFloat gapWorst;static NSUInteger gapSamples;
 static NSDictionary *realMetadata;
 static dispatch_source_t leaseTimer;
 static NSUInteger sessionGeneration;
@@ -107,6 +108,20 @@ static void probe(NSString *event,NSDictionary *extra){
  if(view){
   STHVRect a=vr([view convertRect:view.bounds toCoordinateSpace:scene.coordinateSpace]);
   UIView *parent=view.superview;STHVRect p=parent?vr([parent convertRect:parent.bounds toCoordinateSpace:scene.coordinateSpace]):a;
+  // The one measurement the session is judged by: the bottom edge of the field
+  // being edited against the top of the keyboard that was actually delivered.
+  // Positive clearance means the field sits clear of the keyboard; negative
+  // means it is behind it. Both are geometry only.
+  CGFloat clearance=lastSceneFrame.y-(a.y+a.h);
+  data[@"inputRect"]=STHVRectJSON(a);
+  data[@"inputBottom"]=@(a.y+a.h);
+  data[@"keyboardTop"]=@(lastSceneFrame.y);
+  data[@"clearance"]=@(clearance);
+  if(mappedSession){
+   if(!gapSamples++){gapWorst=clearance;}
+   else if(clearance<gapWorst)gapWorst=clearance;
+   data[@"clearanceWorst"]=@(gapWorst);data[@"clearanceSamples"]=@(gapSamples);
+  }
   STHVPublishProbe(bundle(),a,p);
  }
  STHVLog(event,bundle(),data);
@@ -134,16 +149,26 @@ static BOOL keyboardEvent(NSString *name){
   [name isEqualToString:UIKeyboardWillChangeFrameNotification]||[name isEqualToString:UIKeyboardDidChangeFrameNotification]||
   [name isEqualToString:UIKeyboardWillHideNotification]||[name isEqualToString:UIKeyboardDidHideNotification];
 }
+// Record only, no side effects: the event is refused exactly as before.
+static void ignored(NSNotification *note,NSString *reason){
+ STHVLog(@"client-ignored",bundle(),@{@"notification":note.name?:@"-",@"reason":reason,@"hasView":@(editingView!=nil),@"visible":@(visible),@"mapped":@(mappedSession),@"scene":STHVRectJSON(lastSceneFrame)});
+}
 static BOOL intercept(NSNotificationCenter *center,NSNotification *note){
  if(insideDelivery||center!=NSNotificationCenter.defaultCenter||!NSThread.isMainThread||!keyboardEvent(note.name))return NO;
- NSDictionary *raw=note.userInfo;if(![raw isKindOfClass:NSDictionary.class]||[raw[UIKeyboardIsLocalUserInfoKey] isEqual:@NO])return NO;
+ // A refused event used to disappear without a trace, which is why a session
+ // could show a keyboard on screen and not one line about it. The reason is now
+ // recorded and the refusal itself is unchanged.
+ NSDictionary *raw=note.userInfo;
+ if(![raw isKindOfClass:NSDictionary.class]||[raw[UIKeyboardIsLocalUserInfoKey] isEqual:@NO]){ignored(note,@"non-local");return NO;}
  BOOL hide=[note.name isEqualToString:UIKeyboardWillHideNotification]||[note.name isEqualToString:UIKeyboardDidHideNotification];
  BOOL will=[note.name isEqualToString:UIKeyboardWillShowNotification]||[note.name isEqualToString:UIKeyboardWillChangeFrameNotification];
  BOOL did=[note.name isEqualToString:UIKeyboardDidShowNotification]||[note.name isEqualToString:UIKeyboardDidChangeFrameNotification];
  UIView *view=hide?editingView:responder();UIWindowScene *scene=view.window.windowScene?:editingScene;
- if(!scene||scene.screen!=UIScreen.mainScreen||scene.interfaceOrientation!=UIInterfaceOrientationPortrait)return NO;
- id value=raw[UIKeyboardFrameEndUserInfoKey];if(![value isKindOfClass:NSValue.class])return NO;
- if([note.object isKindOfClass:UIScreen.class]&&note.object!=scene.screen)return NO;
+ if(!scene){ignored(note,@"no-scene");return NO;}
+ if(scene.screen!=UIScreen.mainScreen){ignored(note,@"not-main-screen");return NO;}
+ if(scene.interfaceOrientation!=UIInterfaceOrientationPortrait){ignored(note,@"not-portrait");return NO;}
+ id value=raw[UIKeyboardFrameEndUserInfoKey];if(![value isKindOfClass:NSValue.class]){ignored(note,@"no-end-frame");return NO;}
+ if([note.object isKindOfClass:UIScreen.class]&&note.object!=scene.screen){ignored(note,@"foreign-screen");return NO;}
  CGRect screenFrame=[value CGRectValue];
  STHVRect diagnostic=vr([scene.screen.coordinateSpace convertRect:screenFrame toCoordinateSpace:scene.screen.fixedCoordinateSpace]);
  STHVSnapshot authority={0};BOOL hasHost=STHVReadLayout(bundle(),&authority);
@@ -157,7 +182,7 @@ static BOOL intercept(NSNotificationCenter *center,NSNotification *note){
   physicalFrame=(STHVRect){0};
   STHVRect bounds=vr(scene.coordinateSpace.bounds);canonical=(STHVRect){bounds.x,bounds.y+bounds.h,bounds.w,0};mapped=was;
  }else{
-  if(!ready(view))return NO;
+  if(!ready(view)){ignored(note,@"no-responder");return NO;}
   editingView=view;editingScene=scene;startLease();
   // Real editing and Will events claim intent, never physical geometry.
   // Even a valid-looking or screen-off app frame is diagnostic only.
@@ -200,12 +225,19 @@ static CGFloat inset(id object,SEL selector,UIWindowScene *scene,BOOL *minimum,B
  double amount=STHVInset(canonical,vr(scene.coordinateSpace.bounds));
  if(minimum)*minimum=amount<=0;return amount;
 }
+static NSString *lastHostSkip;
+static void hostSkip(NSString *reason){
+ if([lastHostSkip isEqual:reason])return;
+ lastHostSkip=reason;
+ STHVLog(@"client-host-skip",bundle(),@{@"reason":reason,@"visible":@(visible),@"mapped":@(mappedSession),@"scene":STHVRectJSON(lastSceneFrame),@"physical":STHVRectJSON(physicalFrame)});
+}
 static void hostChanged(void){
  if(!NSThread.isMainThread||insideDelivery||!ready(editingView))return;
  UIWindowScene *scene=editingView.window.windowScene;STHVSnapshot host={0};
- if(!STHVReadLayout(bundle(),&host))return;
+ if(!STHVReadLayout(bundle(),&host)){hostSkip(@"no-host-snapshot");return;}
  BOOL samePrediction=predictionPending&&host.serial==predictionSerial&&STHVRequestOwner()==STHVKey(bundle());
  if((!host.active&&!samePrediction)||!host.hosted||!host.keyboardVisible||!host.physicalGeneration||!STHVValid(host.card)){
+  if(!mappedSession)hostSkip(@"host-not-driving");
   if(mappedSession){
    STHVRect bounds=vr(scene.coordinateSpace.bounds),end={bounds.x,bounds.y+bounds.h,bounds.w,0};
    NSMutableDictionary *metadata=realMetadata?[realMetadata mutableCopy]:[NSMutableDictionary new];
@@ -220,8 +252,8 @@ static void hostChanged(void){
  // One layout target for UIKit's inset API and all notification observers.
  // The app lays out the complete composer/background itself; no leaf is moved.
  if(!visible&&host.active&&host.keyboardVisible&&host.physicalGeneration){physicalFrame=host.keyboard;visible=YES;startLease();}
- if(!visible)return;
- STHVRect canonical;if(!mapFrame(scene,NO,&canonical))return;
+ if(!visible){hostSkip(@"no-visible-session");return;}
+ STHVRect canonical;if(!mapFrame(scene,NO,&canonical)){hostSkip(@"unmapped");return;}
  if(mappedSession&&STHVNear(canonical,lastSceneFrame,.5))return;
  STHVRect begin=mappedSession?lastSceneFrame:canonical;
  NSMutableDictionary *metadata=realMetadata?[realMetadata mutableCopy]:[NSMutableDictionary new];
@@ -233,14 +265,21 @@ static void hostChanged(void){
  for(NSString *name in @[UIKeyboardWillChangeFrameNotification,UIKeyboardDidChangeFrameNotification]){
   deliver(NSNotificationCenter.defaultCenter,[NSNotification notificationWithName:name object:scene.screen userInfo:info]);
  }
+ lastHostSkip=nil;
  probe(@"client-host-commit",nil);
+
 }
 static void editingBegan(NSNotification *note){
- if(![note.object isKindOfClass:UIView.class]||!ready(note.object))return;
+ BOOL isView=[note.object isKindOfClass:UIView.class];
+ BOOL usable=isView&&ready(note.object);
+ gapSamples=0;gapWorst=0;
+ STHVLog(@"client-editing-began",bundle(),@{@"usable":@(usable),@"class":isView?NSStringFromClass([(UIView *)note.object class]):@"-"});
+ if(!usable)return;
  editingView=note.object;editingScene=editingView.window.windowScene;sessionGeneration++;
  STHVPublishRequest(bundle(),YES,(STHVRect){0});startLease();
 }
 static void editingEnded(NSNotification *note){
+ STHVLog(@"client-editing-ended",bundle(),@{@"sameView":@(note.object==editingView),@"class":note.object?NSStringFromClass([note.object class]):@"-"});
  if(note.object!=editingView)return;
  NSUInteger generation=++sessionGeneration;
  dispatch_async(dispatch_get_main_queue(),^{
@@ -252,7 +291,11 @@ static void editingEnded(NSNotification *note){
 #if !defined(STH_VIEWPORT_CLIENT_TEST)
 static void activateClient(void){
  static BOOL installed;
- if(!NSThread.isMainThread||installed||!STHVApplicationBundleAllowed(NSBundle.mainBundle))return;
+ if(installed)return;
+ if(!NSThread.isMainThread){STHVLog(@"client-inactive",bundle(),@{@"reason":@"off-main"});return;}
+ // An application that never installs is the other way a keyboard session loses
+ // its client half; the reason is recorded instead of returning in silence.
+ if(!STHVApplicationBundleAllowed(NSBundle.mainBundle)){STHVLog(@"client-inactive",bundle(),@{@"reason":@"bundle-not-allowed"});return;}
  installed=YES;NSString *name=bundle();
   Method p=class_getInstanceMethod(NSNotificationCenter.class,@selector(postNotification:));
   Method n=class_getInstanceMethod(NSNotificationCenter.class,@selector(postNotificationName:object:userInfo:));
@@ -272,7 +315,7 @@ static void activateClient(void){
   NSSet *retired=[NSSet setWithArray:@[@"SthenoKeyboard.dylib",@"SthenoKb.dylib",@"KeyboardFix.dylib",@"SthenoKeyboardInset.dylib"]];
   for(uint32_t i=0;i<_dyld_image_count();i++){const char *image=_dyld_get_image_name(i);if(!image)continue;NSString *leaf=[NSString stringWithUTF8String:image].lastPathComponent;if([retired containsObject:leaf])[legacy addObject:leaf];}
   STHVLog(@"client-loaded-images",name,@{@"legacyKeyboardImages":legacy});
-  STHVLog(@"client-start",name,@{@"architecture":@"viewport33",@"activation":@"observed-post-launch",@"insetHookAvailable":@(systemInset!=NULL),@"editorTransforms":@NO,@"legacyLibraryRequired":@NO});
+  STHVLog(@"client-start",name,@{@"architecture":@"viewport33",@"activation":@"observed-post-launch",@"insetHookAvailable":@(systemInset!=NULL),@"editorTransforms":@NO,@"legacyLibraryRequired":@NO,@"home":NSHomeDirectory()});
   STHVInstallAppSceneReflow();
 }
 __attribute__((constructor)) static void installClient(void){
