@@ -23,6 +23,11 @@ allowed.update(int(x,16) for x in m['system_actions']['patches'])
 for group in ['center','dock']:allowed.update(int(x,16) for x in m['update18'][group]['patches'])
 allowed.update([0x9b54,0x9c4c,0xaa18,0x3c11c])
 allowed_bytes={x+i for x in allowed for i in range(4)}
+# The icon-plate selector rename is a length-preserving string substitution, not code.
+pad=m['icon_pad']['byte_patch']
+pad_at=int(pad['offset'],16)
+allowed_bytes.update(range(pad_at,pad_at+int(pad['length'])))
+assert core[pad_at:pad_at+len(pad['replacement'])]==pad['replacement'].encode()
 drift=[i for i in range(0x4000,0xd9000) if base[i]!=core[i] and i not in allowed_bytes]
 assert not drift,('unreviewed original code/constants drift',drift[:20])
 meta=m['native_bridges'];assert meta['base']==0xda600 and meta['end']<=0xdc000

@@ -421,6 +421,13 @@
     "defect": "the light-mode plate is the opaque secondarySystemBackground (242,242,247), which is within a few levels of a bright wallpaper and of the ring capsule, so the plate that separates every icon from the backdrop disappears",
     "effect": "the plate now resolves through the dynamic secondarySystemFill (rgba 120,120,128,0.16) and reads as a soft grey disc on light backgrounds without turning into the pure black plate the dark branch uses",
     "scope": "one selector reference in one branch; ring geometry, icon placement, animation and the dark branch are untouched",
-    "regression_gate": "the core must reference secondarySystemFillColor through exactly one selref and must not contain secondarySystemBackgroundColor"
+    "regression_gate": "the core must reference secondarySystemFillColor through exactly one selref and must not contain secondarySystemBackgroundColor",
+    "byte_patch": {
+      "offset": "0xd3114",
+      "length": 31,
+      "original": "secondarySystemBackgroundColor",
+      "replacement": "secondarySystemFillColor",
+      "note": "the 31 bytes are one NUL-terminated selector name plus its padding; no instruction stream, header or fixup word is touched"
+    }
   }
 }
