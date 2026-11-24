@@ -11,6 +11,8 @@ static STHRPolicyInput validInput(void) {
         .sceneIsOnMainScreen = true,
         .hostedLayout = true,
         .sceneConnected = true,
+        .sceneForegroundActive = true,
+        .sceneHasKeyWindow = true,
         .sceneUsable = true,
         .sceneBoundsValid = true,
         .physicalBoundsValid = true,
@@ -50,7 +52,7 @@ int main(void) {
     assert(!STHRShouldReflow(&p));
     /* A floating card resizes and animates while it is neither foreground
      * active nor the key scene: neither fact may decide the layout size. */
-    p = validInput(); p.sceneUsable = true;
+    p = validInput(); p.sceneForegroundActive = false; p.sceneHasKeyWindow = false;
     assert(STHRShouldReflow(&p));
     p = validInput(); p.hostedLayout = false;
     assert(!STHRShouldReflow(&p));

@@ -32,7 +32,8 @@ assert 'STHVInstallAppSceneReflow();' in c and 'observed-post-launch' in c
 for token in ['.frame =','.transform =','setFrame:','setTransform:','HeightFraction','cardScale']:
  assert token not in s,token
 policy=(R/'AppSceneReflowPolicy.h').read_text()
-assert 'sceneUsable' in policy and 'sceneForegroundActive' not in policy and 'sceneHasKeyWindow' not in policy
+assert 'input->sceneUsable' in policy
+assert '!input->sceneForegroundActive' not in policy and '!input->sceneHasKeyWindow' not in policy
 with tempfile.TemporaryDirectory() as d:
  out=Path(d)/'policy';subprocess.run(['clang','-std=c11','-Wall','-Wextra','-Werror',str(R/'test_scene_reflow.c'),'-lm','-o',str(out)],check=True);subprocess.run([str(out)],check=True)
 print('Scene33 boundary: no reflow constructor/private scene/defaults hook; main-app post-launch only; authority checked before UIKit; bounds is a locked snapshot served on any thread; carded viewport remembered across transitions')

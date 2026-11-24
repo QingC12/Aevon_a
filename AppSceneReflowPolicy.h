@@ -21,6 +21,10 @@ typedef struct {
     bool sceneIsOnMainScreen;
     bool hostedLayout;
     bool sceneConnected;
+    /* Retained only so the archived 2.0.32 source still builds as a negative
+     * control: neither fact gates the answer any more. */
+    bool sceneForegroundActive;
+    bool sceneHasKeyWindow;
     /* Connected and not backgrounded. A floating card is frequently neither the
      * key scene nor foreground active while it resizes or plays in place, so
      * neither of those may decide the layout size. */
