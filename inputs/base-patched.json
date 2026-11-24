@@ -1,8 +1,8 @@
 {
-  "version": "2.0.36",
-  "frozen_deb_sha256": "dc5407afcb35ef67fde75962a439b3929196c4e1dddda83dd84e2592457c3483",
-  "frozen_deb_bytes": 355864,
-  "core_sha256": "1065b3455fed3d372b4b4d969f3357ed9bbf56962ee64c3323fb6f8767a46e3d",
+  "version": "2.0.37",
+  "frozen_deb_sha256": "f617e429b7daaf87c126943dbcbc2b0db51267b455d854d938a08b9b5ddadee3",
+  "frozen_deb_bytes": 355836,
+  "core_sha256": "d09711e282534e7b78c0424800be5f93cdbc17a5a510817d3f0d3b9d835c64a3",
   "core_bytes": 1110640,
   "orion_sha256": "b4092fd80a4812d357b0006ecd683bd0f46679127ca44c78120edf87757d45cc",
   "patch_entries": {
@@ -406,5 +406,21 @@
     "private_id": "@rpath/SthenoOrion",
     "substrate_path": "@loader_path/../.jbroot/usr/lib/libsubstrate.dylib",
     "source_arm64e_sha256": "e7cbd6e055d9ec30c750741c9a2831d73c5ce7efaf812053e7b279a4e92dbe85"
+  },
+  "icon_pad": {
+    "version": 1,
+    "module": "Stheno.dylib",
+    "surface": "ring icon background plate",
+    "light_branch": "UIColor.secondarySystemBackgroundColor -> Color(uiColor:)",
+    "dark_branch": "SwiftUI Color.black (unchanged)",
+    "selector_ref_offset": "0xe6798",
+    "selector_name_offset": "0xd3114",
+    "original": "secondarySystemBackgroundColor",
+    "replacement": "secondarySystemFillColor",
+    "patched_bytes": "31 equal-length bytes, NUL padded",
+    "defect": "the light-mode plate is the opaque secondarySystemBackground (242,242,247), which is within a few levels of a bright wallpaper and of the ring capsule, so the plate that separates every icon from the backdrop disappears",
+    "effect": "the plate now resolves through the dynamic secondarySystemFill (rgba 120,120,128,0.16) and reads as a soft grey disc on light backgrounds without turning into the pure black plate the dark branch uses",
+    "scope": "one selector reference in one branch; ring geometry, icon placement, animation and the dark branch are untouched",
+    "regression_gate": "the core must reference secondarySystemFillColor through exactly one selref and must not contain secondarySystemBackgroundColor"
   }
 }

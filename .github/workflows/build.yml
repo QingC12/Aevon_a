@@ -107,6 +107,8 @@ jobs:
           python3 tests/test_update19_contract.py
       - name: Verify frozen base integrity and private Orion isolation
         run: python3 tests/test_frozen_base.py
+      - name: Verify ring icon plate keeps its light-mode contrast
+        run: python3 tests/test_icon_pad.py
       - name: Build and verify arm64e binaries and Debian archive
         run: python3 build.py
       - name: Verify dynamic C callbacks are exported by the real Swift library
