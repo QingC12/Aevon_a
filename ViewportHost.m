@@ -52,6 +52,10 @@ static void skipOwner(NSString *bundle,NSString *reason,STHVRect keyboard){
  STHVLog(@"host-owner-skip",bundle,@{@"reason":reason,@"physicalKeyboard":STHVRectJSON(keyboard),@"physicalGeneration":@(sbPhysicalGeneration),@"visible":@(sbKeyboardVisible),@"owner":ownerBundle?:@"-"});
 }
 static void recordProbe(NSString *bundle){
+ // Nothing here feeds geometry: it publishes a probe and a log line. With the
+ // keyboard evidence switched off this costs a branch instead of two shared
+ // memory reads on every registry beat.
+ if(!STHVDiagnosticsEnabled())return;
  static NSMutableDictionary *lastFrames;STHVSnapshot frame={0};
  if(STHVReadClientFrames(bundle,&frame)){
   if(!lastFrames)lastFrames=[NSMutableDictionary new];
@@ -80,11 +84,23 @@ static double hostNow(void){
 #endif
 }
 static NSString *modelBundle(void *model){return CFBridgingRelease(STHSystemCopyModelIdentifier(model));}
+static NSMutableDictionary<NSString *,NSArray *> *lastPublishedLayout;
 static void publishHostLayout(NSString *bundle,BOOL active,STHVRect card,STHVRect unused){
  // This is the only producer of layout physical facts. Requests never enter it.
  id mask=[NSUserDefaults.standardUserDefaults persistentDomainForName:@"com.nx.stheno"][@"SettingMask"];
  BOOL reflow=[mask isKindOfClass:NSNumber.class]&&([mask unsignedLongLongValue]&(1ULL<<31));
- STHVPublishLayoutPolicyState(bundle,active,card,physicalKeyboard,sbPhysicalGeneration,sbKeyboardVisible,reflow);
+ // The registry is read twice a second and most of those beats change nothing.
+ // A publish writes five shared slots and posts a Darwin notification, which
+ // wakes the carded application and makes it re-read the layout and re-map the
+ // keyboard, so an unchanged state costs a full wake up per card per beat for
+ // no reason. Only a real change is published, and only a successful publish
+ // is remembered: a failed write is retried on the next beat.
+ if(!lastPublishedLayout)lastPublishedLayout=[NSMutableDictionary new];
+ NSArray *state=@[@(active),@(card.x),@(card.y),@(card.w),@(card.h),
+  @(physicalKeyboard.x),@(physicalKeyboard.y),@(physicalKeyboard.w),@(physicalKeyboard.h),
+  @(sbPhysicalGeneration),@(sbKeyboardVisible),@(reflow)];
+ if([lastPublishedLayout[bundle] isEqual:state])return;
+ if(STHVPublishLayoutPolicyState(bundle,active,card,physicalKeyboard,sbPhysicalGeneration,sbKeyboardVisible,reflow))lastPublishedLayout[bundle]=state;
 }
 static void writeCard(void *model,const double geometry[3],BOOL nativeTransaction){
  if(nativeTransaction){STHNativeSetViewportGeometry(model,geometry);STHNativeRefreshGeometry(model);}
@@ -244,7 +260,7 @@ static void commitKeyboard(STHVRect keyboard,BOOL visible,NSString *source){
  sbKeyboardVisible=visible;
  if(visible&&!was)keyboardShownAt=hostNow();
  physicalKeyboard=visible?keyboard:(STHVRect){0};
- STHVLog(@"sb-keyboard-commit",@"com.apple.springboard",@{@"source":source,@"physicalGeneration":@(sbPhysicalGeneration),@"visible":@(sbKeyboardVisible),@"frame":STHVRectJSON(physicalKeyboard),@"owner":ownerBundle?:@"-",@"card":STHVRectJSON(currentTarget),@"screen":STHVRectJSON(viewportScreen()),@"keyboardTop":@(physicalKeyboard.y)});
+ if(STHVDiagnosticsEnabled())STHVLog(@"sb-keyboard-commit",@"com.apple.springboard",@{@"source":source,@"physicalGeneration":@(sbPhysicalGeneration),@"visible":@(sbKeyboardVisible),@"frame":STHVRectJSON(physicalKeyboard),@"owner":ownerBundle?:@"-",@"card":STHVRectJSON(currentTarget),@"screen":STHVRectJSON(viewportScreen()),@"keyboardTop":@(physicalKeyboard.y)});
  if(!visible)restoreOwner(YES,@"physical-hide");
  // This entry is invoked only inside the unmodified original animation ABI.
  updateRegistry(YES);
@@ -408,6 +424,7 @@ static void collectorSweep(void){
  collectorSave();
 }
 static void startCollector(void){
+ if(!STHVDiagnosticsEnabled())return;
  static dispatch_source_t timer;
  if(timer)return;
  dispatch_queue_t queue=dispatch_queue_create("com.nx.stheno.viewport32.collector",DISPATCH_QUEUE_SERIAL);
@@ -446,7 +463,7 @@ static void installGeometry(NSString *trigger){
    CGRect frame=[value isKindOfClass:NSValue.class]?[value CGRectValue]:CGRectNull;
    if(!CGRectIsNull(frame))frame=[UIScreen.mainScreen.coordinateSpace convertRect:frame toCoordinateSpace:UIScreen.mainScreen.fixedCoordinateSpace];
    BOOL noDockedKeyboard=hide||!STHVKeyboard(vr(frame),viewportScreen());
-   STHVLog(@"sb-keyboard-notification",@"com.apple.springboard",@{@"notification":note.name,@"nextGeneration":@(sbPhysicalGeneration+1),@"raw":STHVRectJSON(vr(frame)),@"hiding":@(noDockedKeyboard)});
+   if(STHVDiagnosticsEnabled())STHVLog(@"sb-keyboard-notification",@"com.apple.springboard",@{@"notification":note.name,@"nextGeneration":@(sbPhysicalGeneration+1),@"raw":STHVRectJSON(vr(frame)),@"hiding":@(noDockedKeyboard)});
    STHCenterRunAnimation(^{STHViewportPhysicalWill(frame,noDockedKeyboard);},0);
   }];
  }
@@ -460,16 +477,23 @@ __attribute__((constructor)) static void installViewportHost(void){dispatch_asyn
  // written, so an application that loads later can already reach the file. A
  // sandboxed application cannot open the shared file itself; its records are
  // appended here instead, verbatim, keeping their own pid and process name.
- STHVLogInstallRelay();
- startCollector();
- // Record only. These observers never write geometry, never publish layout and
- // never run an animation: they answer one question the geometry path cannot,
- // namely whether springboard saw a keyboard at all in a session where the
- // runtime below declined to install. Without them that session left an empty
- // log and could not be compared with a working one.
+ // Both the port and the collector exist only to move records into one file, so
+ // they start together with the recorders. With the evidence switched off at
+ // compile time neither is created and springboard holds no timer or port for
+ // a feature that is frozen.
+ if(STHVDiagnosticsEnabled()){
+  STHVLogInstallRelay();
+  startCollector();
+ }
+ // Record only, and only while the evidence is switched on. These observers
+ // never write geometry, never publish layout and never run an animation: they
+ // answer one question the geometry path cannot, namely whether springboard saw
+ // a keyboard at all in a session where the runtime below declined to install.
+ // Without them that session left an empty log and could not be compared with a
+ // working one. Switched off, they are not registered and cost nothing.
  BOOL runtimeReady=STHSystemActionRuntimeReady();
  STHVLog(@"host-runtime",@"com.apple.springboard",@{@"ready":@(runtimeReady),@"enabled":@(STHSystemActionsEnabled()),@"home":NSHomeDirectory()});
- for(NSString *name in @[UIKeyboardWillShowNotification,UIKeyboardDidShowNotification,UIKeyboardWillChangeFrameNotification,UIKeyboardDidChangeFrameNotification,UIKeyboardWillHideNotification,UIKeyboardDidHideNotification]){
+ if(STHVDiagnosticsEnabled())for(NSString *name in @[UIKeyboardWillShowNotification,UIKeyboardDidShowNotification,UIKeyboardWillChangeFrameNotification,UIKeyboardDidChangeFrameNotification,UIKeyboardWillHideNotification,UIKeyboardDidHideNotification]){
   [NSNotificationCenter.defaultCenter addObserverForName:name object:nil queue:NSOperationQueue.mainQueue usingBlock:^(NSNotification *note){
    id value=note.userInfo[UIKeyboardFrameEndUserInfoKey];
    CGRect frame=[value isKindOfClass:NSValue.class]?[value CGRectValue]:CGRectNull;

@@ -97,10 +97,26 @@ static CGSize centerDelta(CGRect card,CGRect screen) {
  if(!isfinite(screen.origin.x)||!isfinite(screen.origin.y)||!isfinite(screen.size.width)||!isfinite(screen.size.height))return CGSizeZero;
  return CGSizeMake(CGRectGetMidX(screen)-CGRectGetMidX(card),CGRectGetMidY(screen)-CGRectGetMidY(card));
 }
-static void recenterCard(void *m) {
+static void recenterOnce(void *m) {
  CGSize d=centerDelta(STHNativeRect(m),screenBounds());
  if(fabs(d.width)<0.5&&fabs(d.height)<0.5)return;
  STHNativeMove(m,d);
+}
+static void recenterCard(void *m) {
+ recenterOnce(m);
+ // The reset restores a size tuple, and a size that lands on a later layout
+ // pass moves the centre after this call has already measured it. The place is
+ // therefore returned twice with the same relative rule: once now, once after
+ // that pass. An already centred card is left alone both times, so the second
+ // pass is free when the first was already right. The model is retained for the
+ // window because the card can close before the second pass runs.
+ void (*retain)(void *)=dlsym(RTLD_DEFAULT,"swift_retain");
+ void (*release)(void *)=dlsym(RTLD_DEFAULT,"swift_release");
+ if(!retain||!release)return;
+ retain(m);
+ dispatch_after(dispatch_time(DISPATCH_TIME_NOW,(int64_t)(80*NSEC_PER_MSEC)),dispatch_get_main_queue(),^{
+  recenterOnce(m);release(m);
+ });
 }
 static void finishGestureState(STHGestureState *s){
  if(!s)return;

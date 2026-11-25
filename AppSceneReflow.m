@@ -94,6 +94,9 @@ static CGRect screenBounds(id screen,SEL selector){
  return STHVUnmodifiedScreenBounds(screen);
 }
 static void publishState(NSString *reason,BOOL enabled,NSString *source,CGRect scene,CGRect physical,NSUInteger activation){
+ // This runs on every reflow refresh, so the switch is checked before the state
+ // string is formatted rather than inside the recorder.
+ if(!STHVDiagnosticsEnabled())return;
  NSString *state=[NSString stringWithFormat:@"%d|%@|%.2f/%.2f/%.2f/%.2f|%lu",enabled,source?:@"-",
   scene.size.width,scene.size.height,physical.size.width,physical.size.height,(unsigned long)activation];
  if([state isEqual:lastState])return;lastState=state;

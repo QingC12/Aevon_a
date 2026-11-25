@@ -40,7 +40,12 @@ static NSUInteger unionLogged;
 static STHVRect unionTop(STHVRect delivered,STHVRect own){
  if(!STHVValid(delivered)||!STHVValid(own)||own.y>=delivered.y-0.5)return delivered;
  CGFloat bottom=delivered.y+delivered.h;
- if(own.y+own.h<=delivered.y)return delivered;
+ // Both frames describe the same docked keyboard, so both end on the same edge.
+ // A frame that ends somewhere else was measured in another coordinate space -
+ // the application's own screen conversion is the identity for a carded window,
+ // which is the usual case - and merging it would move the top while the bottom
+ // it belongs to stayed behind.
+ if(fabs((own.y+own.h)-bottom)>2.0)return delivered;
  return (STHVRect){delivered.x,own.y,delivered.w,bottom-own.y};
 }
 // The last end frame the application itself was handed, in screen points. Both
@@ -144,6 +149,7 @@ static NSDictionary *frameInfo(NSDictionary *raw,UIWindowScene *scene,STHVRect b
  return [info copy];
 }
 static void probe(NSString *event,NSDictionary *extra){
+ if(!STHVDiagnosticsEnabled())return;
  UIView *view=editingView;UIWindowScene *scene=view.window.windowScene?:editingScene;
  if(!scene)return;
  NSMutableDictionary *data=extra?[extra mutableCopy]:[NSMutableDictionary new];
@@ -170,20 +176,32 @@ static void probe(NSString *event,NSDictionary *extra){
   data[@"inputBottom"]=@(a.y+a.h);
   data[@"keyboardTop"]=@(lastSceneFrame.y);
   data[@"clearance"]=@(clearance);
-  // The one number no mapping can flatter: the field and the panel converted to
-  // screen points by UIKit itself. Everything above is expressed in this scene,
-  // and a scene whose origin is not where it is assumed to be would make every
-  // other measurement agree with itself while the composer still sits under the
-  // keys. This pair is the ground truth the eye sees.
+  // The one number no mapping can flatter: the field and the panel in screen
+  // points. Everything above is expressed in this scene, and a scene whose
+  // origin is not where it is assumed to be would make every other measurement
+  // agree with itself while the composer still sits under the keys.
+  // A carded application is laid out in a viewport of its own and its window
+  // never learns where that viewport sits on the display, so the conversion
+  // below returns the scene rectangle unchanged and the card origin from the
+  // host snapshot is the missing term. It is added only when the window reply
+  // still matches the scene, which is exactly the identity case; a real
+  // conversion already carries the origin and is left alone.
   UIScreen *screen=scene.screen;
   if(screen){
+   UIWindow *window=view.window;
+   STHVRect windowScreen=window?vr([window convertRect:window.bounds toCoordinateSpace:screen.coordinateSpace]):(STHVRect){0};
+   STHVRect sceneBounds=vr(scene.coordinateSpace.bounds);
    STHVRect screenField=vr([view convertRect:view.bounds toCoordinateSpace:screen.coordinateSpace]);
+   STHVSnapshot host={0};STHVRect card={0};
+   if(STHVReadLayout(bundle(),&host)&&STHVValid(host.card))card=host.card;
+   BOOL identity=STHVValid(windowScreen)&&fabs(windowScreen.h-sceneBounds.h)<1.0&&fabs(windowScreen.y-sceneBounds.y)<1.0;
+   if(identity&&STHVValid(card))screenField=(STHVRect){screenField.x+card.x,screenField.y+card.y,screenField.w,screenField.h};
    data[@"inputScreen"]=STHVRectJSON(screenField);
    data[@"panelScreen"]=STHVRectJSON(physicalFrame);
    data[@"ownScreen"]=STHVRectJSON(lastOwnScreen);
+   data[@"cardScreen"]=STHVRectJSON(card);
    if(STHVValid(screenField)&&STHVValid(physicalFrame))data[@"clearanceScreen"]=@(physicalFrame.y-(screenField.y+screenField.h));
-   UIWindow *window=view.window;
-   if(window)data[@"windowScreen"]=STHVRectJSON(vr([window convertRect:window.bounds toCoordinateSpace:screen.coordinateSpace]));
+   if(STHVValid(windowScreen))data[@"windowScreen"]=STHVRectJSON(windowScreen);
   }
   if(mappedSession){
    if(!gapSamples++){gapWorst=clearance;}
@@ -302,7 +320,7 @@ static BOOL intercept(NSNotificationCenter *center,NSNotification *note){
  CGRect screenFrame=[value CGRectValue];
  STHVRect diagnostic=vr([scene.screen.coordinateSpace convertRect:screenFrame toCoordinateSpace:scene.screen.fixedCoordinateSpace]);
  STHVSnapshot authority={0};BOOL hasHost=STHVReadLayout(bundle(),&authority);
- STHVLog(@"client-source",bundle(),@{@"notification":note.name,@"appRawDiagnostic":STHVRectJSON(diagnostic),@"physicalGeneration":@(hasHost?authority.physicalGeneration:0),@"sbVisible":@(hasHost&&authority.keyboardVisible),@"sbPhysical":STHVRectJSON(hasHost?authority.keyboard:(STHVRect){0}),@"layoutSerial":@(hasHost?authority.serial:0),@"scene":STHVRectJSON(vr(scene.coordinateSpace.bounds)),@"unmodifiedScreen":STHVRectJSON(vr(STHVUnmodifiedScreenBounds(scene.screen)))});
+ if(STHVDiagnosticsEnabled())STHVLog(@"client-source",bundle(),@{@"notification":note.name,@"appRawDiagnostic":STHVRectJSON(diagnostic),@"physicalGeneration":@(hasHost?authority.physicalGeneration:0),@"sbVisible":@(hasHost&&authority.keyboardVisible),@"sbPhysical":STHVRectJSON(hasHost?authority.keyboard:(STHVRect){0}),@"layoutSerial":@(hasHost?authority.serial:0),@"scene":STHVRectJSON(vr(scene.coordinateSpace.bounds)),@"unmodifiedScreen":STHVRectJSON(vr(STHVUnmodifiedScreenBounds(scene.screen)))});
  BOOL explicitHidden=hasHost&&STHVClientAuthorityMode(authority.hosted,authority.card,vr(scene.coordinateSpace.bounds),vr(STHVUnmodifiedScreenBounds(scene.screen)),authority.physicalGeneration,authority.keyboardVisible)==STHVClientHidden;
  BOOL own=STHVRequestOwner()==STHVKey(bundle());
  BOOL live=hasHost&&authority.keyboardVisible&&authority.physicalGeneration&&own&&ready(view);

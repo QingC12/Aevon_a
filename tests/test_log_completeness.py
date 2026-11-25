@@ -98,4 +98,31 @@ assert 'com.nx.stheno.viewport32.collector' in host
 # the collector would copy it back out and every record would appear twice.
 assert 'logSharedWritable=YES;' in diag
 assert diag.index('logSharedWritable=YES;') < diag.index('if(logSinkCount>=')
+
+# The keyboard path is frozen, so the evidence is switched off rather than
+# removed: one compile time switch decides whether any recorder, port or
+# collector runs. Switched off, a shipped build pays one branch and opens no
+# file, creates no Mach port and holds no timer, and setting the switch back to
+# 1 restores every route exactly as it is pinned above.
+diagh = (R / 'ViewportDiagnostics.h').read_text()
+assert '#define STH_DIAGNOSTICS 0' in diagh
+assert 'static inline BOOL STHVDiagnosticsEnabled(void){return STH_DIAGNOSTICS!=0;}' in diagh
+assert 'void STHVLog(NSString *event,NSString *bundle,NSDictionary *values){\n if(!STHVDiagnosticsEnabled())return;' in diag
+assert 'static void openSinks(void){\n if(!STHVDiagnosticsEnabled())return;' in diag
+assert 'void STHVLogInstallRelay(void){\n if(!STHVDiagnosticsEnabled())return;' in diag
+assert 'void STHVLogAppendFromFile(NSData *data){\n if(!STHVDiagnosticsEnabled())return;' in diag
+assert 'static void appendForwarded(NSData *line){\n if(!STHVDiagnosticsEnabled())return;' in diag
+# The collector is a two second timer over every application container and the
+# port is a live Mach service: neither may exist when nothing is recorded.
+assert 'static void startCollector(void){\n if(!STHVDiagnosticsEnabled())return;' in host
+assert 'if(STHVDiagnosticsEnabled()){\n  STHVLogInstallRelay();\n  startCollector();\n }' in host
+# The two per event paths that build large dictionaries return before they do.
+assert 'static void probe(NSString *event,NSDictionary *extra){\n if(!STHVDiagnosticsEnabled())return;' in client
+assert 'static void recordProbe(NSString *bundle){\n // Nothing here feeds geometry' in host
+assert 'if(!STHVDiagnosticsEnabled())return;\n static NSMutableDictionary *lastFrames' in host
+# Switched off is not deleted: every recorder named above still exists.
+for token in ['client-source', 'client-union', 'client-settled', 'sb-keyboard-commit',
+              'sb-keyboard-seen', 'collectorSweep', 'collectorRescan', 'collector-adopt',
+              'relayReceive']:
+    assert token in diag or token in host or token in client, ('Evidence removed', token)
 print('Log completeness contract: append only with no line or size cap; springboard records a keyboard without the geometry runtime; every refusal and the input to keyboard clearance are recorded; an application record reaches the shared file through a collector, because neither the shared file nor a foreign Mach service is in its sandbox')

@@ -30,6 +30,7 @@ static uint64_t logSequence;
 static BOOL logRelayHost;
 static void relaySend(NSData *line);
 static void openSinks(void){
+ if(!STHVDiagnosticsEnabled())return;
  if(logSinkCount>0)return;
  logSinkCount=0;
  NSString *leaf=@"SthenoViewport33.log";
@@ -61,12 +62,13 @@ static void openSinks(void){
  }
 }
 void STHVLog(NSString *event,NSString *bundle,NSDictionary *values){
+ if(!STHVDiagnosticsEnabled())return;
  NSData *forward=nil;
  os_unfair_lock_lock(&logLock);
  openSinks();
  NSMutableDictionary *record=[NSMutableDictionary dictionaryWithDictionary:values?:@{}];
  record[@"event"]=event?:@"unknown";record[@"bundle"]=bundle?:@"unknown";
- record[@"build"]=@"2.0.52";record[@"uptime"]=@(NSProcessInfo.processInfo.systemUptime);
+ record[@"build"]=@"2.0.53";record[@"uptime"]=@(NSProcessInfo.processInfo.systemUptime);
  // seq orders records across threads and across processes only within one
  // process; pid is what separates a springboard session from an app session.
  record[@"seq"]=@(++logSequence);record[@"pid"]=@(getpid());
@@ -89,6 +91,7 @@ void STHVLog(NSString *event,NSString *bundle,NSDictionary *values){
 // The record is appended as received, including its own pid and process name, so
 // a forwarded line differs from a local one only by those fields.
 static void appendForwarded(NSData *line){
+ if(!STHVDiagnosticsEnabled())return;
  os_unfair_lock_lock(&logLock);
  openSinks();
  for(int i=0;i<logSinkCount;i++)fwrite(line.bytes,1,line.length,logSinks[i]);
@@ -150,9 +153,11 @@ static CFDataRef relayReceive(CFMessagePortRef port,SInt32 identifier,CFDataRef 
  return NULL;
 }
 void STHVLogAppendFromFile(NSData *data){
+ if(!STHVDiagnosticsEnabled())return;
  if(data.length)appendForwarded(data);
 }
 void STHVLogInstallRelay(void){
+ if(!STHVDiagnosticsEnabled())return;
  if(logRelayHost)return;
  logRelayHost=YES;
  if(!NSThread.isMainThread)return;
