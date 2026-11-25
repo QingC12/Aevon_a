@@ -9,6 +9,13 @@
 #import <os/lock.h>
 #include <string.h>
 
+/* UIKit declares this on UIView. It is repeated here because the stand-in
+ * UIWindow used by the deterministic test runner is deliberately minimal, while
+ * the reflow runtime only ever sends this one layout request to a window. */
+@interface UIWindow (STHSceneReflowLayout)
+-(void)setNeedsLayout;
+@end
+
 /* The cached answer is read from every thread an application asks UIScreen from,
  * so it lives behind an unfair lock and is copied out in one shot. The getter
  * never calls UIKit, logs, allocates or posts while holding it. */

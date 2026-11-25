@@ -5,3 +5,5 @@ build/
 *.dSYM/
 .workbuddy/
 reports/
+joblog.zip
+jl.txt
