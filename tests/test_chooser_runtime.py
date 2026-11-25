@@ -74,6 +74,7 @@ int main(void){@autoreleasepool{
 
 SWIFT = r'''
 import Foundation
+import CoreGraphics
 var enabled = true, systemBlocked = false, clock = 10.0
 var rows: [[String: String]]? = [["identifier": "free.app", "name": "Free"]]
 var disableInSnapshot = false, snapshotReads = 0, windowsCreated = 0
