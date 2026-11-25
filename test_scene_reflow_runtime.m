@@ -98,6 +98,12 @@ int main(void){@autoreleasepool{
   // A new ratio on the card is answered without waiting for the scene.
   prohibitUIKit=NO;host.card=(STHVRect){20,120,390,700};changed();prohibitUIKit=YES;
   assert(cacheEnabled&&fabs(display.bounds.size.width-390)<0.01&&fabs(display.bounds.size.height-700)<0.01);
+  // A page that was prepared while the card was still moving keeps the width it
+  // read, and never asks again. The settled answer therefore marks every live
+  // view dirty at a few points in time - the flag only, never a forced pass.
+  assert(nudgePending&&nudgeStamp==0);
+  clockValue+=0.30;prohibitUIKit=NO;nudgeTick();nudgeTick();assert(nudgeStamp==1);prohibitUIKit=YES;
+  clockValue+=0.40;prohibitUIKit=NO;nudgeTick();assert(nudgeStamp==2);prohibitUIKit=YES;
   prohibitUIKit=NO;host.card=(STHVRect){43,173.6,344,584.8};changed();assert(cacheEnabled);prohibitUIKit=YES;
   clockValue+=3.1;assert(display.bounds.size.height==932);
   // NSUserDefaults change must neither recurse into policy nor schedule work.

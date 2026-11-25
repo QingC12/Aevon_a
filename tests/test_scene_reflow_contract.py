@@ -55,6 +55,15 @@ assert 'kCFRunLoopBeforeWaiting' in s and 'kCFRunLoopCommonModes' in s
 assert 'static void nudgeLayout(void)' in s and 'setNeedsLayout' in s
 assert 'static void noteAnswer(CGRect answer)' in s
 assert 'noteAnswer(bounds)' in s and 'noteAnswer(hostedScene)' in s
+# A page prepared while the card was still animating keeps the width it read and
+# never asks again, which is the alternating-page defect. Once the answer stops
+# changing, every view is marked for layout at a few points in time. The dirty
+# flag only: nothing is laid out from inside the run loop observer.
+assert 'static NSUInteger walkViews(id root,NSUInteger budget)' in s
+assert 'static void nudgeSettledViews(void)' in s and 'walkViews(window,20000)' in s
+assert 'static void nudgeTick(void)' in s and 'nudgeTick();' in s
+assert 'nudgeSchedule();' in s and 'nudgeStamps' in s and 'nudgePending=NO' in s
+assert 'layoutIfNeeded' not in s and 'setNeedsDisplay' not in s
 with tempfile.TemporaryDirectory() as d:
  out=Path(d)/'policy';subprocess.run(['clang','-std=c11','-Wall','-Wextra','-Werror',str(R/'test_scene_reflow.c'),'-lm','-o',str(out)],check=True);subprocess.run([str(out)],check=True)
 print('Scene33 boundary: no reflow constructor/private scene/defaults hook; main-app post-launch only; authority checked before UIKit; bounds is a locked snapshot served on any thread; carded viewport remembered across transitions')
