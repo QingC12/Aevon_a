@@ -115,9 +115,11 @@ int main(void) {
   }
   // The right-bottom middle long press returns the size AND the resting place:
   // the card is centred on the screen, and a centred card is left alone.
+  // The strip sits outside the content inset, like the original yellow edge, so
+  // the sampled point is the one inside the strip and not the inset corner.
   testMinimized=NO;nativeHit=4;
   drag=(Drag){CGSizeZero,NO};
-  assert(STHClassify(m,CGPointMake(160,400))==3);
+  assert(STHClassify(m,CGPointMake(160,418))==3);
   assert(state(m).zone==ZReset);
   int movesAt=moves;
   STHLong(m);
