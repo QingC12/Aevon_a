@@ -5,7 +5,13 @@ R=Path(__file__).resolve().parent.parent
 m=json.loads((R/'inputs/reviewed-runtime-2.0.33.json').read_text())
 for collection in ['preserved_nonkeyboard_sources','reviewed_active_production']:
  for name,digest in m[collection].items():
-  assert hashlib.sha256((R/name).read_bytes()).hexdigest()==digest,('Unreviewed production change',name)
+  # The lock holds the digest of the committed blob, which is LF. A checkout
+  # with core.autocrlf rewrites the working copy to CRLF, so the line ending is
+  # normalised here instead of making every reviewed file look modified.
+  raw=(R/name).read_bytes()
+  if b'\x00' not in raw:
+   raw=raw.replace(b'\r\n',b'\n')
+  assert hashlib.sha256(raw).hexdigest()==digest,('Unreviewed production change',name)
 for name in m['retired_production']:assert not (R/name).exists(),('Legacy source present',name)
 build=(R/'build.py').read_text()
 for name in ['ViewportHost.m','ViewportClient.m','ViewportBus.m','ViewportDiagnostics.m']:
