@@ -32,12 +32,8 @@ jobs:
           /tmp/stheno-viewport-bus
           xcrun --sdk macosx clang -fobjc-arc -Wall -Wextra -Werror test_viewport_bus.m ViewportBus.m -framework Foundation -o /tmp/stheno-viewport-process
           /tmp/stheno-viewport-process
-      - name: Test scene interception and cached reflow runtime
+      - name: Test application startup scope and cached reflow runtime
         run: |
-          xcrun --sdk macosx clang -std=c11 -Wall -Wextra -Werror test_scene_intercept_policy.c -lm -o /tmp/stheno-scene-policy
-          /tmp/stheno-scene-policy
-          xcrun --sdk macosx clang -fobjc-arc -Wall -Wextra -Wno-unused-parameter test_scene_intercept_runtime.m -framework Foundation -framework CoreGraphics -o /tmp/stheno-scene-intercept
-          /tmp/stheno-scene-intercept
           xcrun --sdk macosx clang -fobjc-arc -Wall -Wextra -Wno-unused-parameter test_viewport_startup.m ViewportStartup.m -framework Foundation -o /tmp/stheno-startup
           /tmp/stheno-startup
           python3 tests/test_scene_reflow_red.py
@@ -54,7 +50,9 @@ jobs:
           python3 tests/test_viewport_contract.py
           python3 tests/test_keyboard_alignment_contract.py
           python3 tests/test_log_completeness.py
-          python3 tests/test_scene_intercept_contract.py
+          python3 tests/test_scene_update_hook_contract.py
+          xcrun --sdk macosx clang -fobjc-arc -Wall -Wextra -Wno-unused-parameter test_scene_update_hook_runtime.m -framework Foundation -framework CoreGraphics -o /tmp/stheno-scene-hook
+          /tmp/stheno-scene-hook
       - name: Test default size only on first presentation
         run: |
           xcrun --sdk macosx clang -fobjc-arc -Wall -Wextra -Wno-unused-parameter test_default_size.m -framework Foundation -o /tmp/stheno-default-size

@@ -40,15 +40,7 @@ static NSUInteger unionLogged;
 static STHVRect unionTop(STHVRect delivered,STHVRect own){
  if(!STHVValid(delivered)||!STHVValid(own)||own.y>=delivered.y-0.5)return delivered;
  CGFloat bottom=delivered.y+delivered.h;
- // A frame that ends ABOVE the delivered bottom is not the same keyboard: it
- // was measured against a shorter viewport, and taking its top while keeping
- // the delivered bottom would invent a band that neither process described.
- // A frame that ends BELOW the delivered bottom is the ordinary case, not a
- // mismatch: the application reports the keyboard in screen points, whose
- // bottom is the physical screen, while the frame this scene hands over is
- // clipped to the card's own bottom. Merging that one only raises the top and
- // keeps the bottom the composer already has.
- if(own.y+own.h<bottom-2.0)return delivered;
+ if(own.y+own.h<=delivered.y)return delivered;
  return (STHVRect){delivered.x,own.y,delivered.w,bottom-own.y};
 }
 // The last end frame the application itself was handed, in screen points. Both
@@ -179,32 +171,20 @@ static void probe(NSString *event,NSDictionary *extra){
   data[@"inputBottom"]=@(a.y+a.h);
   data[@"keyboardTop"]=@(lastSceneFrame.y);
   data[@"clearance"]=@(clearance);
-  // The one number no mapping can flatter: the field and the panel in screen
-  // points. Everything above is expressed in this scene, and a scene whose
-  // origin is not where it is assumed to be would make every other measurement
-  // agree with itself while the composer still sits under the keys.
-  // A carded application is laid out in a viewport of its own and its window
-  // never learns where that viewport sits on the display, so the conversion
-  // below returns the scene rectangle unchanged and the card origin from the
-  // host snapshot is the missing term. It is added only when the window reply
-  // still matches the scene, which is exactly the identity case; a real
-  // conversion already carries the origin and is left alone.
+  // The one number no mapping can flatter: the field and the panel converted to
+  // screen points by UIKit itself. Everything above is expressed in this scene,
+  // and a scene whose origin is not where it is assumed to be would make every
+  // other measurement agree with itself while the composer still sits under the
+  // keys. This pair is the ground truth the eye sees.
   UIScreen *screen=scene.screen;
   if(screen){
-   UIWindow *window=view.window;
-   STHVRect windowScreen=window?vr([window convertRect:window.bounds toCoordinateSpace:screen.coordinateSpace]):(STHVRect){0};
-   STHVRect sceneBounds=vr(scene.coordinateSpace.bounds);
    STHVRect screenField=vr([view convertRect:view.bounds toCoordinateSpace:screen.coordinateSpace]);
-   STHVSnapshot host={0};STHVRect card={0};
-   if(STHVReadLayout(bundle(),&host)&&STHVValid(host.card))card=host.card;
-   BOOL identity=STHVValid(windowScreen)&&fabs(windowScreen.h-sceneBounds.h)<1.0&&fabs(windowScreen.y-sceneBounds.y)<1.0;
-   if(identity&&STHVValid(card))screenField=(STHVRect){screenField.x+card.x,screenField.y+card.y,screenField.w,screenField.h};
    data[@"inputScreen"]=STHVRectJSON(screenField);
    data[@"panelScreen"]=STHVRectJSON(physicalFrame);
    data[@"ownScreen"]=STHVRectJSON(lastOwnScreen);
-   data[@"cardScreen"]=STHVRectJSON(card);
    if(STHVValid(screenField)&&STHVValid(physicalFrame))data[@"clearanceScreen"]=@(physicalFrame.y-(screenField.y+screenField.h));
-   if(STHVValid(windowScreen))data[@"windowScreen"]=STHVRectJSON(windowScreen);
+   UIWindow *window=view.window;
+   if(window)data[@"windowScreen"]=STHVRectJSON(vr([window convertRect:window.bounds toCoordinateSpace:screen.coordinateSpace]));
   }
   if(mappedSession){
    if(!gapSamples++){gapWorst=clearance;}

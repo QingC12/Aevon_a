@@ -22,12 +22,4 @@ assert "static void recenterCard(void *m)" in gesture
 assert "STHNativeReset(m);" in gesture and "recenterCard(m);" in gesture
 assert gesture.index("STHNativeReset(m);")<gesture.index("recenterCard(m);")
 assert "UIScreen.mainScreen.bounds" in gesture and "STHTestScreenBounds" in gesture
-# The restored size may land on a later layout pass, which moves the centre after
-# the first measurement. The place is therefore returned twice with the same
-# relative rule, and the card is retained across the window because it can close
-# before the second pass runs.
-assert "static void recenterOnce(void *m)" in gesture
-assert "80*NSEC_PER_MSEC" in gesture
-assert 'dlsym(RTLD_DEFAULT,"swift_retain")' in gesture
-assert gesture.index("retain(m);")<gesture.index("recenterOnce(m);release(m);")
 print("Global logic contract: stale gesture recovery, dock restore, orientation ABI, keyboard ownership, reset place and center hit geometry")

@@ -39,12 +39,6 @@ assert 'canonical=unionTop(canonical,ownTopInScene(canonical,appOwnFrame,host.ke
 assert 'STHVRect unified=unionTop(canonical,own);' in client
 assert 'client-union' in client
 assert 'appOwnFrame=(STHVRect){0};' in client
-# A union merges two descriptions of one docked keyboard. A frame that ends
-# ABOVE the delivered bottom belongs to a shorter viewport and may not donate a
-# top; one that ends BELOW it is the application's own screen space, whose
-# bottom is the physical screen, and merging it is the ordinary case.
-assert 'if(own.y+own.h<bottom-2.0)return delivered;' in client
-assert 'fabs((own.y+own.h)-bottom)>2.0' not in client
 # The conversion above cannot be the only reading. A scene whose origin is not
 # where it is assumed to be makes the conversion agree with itself, the union
 # silently returns the panel, and the composer keeps the last row of the panel
@@ -61,12 +55,6 @@ assert 'lastOwnScreen=(STHVRect){0};' in client
 # really ends.
 assert 'inputScreen' in client and 'clearanceScreen' in client
 assert 'physicalFrame.y-(screenField.y+screenField.h)' in client
-# The carded window never learns where its viewport sits on the display, so the
-# conversion to the screen returns the scene rectangle unchanged and the number
-# above used to read a whole card origin too high. The host card origin is added
-# only when the window reply still matches the scene, which is that identity.
-assert 'BOOL identity=STHVValid(windowScreen)&&fabs(windowScreen.h-sceneBounds.h)<1.0' in client
-assert 'screenField=(STHVRect){screenField.x+card.x,screenField.y+card.y' in client
 # The inset answered to UIKit carries the same rule, so a layout pass that never
 # sees a notification still clears both numbers.
 assert 'double amount=fmax((double)native,canonicalAmount);' in client

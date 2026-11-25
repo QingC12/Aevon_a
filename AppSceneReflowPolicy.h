@@ -72,34 +72,6 @@ static inline bool STHRShouldReflow(const STHRPolicyInput *input) {
                                                input->physicalSize);
 }
 
-/* The card, not the scene, is the viewport the user is looking at.
- *
- * The scene a carded application is hosted in can lag a resize, can be
- * ambiguous while a transition is in flight, and (on this platform) is often
- * only ever updated when the card is first presented. A custom window ratio
- * therefore reaches the scene late or not at all, and an application that lays
- * out from the screen width keeps using the previous ratio: Douyin is the one
- * that shows it, because its action column stays on the old right edge and
- * falls outside a narrower card.
- *
- * The host publishes the card rectangle on every change, in screen points, and
- * the scene is in those same points, so the card is the one number that always
- * describes the viewport. It is accepted only when it is a plausible viewport
- * (a dock thumbnail is not) and when it is still not the physical screen, so a
- * genuinely full-screen presentation keeps returning the native answer. */
-static inline bool STHRCardViewport(STHRSize card, STHRSize physical,
-                                    STHRSize *out) {
-    if (!out || !STHRSizeIsValid(card) || !STHRSizeIsValid(physical))
-        return false;
-    if (card.width < 80.0 || card.height < 80.0) return false;
-    if (card.width > physical.width + 0.5 ||
-        card.height > physical.height + 0.5) return false;
-    if (!STHRSceneDiffersFromPhysicalScreen(card, physical)) return false;
-    out->width = card.width;
-    out->height = card.height;
-    return true;
-}
-
 #ifdef __cplusplus
 }
 #endif

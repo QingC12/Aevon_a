@@ -3,7 +3,6 @@
 #import <QuartzCore/QuartzCore.h>
 #import <objc/runtime.h>
 #import <assert.h>
-#import <math.h>
 #import <stdio.h>
 static NSMutableArray *jobs;
 static void controlledAsync(dispatch_queue_t q,dispatch_block_t work){assert(q==dispatch_get_main_queue());if(!jobs)jobs=[NSMutableArray new];[jobs addObject:[work copy]];}
@@ -79,32 +78,16 @@ int main(void){@autoreleasepool{
   prohibitUIKit=NO;host.hosted=YES;host.reflowEnabled=YES;host.card=(STHVRect){43,173.6,344,584.8};
   changed();assert(hookInstalled&&cacheEnabled);
   NSUInteger queries=appQueries+screenQueries+sceneQueries;prohibitUIKit=YES;
-  // The card is the viewport, and the scene here still describes the previous
-  // ratio. An application that lays out from the width has to see the card.
-  for(int j=0;j<200;j++){CGRect value=display.bounds;assert(fabs(value.size.width-344)<0.01&&fabs(value.size.height-584.8)<0.01);}
+  for(int j=0;j<200;j++){CGRect value=display.bounds;assert(value.size.width==430&&value.size.height==731);}
   assert(appQueries+screenQueries+sceneQueries==queries); // Getter is pure cached data.
   CGRect physical=STHVUnmodifiedScreenBounds(display);assert(physical.size.height==932);
   chainReentry=YES;physical=STHVUnmodifiedScreenBounds(display);assert(physical.size.height==932); // Guard before calling saved IMP.
   host.hosted=NO;changed();assert(!cacheEnabled);assert(display.bounds.size.height==932);
   assert(appQueries+screenQueries+sceneQueries==queries);
-  // A card that covers the physical screen is a full-screen presentation, and
-  // must not be forced through a stale hosted cache.
-  prohibitUIKit=NO;host.hosted=YES;host.card=(STHVRect){0,0,430,932};scene.coordinateSpace.bounds=CGRectMake(0,0,430,932);changed();prohibitUIKit=YES;
+  // Full-screen/layout absent cannot be forced through a stale hosted cache.
+  prohibitUIKit=NO;host.hosted=YES;scene.coordinateSpace.bounds=CGRectMake(0,0,430,932);changed();prohibitUIKit=YES;
   assert(!cacheEnabled&&display.bounds.size.height==932);scene.coordinateSpace.bounds=CGRectMake(0,0,430,731);
-  // A dock thumbnail is not a viewport: the card rule declines it and the scene
-  // answer is used instead.
-  prohibitUIKit=NO;host.card=(STHVRect){0,0,60,60};scene.coordinateSpace.bounds=CGRectMake(0,0,430,731);changed();prohibitUIKit=YES;
-  assert(cacheEnabled&&fabs(display.bounds.size.width-430)<0.01&&fabs(display.bounds.size.height-731)<0.01);
-  // A new ratio on the card is answered without waiting for the scene.
-  prohibitUIKit=NO;host.card=(STHVRect){20,120,390,700};changed();prohibitUIKit=YES;
-  assert(cacheEnabled&&fabs(display.bounds.size.width-390)<0.01&&fabs(display.bounds.size.height-700)<0.01);
-  // A page that was prepared while the card was still moving keeps the width it
-  // read and never asks again, which the answer alone cannot repair: the scene
-  // is resized for that, from springboard. Here the only contract left is that
-  // answering a new ratio changes nothing else - no layout is forced, and the
-  // answer keeps following the card.
-  assert(cacheEnabled);
-  prohibitUIKit=NO;host.card=(STHVRect){43,173.6,344,584.8};changed();assert(cacheEnabled);prohibitUIKit=YES;
+  prohibitUIKit=NO;changed();assert(cacheEnabled);prohibitUIKit=YES;
   clockValue+=3.1;assert(display.bounds.size.height==932);
   // NSUserDefaults change must neither recurse into policy nor schedule work.
   [NSNotificationCenter.defaultCenter postNotificationName:NSUserDefaultsDidChangeNotification object:nil];assert(!jobs.count);
@@ -116,9 +99,9 @@ int main(void){@autoreleasepool{
  prohibitUIKit=NO;host.hosted=YES;host.reflowEnabled=YES;host.card=(STHVRect){43,173.6,344,584.8};
  scene.coordinateSpace.bounds=CGRectMake(0,0,430,731);changed();assert(cacheEnabled);
  [NSNotificationCenter.defaultCenter postNotificationName:UIWindowDidResignKeyNotification object:window];drain();
- assert(cacheEnabled);assert(fabs(display.bounds.size.width-344)<0.01&&fabs(display.bounds.size.height-584.8)<0.01);
+ assert(cacheEnabled);assert(display.bounds.size.height==731);
  host.hosted=NO;changed();prohibitUIKit=YES;assert(!cacheEnabled);
  assert(nativeBounds&&!refreshing&&!readingNative);
- puts("Reflow33 production runtime: 200 launch/fullscreen/hosted/expiry/native-IMP-reentry cycles; 40000 bounds reads with zero UIKit traversal; the published card is the viewport for every custom ratio, the scene is the fallback, a dock thumbnail and a full-screen card keep the native answer; key loss keeps the carded viewport; extensions/no-host do not hook or query application");
+ puts("Reflow33 production runtime: 200 launch/fullscreen/hosted/expiry/native-IMP-reentry cycles; 40000 bounds reads with zero UIKit traversal; key loss keeps the carded viewport; extensions/no-host do not hook or query application; no defaults or private scene update interception");
 #endif
 }return 0;}
