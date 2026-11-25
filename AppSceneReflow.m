@@ -51,7 +51,8 @@ static CGRect cachePhysicalValue(void){
 }
 static void cacheArm(CGRect scene,double ttl){
  os_unfair_lock_lock(&cacheLock);
- cachedSceneBounds=scene;cacheEnabled=YES;cacheExpires=reflowNow()+ttl;
+ cachedSceneBounds=scene;cacheEnabled=YES;
+ cacheExpires=fmin(reflowNow()+ttl,hostedSceneAt+60.0);
  os_unfair_lock_unlock(&cacheLock);
 }
 /* Extend an existing answer without replacing it: the host republishes every
@@ -62,7 +63,7 @@ static void cacheRenew(double ttl){
  // An answer that already lapsed is not resurrected: only a fresh scene read
  // may put a carded viewport back in front of the application.
  if(cacheEnabled&&reflowNow()<=cacheExpires){
-  double deadline=reflowNow()+ttl;
+  double deadline=fmin(reflowNow()+ttl,hostedSceneAt+60.0);
   if(deadline>cacheExpires)cacheExpires=deadline;
  }
  os_unfair_lock_unlock(&cacheLock);
@@ -107,22 +108,31 @@ static BOOL usableScene(UIScene *scene){
  UISceneActivationState state=scene.activationState;
  return state!=UISceneActivationStateBackground&&state!=UISceneActivationStateUnattached;
 }
-/* A carded scene is the one whose viewport is not the physical screen. When two
- * scenes claim that shape the answer is ambiguous and this path stays native;
- * a lone full-screen scene is a real answer, not a missing one. */
-static UIWindowScene *cardedScene(UIScreen *display,CGRect physical,BOOL *sawFullScreen){
- UIWindowScene *found=nil,*plain=nil;NSUInteger matches=0;
+typedef NS_ENUM(NSUInteger,STHRSceneKind){
+ STHRSceneTransientMissing,STHRSceneUnique,STHRSceneFullscreen,STHRSceneAmbiguous
+};
+typedef struct {STHRSceneKind kind;__unsafe_unretained UIWindowScene *scene;CGRect bounds;} STHRSceneChoice;
+/* UIScreen.bounds is process-wide: even one fullscreen plus one card cannot
+ * share a carded answer. Count all usable scenes on this display, including a
+ * temporarily unreadable one; key loss/background transitions remain missing. */
+static STHRSceneChoice chooseScene(UIScreen *display,CGRect physical){
+ STHRSceneChoice choice={STHRSceneTransientMissing,nil,CGRectZero};
+ UIWindowScene *only=nil;
  for(UIScene *candidate in UIApplication.sharedApplication.connectedScenes){
   if(!usableScene(candidate))continue;
   UIWindowScene *scene=(UIWindowScene *)candidate;
   if(scene.screen!=display)continue;
-  CGRect bounds=scene.coordinateSpace.bounds;
-  if(!finiteRect(bounds))continue;
-  if(STHRSceneDiffersFromPhysicalScreen(hrSize(bounds),hrSize(physical))){matches++;found=scene;}
-  else plain=scene;
+  // Count before reading any viewport. An unreadable first card must not hide
+  // a second active consumer and accidentally preserve the old global answer.
+  if(only)return (STHRSceneChoice){STHRSceneAmbiguous,nil,CGRectZero};
+  only=scene;
  }
- if(sawFullScreen)*sawFullScreen=(matches==0&&plain!=nil);
- return matches==1?found:nil;
+ if(!only||!finiteRect(physical))return choice;
+ @try{
+  CGRect bounds=only.coordinateSpace.bounds;
+  if(finiteRect(bounds))choice=(STHRSceneChoice){STHRSceneDiffersFromPhysicalScreen(hrSize(bounds),hrSize(physical))?STHRSceneUnique:STHRSceneFullscreen,only,bounds};
+ }@catch(NSException *exception){ /* A unique scene may be between spaces. */ }
+ return choice;
 }
 static BOOL ensureHook(UIScreen *display){
  if(hookInstalled)return YES;
@@ -170,12 +180,20 @@ static void refreshCache(NSString *reason){
   lastHostAt=reflowNow();
   UIScreen *display=UIScreen.mainScreen;
   CGRect physical=STHVUnmodifiedScreenBounds(display);
-  // An unreadable physical screen proves nothing either way; keep the answer.
+  // Ambiguity is decisive even if the physical screen is temporarily unreadable.
+  STHRSceneChoice choice=chooseScene(display,physical);
+  UIWindowScene *scene=choice.scene;CGRect bounds=choice.bounds;
+  if(choice.kind==STHRSceneAmbiguous){
+   // Ambiguity is positive evidence against a process-wide carded answer, not
+   // a transition. Forget it so host beats cannot renew or resurrect it.
+   hasHostedScene=NO;cacheDisarm();ensureWatch();
+   publishState(reason,NO,@"ambiguous",CGRectZero,physical,0);
+   return;
+  }
+  // An unreadable physical screen alone proves nothing either way.
   if(!finiteRect(physical))return;
   cacheStorePhysical(physical);
   if(!ensureHook(display))return;
-  BOOL fullScreen=NO;UIWindowScene *scene=cardedScene(display,physical,&fullScreen);
-  CGRect bounds=scene?scene.coordinateSpace.bounds:CGRectZero;
   STHRPolicyInput policy={.inject=true,.settingMaskPresent=true,.settingBit31=host.reflowEnabled,
    .queryIsMainScreen=true,.sceneIsOnMainScreen=scene&&scene.screen==display,.hostedLayout=host.hosted,
    .sceneConnected=scene!=nil,.sceneUsable=scene!=nil,
@@ -187,23 +205,22 @@ static void refreshCache(NSString *reason){
    publishState(reason,YES,@"scene",bounds,physical,scene.activationState);
    return;
   }
-  if(fullScreen){
+  if(choice.kind==STHRSceneFullscreen){
    // The application is genuinely laid out on the whole screen right now: it
    // returns to the native answer instead of a remembered carded viewport.
-   stopWatch();cacheDisarm();
+   hasHostedScene=NO;stopWatch();cacheDisarm();
    publishState(reason,NO,@"native-full-screen",CGRectZero,physical,scene.activationState);
    return;
   }
-  // No readable carded scene yet (resize in flight, transition, ambiguous). A
-  // viewport this process already proved carded is the only honest answer
-  // while the host still reports the card, so the layout does not fall back to
-  // the full screen and stay there.
-  if(hasHostedScene&&reflowNow()-hostedSceneAt<60.0){
-   cacheArm(hostedScene,2.0);ensureWatch();
-   publishState(reason,YES,@"memory",hostedScene,physical,scene.activationState);
+  // Only transient absence may reuse a previously proven single viewport.
+  // Host heartbeats are not scene evidence and must not extend this deadline.
+  if(choice.kind==STHRSceneTransientMissing&&hasHostedScene&&reflowNow()-hostedSceneAt<60.0){
+   cacheArm(hostedScene,fmin(2.0,60.0-(reflowNow()-hostedSceneAt)));ensureWatch();
+   publishState(reason,YES,@"memory",hostedScene,physical,0);
    return;
   }
-  publishState(reason,NO,@"unknown",CGRectZero,physical,scene.activationState);
+  cacheDisarm();
+  publishState(reason,NO,@"unknown",CGRectZero,physical,0);
  }@catch(NSException *exception){cacheDisarm();}
  @finally{refreshing=NO;}
 }
@@ -231,7 +248,8 @@ void STHVInstallAppSceneReflow(void){
    if(!host.hosted||!host.reflowEnabled||!STHVValid(host.card)){
     hasHostedScene=NO;stopWatch();cacheDisarm();
    }else{
-    cacheRenew(3.0);ensureWatch();
+    if(hasHostedScene&&reflowNow()-hostedSceneAt<60.0)cacheRenew(3.0);
+    ensureWatch();
    }
   }
   scheduleRefresh(@"host-layout");

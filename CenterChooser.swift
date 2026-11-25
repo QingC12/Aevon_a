@@ -288,6 +288,7 @@ private final class CenterController: NSObject {
     var ringWasVisible = false
     var presentationGeneration: UInt64 = 0
     var catalogRetry = 0
+    var panelSelectionCancelled = false
     var collapseUntil = 0.0
     var lastValidAt = 0.0
     var hasValidSnapshot = false
@@ -409,7 +410,8 @@ private final class CenterController: NSObject {
         let blocked = !valid || systemBlocked || snapshot.editing != 0 || snapshot.quickSetting != 0 || snapshot.showTab != 0
         if blocked {
             session.cancel()
-            if STHSystemUIBlocked() || now < suppressedUntil { hidePanel() }
+            if systemBlocked { hidePanel() }
+            else if !enabled { closePanel(selecting: nil) }
             setGlyphVisible(false)
             updateHover(false)
             return
@@ -493,7 +495,7 @@ private final class CenterController: NSObject {
             if shouldOpen { selectCenter() }
             return
         }
-        guard let ring, let recognizer, !STHSystemUIBlocked() else { session.cancel(); return }
+        guard let ring, let recognizer, STHSystemActionsEnabled(), !STHSystemUIBlocked() else { session.cancel(); return }
         let pan = Unmanaged<UIPanGestureRecognizer>.fromOpaque(recognizer).takeUnretainedValue()
         guard let sourceView = pan.view else { session.cancel(); updateHover(false); return }
         gestureView = sourceView
@@ -534,7 +536,7 @@ private final class CenterController: NSObject {
         _ = STHChooserSubmitCenterSelection()
     }
     func openPanel() {
-        guard panelWindow == nil, !STHSystemUIBlocked(), CACurrentMediaTime() >= suppressedUntil else { catalogRetry = 0; return }
+        guard STHSystemActionsEnabled(), panelWindow == nil, !STHSystemUIBlocked(), CACurrentMediaTime() >= suppressedUntil else { catalogRetry = 0; return }
         findWindow(CACurrentMediaTime())
         guard let rows = STHChooserSnapshotUnpinned() else {
             catalogRetry += 1
@@ -548,9 +550,10 @@ private final class CenterController: NSObject {
             guard let id = row["identifier"], let name = row["name"] else { return nil }
             return AppRow(id: id, name: name)
         }.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
-        guard let renderScene = targetWindow?.windowScene,
+        guard STHSystemActionsEnabled(), let renderScene = targetWindow?.windowScene,
               let scene = STHChooserInputScene(renderScene), scene.activationState == .foregroundActive else { return }
         let motion = PanelState(); panelState = motion
+        panelSelectionCancelled = false
         presentationGeneration &+= 1
         let generation = presentationGeneration
         previousKey = scene.windows.first(where: \.isKeyWindow)
@@ -561,6 +564,7 @@ private final class CenterController: NSObject {
         controller.view.backgroundColor = .clear; w.rootViewController = controller
         panelWindow = w; input.bind(w)
         w.isHidden = false
+        guard STHSystemActionsEnabled() else { closePanel(selecting: nil); return }
         guard panelWindow === w, !input.closing, !STHSystemUIBlocked() else { return }
         if input.prepareRouting() { w.makeKey() }
         guard panelWindow === w, panelState === motion, !input.closing else { return }
@@ -568,19 +572,24 @@ private final class CenterController: NSObject {
         DispatchQueue.main.async {
             guard self.presentationGeneration == generation, self.panelState === motion, !STHSystemUIBlocked() else { return }
             guard self.panelWindow === w, !input.closing else { return }
+            guard STHSystemActionsEnabled() else { self.closePanel(selecting: nil); return }
             STHCenterRunAnimation({ motion.visible = true }, 0)
             input.open()
         }
     }
     func closePanel(selecting id: String?) {
+        // A disable observed while a selection is already collapsing cancels that
+        // selection even if Inject is turned back on before the completion.
+        if !STHSystemActionsEnabled() { panelSelectionCancelled = true }
         guard let motion = panelState, panelInput?.closing == false else { return }
         panelInput?.close()
         let generation = presentationGeneration
         STHCenterRunAnimation({ motion.visible = false }, 1)
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
             guard self.panelState === motion, self.presentationGeneration == generation else { return }
+            let selected = self.panelSelectionCancelled ? nil : id
             self.hidePanel()
-            if let id, !STHSystemUIBlocked() {
+            if let id = selected, STHSystemActionsEnabled(), !STHSystemUIBlocked() {
                 STHSystemActionDismissRingNative(); STHSystemActionHideQuickSettingNative()
                 _ = STHChooserSubmitFloating(id)
             }

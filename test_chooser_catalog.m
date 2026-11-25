@@ -1,4 +1,5 @@
 #import <Foundation/Foundation.h>
+#import <dispatch/dispatch.h>
 #include <assert.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -6,7 +7,10 @@ extern NSArray *STHChooserSnapshotUnpinned(void);
 extern BOOL STHChooserSubmitFloating(NSString *);
 extern BOOL STHChooserSubmitCenterSelection(void);
 typedef struct{uintptr_t name[2],identifier[2];} App;
-uintptr_t sth_action_core_base;static BOOL ready=YES;
+uintptr_t sth_action_core_base;static BOOL ready=YES,enabled=YES;
+static BOOL disableInCatalog,disableInBuilder,failBuilder;
+static unsigned catalogCopies,builds;
+BOOL STHSystemActionsEnabled(void){return enabled;}
 static NSArray *user,*systemRows;static NSMutableArray *pinned;static NSMutableSet *buffers;
 static unsigned arrays,models,opens;static NSString *lastOpened;
 BOOL STHSystemActionRuntimeReady(void){return ready;}
@@ -19,7 +23,7 @@ static void *copyApps(NSArray *rows){
  for(NSUInteger i=0;i<rows.count;i++){STHSystemMakeSwiftString(rows[i][@"name"],apps[i].name);STHSystemMakeSwiftString(rows[i][@"identifier"],apps[i].identifier);}
  [buffers addObject:[NSValue valueWithPointer:raw]];arrays++;return raw;
 }
-int STHChooserCopyCatalogs(void **out){out[0]=copyApps(user);out[1]=copyApps(systemRows);return YES;}
+int STHChooserCopyCatalogs(void **out){catalogCopies++;out[0]=copyApps(user);out[1]=copyApps(systemRows);if(disableInCatalog)enabled=NO;return YES;}
 void *STHChooserCopyPinnedManagers(void){arrays++;return (void *)CFBridgingRetain([pinned copy]);}
 size_t STHChooserManagersCount(void *raw){return [(__bridge NSArray *)raw count];}
 void *STHChooserCopyManagerAt(size_t index,void *raw){models++;return (void *)CFBridgingRetain(((__bridge NSArray *)raw)[index]);}
@@ -33,12 +37,12 @@ void STHChooserReleaseArray(void *raw){
  }else CFRelease(raw);
  assert(arrays);arrays--;
 }
-void *STHChooserBuildManagerConsumed(uintptr_t first,uintptr_t second){assert(second==0x1234);models++;return (void *)first;}
+void *STHChooserBuildManagerConsumed(uintptr_t first,uintptr_t second){assert(second==0x1234);builds++;if(disableInBuilder)enabled=NO;if(failBuilder){CFRelease((CFTypeRef)first);return NULL;}models++;return (void *)first;}
 void STHChooserOpenModelAnimated(void *model){opens++;lastOpened=[(__bridge NSString *)model copy];}
 static NSDictionary *row(NSString *id,NSString *name){return @{@"identifier":id,@"name":name};}
 #if defined(STH_CHOOSER_SEARCH_TEST)
 void STHTestPrepareSearchCatalog(BOOL pinFree){
- assert(!arrays&&!models);ready=YES;
+ assert(!arrays&&!models);ready=YES;enabled=YES;disableInCatalog=disableInBuilder=failBuilder=NO;
  if(!buffers)buffers=[NSMutableSet set];
  pinned=[NSMutableArray arrayWithObject:@"pinned.app"];
  if(pinFree)[pinned addObject:@"com.tencent.xin"];
@@ -61,6 +65,31 @@ int main(void){@autoreleasepool{
  [pinned addObject:@"free.app"];assert(!STHChooserSubmitFloating(@"free.app"));assert(opens==1&&!arrays&&!models);
  assert(STHChooserSubmitCenterSelection());assert(opens==2&&[lastOpened isEqualToString:@"com.nx.stheno.action.app-picker"]);assert(!arrays&&!models);
  assert(pinned.count==before.count+1);
+ unsigned copiesBefore=catalogCopies,buildsBefore=builds;
+ enabled=NO;
+ assert(!STHChooserSubmitFloating(@"system.free"));assert(!STHChooserSubmitCenterSelection());
+ assert(opens==2&&catalogCopies==copiesBefore&&builds==buildsBefore&&!arrays&&!models);
+ enabled=YES;disableInCatalog=YES;
+ assert(!STHChooserSubmitFloating(@"system.free"));
+ assert(opens==2&&builds==buildsBefore&&!arrays&&!models);
+ disableInCatalog=NO;disableInBuilder=YES;enabled=YES;
+ assert(!STHChooserSubmitFloating(@"system.free"));assert(opens==2&&!arrays&&!models);
+ enabled=YES;assert(!STHChooserSubmitCenterSelection());assert(opens==2&&!arrays&&!models);
+ disableInBuilder=NO;enabled=YES;
+ assert(STHChooserSubmitFloating(@"system.free"));assert(opens==3&&!arrays&&!models);
+ assert(STHChooserSubmitCenterSelection());assert(opens==4&&!arrays&&!models);
+ failBuilder=YES;assert(!STHChooserSubmitFloating(@"system.free"));assert(!STHChooserSubmitCenterSelection());
+ assert(opens==4&&!arrays&&!models);failBuilder=NO;
+ copiesBefore=catalogCopies;buildsBefore=builds;
+ assert(!STHChooserSubmitFloating(nil));assert(!STHChooserSubmitFloating(@""));
+ __block BOOL offMainFloating=YES,offMainCenter=YES;
+ dispatch_semaphore_t done=dispatch_semaphore_create(0);
+ dispatch_async(dispatch_get_global_queue(QOS_CLASS_DEFAULT,0),^{
+  offMainFloating=STHChooserSubmitFloating(@"system.free");
+  offMainCenter=STHChooserSubmitCenterSelection();dispatch_semaphore_signal(done);
+ });
+ dispatch_semaphore_wait(done,DISPATCH_TIME_FOREVER);
+ assert(!offMainFloating&&!offMainCenter&&copiesBefore==catalogCopies&&buildsBefore==builds&&opens==4&&!arrays&&!models);
  ready=NO;assert(!STHChooserSnapshotUnpinned());assert(!STHChooserSubmitFloating(@"system.free"));assert(!STHChooserSubmitCenterSelection());
  NSLog(@"Chooser catalog passed: unpinned-only, dedup, action exclusion, stale membership recheck, native animated submission, no pin writes, 100 ownership cycles");
 }return 0;}

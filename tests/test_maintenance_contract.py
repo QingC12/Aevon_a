@@ -1,6 +1,6 @@
 """Maintenance safety: preserve every user-facing option/resource and validate only reversible packaging changes."""
 from pathlib import Path
-import hashlib, io, json, lzma, plistlib, tarfile
+import hashlib, io, json, lzma, os, plistlib, tarfile
 R=Path(__file__).resolve().parent.parent
 base=R/'inputs/base.deb'
 manifest=json.loads((R/'build/build-manifest.json').read_text())
@@ -83,7 +83,7 @@ assert not mask&(1<<27) and not mask&(1<<28)
 for p in ['control.tar.xz']:
  with tarfile.open(fileobj=io.BytesIO(ar(base,p))) as a,tarfile.open(fileobj=io.BytesIO(ar(artifact,p))) as b:
   aa={Path(x.name).name:a.extractfile(x).read() for x in a if x.isfile()};bb={Path(x.name).name:b.extractfile(x).read() for x in b if x.isfile()}
-  assert aa['postrm']==bb['postrm']
+  assert bb['postrm']==(R/'installer/postrm').read_bytes()
   assert bb['postinst']==(R/'installer/postinst').read_bytes()
   assert b'SthenoInstall.txt' not in bb['postinst']
   assert b'/SthenoKeyboard.dylib' in bb['postinst'] and b'/SthenoKeyboard.plist' in bb['postinst']
@@ -101,4 +101,8 @@ for removed in ['GestureRules.h','test_gesture_rules.c','KeyboardInsetMath.h','t
 for live in ['ViewportGeometry.h','ViewportHost.h','ViewportBus.h']:
  assert (R/live).exists(),live
 assert '.gitignore' in [p.name for p in R.iterdir()]
-print('Maintenance checks passed: all original preference/UI/toggle assets preserved; settings defaults and uninstall script unchanged; quiet installer verified; compression round-trip identical; data XZ savings',manifest['data_tar_bytes_saved'],'bytes; only allowlisted runtime modules added; legacy runtime removed; new geometry-only diagnostics explicitly enabled')
+diagnostics=os.environ.get('STH_DIAGNOSTICS','0')=='1'
+assert manifest['diagnostics_enabled'] is diagnostics
+assert manifest['viewport_keyboard_rebuild']['device_diagnostics'] is diagnostics
+assert 'DIAGNOSTICS_FLAG' in build and "os.environ.get('STH_DIAGNOSTICS','0')" in build
+print('Maintenance checks passed: original preference/UI/toggle assets and defaults preserved; reviewed safe installer scripts; compression round-trip identical; data XZ savings',manifest['data_tar_bytes_saved'],'bytes; only allowlisted runtime modules added; legacy runtime removed; diagnostics', 'enabled' if diagnostics else 'disabled')

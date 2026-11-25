@@ -1,0 +1,156 @@
+{
+  "version": "2.0.60",
+  "baseline_commit": "93c9c8006980403d6015133a40cfd7bb490189ad",
+  "approved_changes": {
+    ".github/workflows/build.yml": {
+      "sha256": "08eff59718dd67e664295c262f6626924dc6ad5ddeed0142a38be49ee0f3167e",
+      "bytes": 10080,
+      "baseline_sha256": null,
+      "reason": "Add executable regression and artifact policy checks for the approved runtime, install/data-protection, animation-preservation, diagnostics, deployment-target, or final-binary contract changes."
+    },
+    "build.py": {
+      "sha256": "b8d05c4022bc5618c20b31291156c6349c7db003938c5ced6a8ab7e9b36f1394",
+      "bytes": 19703,
+      "baseline_sha256": null,
+      "reason": "Add executable regression and artifact policy checks for the approved runtime, install/data-protection, animation-preservation, diagnostics, deployment-target, or final-binary contract changes."
+    },
+    "installer/postinst": {
+      "sha256": "00dfa3bc90afff192ce9de261cc59e728abea4ca4db3f01e90966f219d184578",
+      "bytes": 5435,
+      "baseline_sha256": "261536df86a3f27237ee8820d9b205713c4e0ac89f5916824d4c030f18dce41c",
+      "reason": "Seed missing preference domains only via private same-volume no-clobber publication; never overwrite existing user settings."
+    },
+    "installer/postrm": {
+      "sha256": "15b4b5506bc33fb3fedac4ef858b2db0bafb13177a2ba3658418ebe423984284",
+      "bytes": 4804,
+      "baseline_sha256": null,
+      "reason": "Make restore actions phase-aware and non-clobbering; retain recovery records and backups on conflicts or failures."
+    },
+    "ViewportHost.m": {
+      "sha256": "2428c2197e0844b0c9ccb2d32c372a120f252b2e4dfabc9cb2a8238a51afcd40",
+      "bytes": 30282,
+      "baseline_sha256": "35ef69c1d416856983fed641081facdc11c9bd332ee9f23ffc1fb3896f4ecac2",
+      "reason": "Keep delayed shorter-keyboard geometry commits inside the original native animation transaction and invalidate stale same-frame callbacks without changing timing or curves."
+    },
+    "AppSceneReflow.m": {
+      "sha256": "4a64bd863b55597123bcebed04eac0aa686d23a4407b2e6ac0a9511b5accf0b1",
+      "bytes": 12834,
+      "baseline_sha256": "c6d51f050ade4d262b47b1806618637a52a3101537a400f4ae204c0fd034c169",
+      "reason": "Disarm process-wide card bounds on genuine same-display multi-scene ambiguity and bound memory renewals to a proven unique scene."
+    },
+    "CenterChooser.swift": {
+      "sha256": "953ad2573aa406b3fcf0173ceed89b12a56c2932f4fc2bc6352466c53cebfbd7",
+      "bytes": 32898,
+      "baseline_sha256": "17215882bc6fc896d080fcd4f7b11a09010a2132d7f5e6e52314b8d7e782fe9f",
+      "reason": "Gate picker opening, cancellation, and asynchronous selection on the existing Inject switch while retaining original close spring and selection timing."
+    },
+    "ChooserCatalog.m": {
+      "sha256": "a36581df30046a536034ff94155f0b7331ad142343b090a144204e298d5e773e",
+      "bytes": 6967,
+      "baseline_sha256": "429716ae68bb8b1322699b9aa1144d29465b32bfb58839ccc584a5242440a1d8",
+      "reason": "Gate native catalog builders and launch consumers on the global action switch; preserve ownership cleanup and fail closed."
+    },
+    "SystemActions.m": {
+      "sha256": "55a9c9b5ccc4d1be7ae25e033df1d853ae0de0a98528541e80dd486bd757cd55",
+      "bytes": 4198,
+      "baseline_sha256": "4aed15cbbe89975bc9c5e589856ce46d32521953a0818ffd077d2090e264fe02",
+      "reason": "Enforce the global feature switch at system-action admission and queued execution."
+    },
+    "ViewportDiagnostics.m": {
+      "sha256": "794c468a87f5d1d2bc9d17912a8be0cc19458d15fe4473a5ec92cc5a3286300e",
+      "bytes": 8321,
+      "baseline_sha256": "85a940eca41cd62e1393ba9730e64c0243298b65739e906128f9e491f80883fd",
+      "reason": "Align optional diagnostic version labels with the actual diagnostics build setting."
+    },
+    "test_viewport_host.m": {
+      "sha256": "a5784613db5c753775bef2d46b028815e99d182cebafb91058febb3a2107de91",
+      "bytes": 15825,
+      "baseline_sha256": null,
+      "reason": "Add executable regression and artifact policy checks for the approved runtime, install/data-protection, animation-preservation, diagnostics, deployment-target, or final-binary contract changes."
+    },
+    "test_scene_reflow_runtime.m": {
+      "sha256": "6e630ead0e50aa8b58b1bbb2efc80d0c0deaa7318f7d1dab8c9d5cc404a67605",
+      "bytes": 12208,
+      "baseline_sha256": null,
+      "reason": "Add executable regression and artifact policy checks for the approved runtime, install/data-protection, animation-preservation, diagnostics, deployment-target, or final-binary contract changes."
+    },
+    "test_chooser_catalog.m": {
+      "sha256": "9a8c02c0c190415903a8435e05588f32e2e6da14e8491b9467e080526de5f92d",
+      "bytes": 6860,
+      "baseline_sha256": null,
+      "reason": "Add executable regression and artifact policy checks for the approved runtime, install/data-protection, animation-preservation, diagnostics, deployment-target, or final-binary contract changes."
+    },
+    "tests/test_icon_pad.py": {
+      "sha256": "0708aa2c350a0a3a969448470a838e88e9a2f7769d2a5f1d61e1b7894bd6a741",
+      "bytes": 4012,
+      "baseline_sha256": null,
+      "reason": "Add executable regression and artifact policy checks for the approved runtime, install/data-protection, animation-preservation, diagnostics, deployment-target, or final-binary contract changes."
+    },
+    "tests/test_log_completeness.py": {
+      "sha256": "28e1527f382d5baaa64cc32f95df743c8e68f0d10451de4386e75ddf53d8215b",
+      "bytes": 8496,
+      "baseline_sha256": null,
+      "reason": "Add executable regression and artifact policy checks for the approved runtime, install/data-protection, animation-preservation, diagnostics, deployment-target, or final-binary contract changes."
+    },
+    "tests/test_maintenance_contract.py": {
+      "sha256": "0fdf471951ededa20d121db342169144937a5ed6093f840ad1f7f2610202ae13",
+      "bytes": 7275,
+      "baseline_sha256": null,
+      "reason": "Add executable regression and artifact policy checks for the approved runtime, install/data-protection, animation-preservation, diagnostics, deployment-target, or final-binary contract changes."
+    },
+    "tests/test_artifact_policy.py": {
+      "sha256": "8b50bf858691c599583f271284c9616eb71c793307e86986ba3f5f48deae2f6b",
+      "bytes": 8085,
+      "baseline_sha256": null,
+      "reason": "Add executable regression and artifact policy checks for the approved runtime, install/data-protection, animation-preservation, diagnostics, deployment-target, or final-binary contract changes."
+    },
+    "tests/test_installer_preferences.py": {
+      "sha256": "c32b2bdf94348601cab581a364a642605ec61547f759228b371f959de2f3a0cb",
+      "bytes": 11236,
+      "baseline_sha256": null,
+      "reason": "Add executable regression and artifact policy checks for the approved runtime, install/data-protection, animation-preservation, diagnostics, deployment-target, or final-binary contract changes."
+    },
+    "tests/test_installer_lifecycle.py": {
+      "sha256": "dbb25517847d553e03e1b8ec710a6a1e2a66710d62a3159e13001522bf33545f",
+      "bytes": 12901,
+      "baseline_sha256": null,
+      "reason": "Add executable regression and artifact policy checks for the approved runtime, install/data-protection, animation-preservation, diagnostics, deployment-target, or final-binary contract changes."
+    },
+    "tests/test_chooser_runtime.py": {
+      "sha256": "41253e714c2365c392979a12d761f0bbbef9376d799e045d637673467270ce35",
+      "bytes": 15985,
+      "baseline_sha256": null,
+      "reason": "Add executable regression and artifact policy checks for the approved runtime, install/data-protection, animation-preservation, diagnostics, deployment-target, or final-binary contract changes."
+    },
+    "tests/test_chooser_ui.py": {
+      "sha256": "a74556c1b20d344f9920367280b01159e941bcb865297b6dd79da032890877b1",
+      "bytes": 10341,
+      "baseline_sha256": null,
+      "reason": "Add executable regression and artifact policy checks for the approved runtime, install/data-protection, animation-preservation, diagnostics, deployment-target, or final-binary contract changes."
+    },
+    "tests/test_native_stub_abi.py": {
+      "sha256": "74ee70358fa26c0be2920711da601920a06ed6349b28b04bdd65dcfa8cf24b1c",
+      "bytes": 20780,
+      "baseline_sha256": null,
+      "reason": "Add executable regression and artifact policy checks for the approved runtime, install/data-protection, animation-preservation, diagnostics, deployment-target, or final-binary contract changes."
+    },
+    "tests/test_original_host_negative.py": {
+      "sha256": "ca4720ea833fe3fbe320cb0d16697fa4b5a9f745e8e053d94bcb4e24b8159977",
+      "bytes": 1603,
+      "baseline_sha256": null,
+      "reason": "Add executable regression and artifact policy checks for the approved runtime, install/data-protection, animation-preservation, diagnostics, deployment-target, or final-binary contract changes."
+    },
+    "tests/test_frozen_runtime.py": {
+      "baseline_sha256": null,
+      "sha256": "f516dfc92286f6d5b4e1848c775ea3ba57e72d1e6fd0a8cda7a4f9cc25681d0d",
+      "bytes": 2191,
+      "reason": "Verify exact approved repair source hashes while preserving unaffected runtime source locks."
+    },
+    "inputs/base-patched.json": {
+      "baseline_sha256": null,
+      "reason": "Advance version to 2.0.60 without changing any frozen archive/core/Orion digest or patch.",
+      "sha256": "b5f499739694c1b79d8eff06b94f095f5bdad4789b8f67975f20f57b399be675",
+      "bytes": 11883
+    }
+  }
+}

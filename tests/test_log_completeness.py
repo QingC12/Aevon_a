@@ -125,4 +125,4 @@ for token in ['client-source', 'client-union', 'client-settled', 'sb-keyboard-co
               'sb-keyboard-seen', 'collectorSweep', 'collectorRescan', 'collector-adopt',
               'relayReceive']:
     assert token in diag or token in host or token in client, ('Evidence removed', token)
-print('Log completeness contract: append only with no line or size cap; springboard records a keyboard without the geometry runtime; every refusal and the input to keyboard clearance are recorded; an application record reaches the shared file through a collector, because neither the shared file nor a foreign Mach service is in its sandbox')
+print('Log completeness contract: all optional recorders, relay and collector preserved; production default diagnostics disabled before file, port and collector creation')

@@ -289,7 +289,11 @@ void STHViewportPhysicalWill(CGRect frame,BOOL hiding){
   commitKeyboard(requested,YES,sbKeyboardVisible?@"physical-taller":@"physical-show");
   return;
  }
- if(STHVNear(requested,physicalKeyboard,.5)){commitKeyboard(requested,YES,@"physical-same");return;}
+ if(STHVNear(requested,physicalKeyboard,.5)){
+  // A fresh confirmation of the held frame also supersedes an older shrink.
+  shorterSerial++;pendingShorter=(STHVRect){0};
+  commitKeyboard(requested,YES,@"physical-same");return;
+ }
  // Inside the opening window the panel is still being assembled by a process
  // that reports it in pieces, and those pieces arrive out of order: the same
  // keyboard is reported as 369, then 414 with the input method's own tool row,
@@ -304,7 +308,7 @@ void STHViewportPhysicalWill(CGRect frame,BOOL hiding){
   STHVLog(@"sb-keyboard-opening-hold",@"com.apple.springboard",@{@"requested":STHVRectJSON(requested),@"held":STHVRectJSON(physicalKeyboard),@"physicalGeneration":@(sbPhysicalGeneration),@"owner":ownerBundle?:@"-"});
   dispatch_after(dispatch_time(DISPATCH_TIME_NOW,(int64_t)NSEC_PER_SEC),dispatch_get_main_queue(),^{
    if(serial!=shorterSerial||!sbKeyboardVisible)return;
-   commitKeyboard(pendingShorter,YES,@"physical-shorter-settled");
+   STHCenterRunAnimation(^{commitKeyboard(pendingShorter,YES,@"physical-shorter-settled");},0);
   });
   updateRegistry(YES);
   return;
@@ -320,7 +324,7 @@ void STHViewportPhysicalWill(CGRect frame,BOOL hiding){
  STHVLog(@"sb-keyboard-hold",@"com.apple.springboard",@{@"requested":STHVRectJSON(requested),@"held":STHVRectJSON(physicalKeyboard),@"drop":@(drop),@"delay":@1.0,@"physicalGeneration":@(sbPhysicalGeneration),@"owner":ownerBundle?:@"-"});
  dispatch_after(dispatch_time(DISPATCH_TIME_NOW,(int64_t)NSEC_PER_SEC),dispatch_get_main_queue(),^{
   if(serial!=shorterSerial||!sbKeyboardVisible)return;
-  commitKeyboard(pendingShorter,YES,@"physical-shorter-settled");
+  STHCenterRunAnimation(^{commitKeyboard(pendingShorter,YES,@"physical-shorter-settled");},0);
  });
  // Keep the owner lease alive for the duration of the hold.
  updateRegistry(YES);

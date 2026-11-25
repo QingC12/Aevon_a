@@ -5,6 +5,7 @@
 #include <string.h>
 extern uintptr_t sth_action_core_base;
 extern BOOL STHSystemActionRuntimeReady(void);
+extern BOOL STHSystemActionsEnabled(void);
 // Existing bridges, do not redefine them:
 extern void STHSystemMakeSwiftString(NSString *, uintptr_t outWords[2]);
 extern void *STHSystemCopySwiftString(const uintptr_t words[2]);
@@ -112,16 +113,21 @@ NSArray<NSDictionary<NSString *,NSString *> *> *STHChooserSnapshotUnpinned(void)
 // YES means submitted to native Void admission, not "a scene definitely opened".
 // Current native catalog membership and pin exclusion are rechecked on tap.
 BOOL STHChooserSubmitFloating(NSString *identifier) {
- if(![identifier isKindOfClass:NSString.class] || !identifier.length)return NO;
+ if(!NSThread.isMainThread || !STHSystemActionsEnabled() ||
+    ![identifier isKindOfClass:NSString.class] || !identifier.length)return NO;
  NSArray *rows=STHChooserSnapshotUnpinned();
  BOOL found=NO;
  for(NSDictionary *row in rows)if([row[@"identifier"] isEqualToString:identifier]){found=YES;break;}
- if(!found)return NO;
+ if(!found || !STHSystemActionsEnabled())return NO;
  uintptr_t words[2];
  STHSystemMakeSwiftString(identifier,words); // +1 Swift String
  void *model=STHChooserBuildManagerConsumed(words[0],words[1]); // consumes +1
  // NEVER bridgeObjectRelease(words[1]) here; native builder already did it.
- @try { STHChooserOpenModelAnimated(model); }
+ if(!model)return NO;
+ @try {
+  if(!STHSystemActionsEnabled())return NO;
+  STHChooserOpenModelAnimated(model);
+ }
  @finally { STHChooserReleaseSwift(model); }
  return YES;
 }
@@ -130,11 +136,14 @@ BOOL STHChooserSubmitFloating(NSString *identifier) {
 // admission used by ordinary ring apps. The existing action gate consumes
 // this exact ID before any scene/window is created. No saved ring item exists.
 BOOL STHChooserSubmitCenterSelection(void){
- if(!NSThread.isMainThread||!STHChooserImageReady())return NO;
+ if(!NSThread.isMainThread||!STHSystemActionsEnabled()||!STHChooserImageReady())return NO;
  uintptr_t words[2];STHSystemMakeSwiftString(@STH_APP_CHOOSER_ID,words);
  void *model=STHChooserBuildManagerConsumed(words[0],words[1]);
  if(!model)return NO;
- @try{STHChooserOpenModelAnimated(model);}
+ @try{
+  if(!STHSystemActionsEnabled())return NO;
+  STHChooserOpenModelAnimated(model);
+ }
  @finally{STHChooserReleaseSwift(model);}
  return YES;
 }

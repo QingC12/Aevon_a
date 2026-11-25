@@ -3,7 +3,6 @@ set +e
 
 
 KEYVAL=REXIIUA5FF8288VP
-DOM=/var/mobile/Library/Preferences/com.nx.stheno
 
 # The retired SthenoKeyboard module swizzles
 # -[UIApplication openURL:options:completionHandler:] in every injected app. Its
@@ -41,6 +40,86 @@ fi
 killall -9 cfprefsd 2>/dev/null
 sleep 1 2>/dev/null
 
+# Only use a root-owned, non-writable ancestry. /var is normally a system
+# symlink on iOS; resolve it once before checking every physical component.
+# /var/root lives on the data volume used by mobile and RootHide. If a target
+# is on another volume, ln fails closed: never fall back to cp/mv into it.
+private_stage() (
+  # Prefer the physical data-volume root; RootHide may remap /var/root.
+  for BASE in /private/var/root /var/root ; do
+    (
+      P=$(cd -P "$BASE" 2>/dev/null && pwd -P) || exit 1
+      C=$P
+      while : ; do
+        [ -d "$C" ] && [ ! -L "$C" ] || exit 1
+        M=$(stat -f '%u:%Lp' "$C" 2>/dev/null) ||
+          M=$(stat -c '%u:%a' "$C" 2>/dev/null) || exit 1
+        case "$M" in 0:*) M=${M#*:} ;; *) exit 1 ;; esac
+        case "$M" in ''|*[!0-7]*) exit 1 ;; esac
+        [ $((0$M & 0022)) -eq 0 ] || exit 1
+        [ "$C" != / ] || break
+        C=${C%/*}; [ -n "$C" ] || C=/
+      done
+      umask 077
+      mktemp -d "$P/.stheno-install.XXXXXXXX" 2>/dev/null
+    ) && exit 0
+  done
+  exit 1
+)
+STAGE=$(private_stage)
+cleanup() {
+  [ -n "$STAGE" ] || return
+  rm -f "$STAGE/com.nx.stheno.plist" 2>/dev/null
+  rmdir "$STAGE" 2>/dev/null
+}
+trap cleanup 0
+trap 'exit 0' HUP INT TERM
+
+seed_preferences() (
+  # Pin the directory, so a concurrent parent rename cannot redirect the link.
+  cd -P "$1" 2>/dev/null || exit 1
+  # A mobile-controlled Preferences/RootHide symlink must not let root publish
+  # a new file in an unrelated directory. /var itself may resolve to /private.
+  A=$(pwd -P) || exit 1
+  Q=
+  case "$A" in
+    /var/mobile/Library/Preferences|/private/var/mobile/Library/Preferences) ;;
+    /var/containers/Bundle/Application/.jbroot-*/*)
+      Q=${A#/var/containers/Bundle/Application/} ;;
+    /private/var/containers/Bundle/Application/.jbroot-*/*)
+      Q=${A#/private/var/containers/Bundle/Application/} ;;
+    *) exit 1 ;;
+  esac
+  if [ -n "$Q" ] ; then
+    J=${Q%%/*}
+    case "$J" in .jbroot-?*) ;; *) exit 1 ;; esac
+    case "${Q#*/}" in
+      var/mobile/Library/Preferences|private/var/mobile/Library/Preferences) ;;
+      *) exit 1 ;;
+    esac
+  fi
+  T=./com.nx.stheno.plist
+  [ -e "$T" ] || [ -L "$T" ] || {
+    [ -n "$STAGE" ] || exit 1
+    TMP="$STAGE/com.nx.stheno.plist"
+    # This name is opened only inside the root-private directory, never in
+    # Preferences. Finish all content/metadata changes before publishing it.
+    if ( umask 077; set -C; cat "$SRC" > "$TMP" ) 2>/dev/null &&
+       chown mobile:mobile "$TMP" 2>/dev/null &&
+       chmod 0600 "$TMP" 2>/dev/null ; then
+      # Directory operand + matching basename makes link(2) fail on ANY
+      # existing entry, including a symlink-to-directory or a directory.
+      # No -f, no target-file chmod/chown, and no cross-volume fallback.
+      ln "$TMP" ./ 2>/dev/null
+      OK=$?
+    else
+      OK=1
+    fi
+    rm -f "$TMP" 2>/dev/null
+    [ "$OK" -eq 0 ] || exit 1
+  }
+)
+
 N=0
 for J in /var/containers/Bundle/Application/.jbroot-* \
          /private/var/containers/Bundle/Application/.jbroot-* ; do
@@ -48,57 +127,16 @@ for J in /var/containers/Bundle/Application/.jbroot-* \
   for D in "$J/var/mobile/Library/Preferences" \
            "$J/private/var/mobile/Library/Preferences" ; do
     [ -d "$D" ] || continue
-    T="$D/com.nx.stheno.plist"
-      if [ -e "$T" ] || [ -L "$T" ] ; then
-        N=$((N + 1))
-        continue
-      fi
-      TMP="$T.tmp.$$"
-      rm -f "$TMP" 2>/dev/null
-      if ! ( umask 077; cat "$SRC" > "$TMP" ) 2>/dev/null ; then
-        rm -f "$TMP" 2>/dev/null
-        continue
-      fi
-      if ln "$TMP" "$T" 2>/dev/null ; then
-        rm -f "$TMP" 2>/dev/null
-      else
-        rm -f "$TMP" 2>/dev/null
-        [ -e "$T" ] || [ -L "$T" ] || continue
-      fi
-      [ -f "$T" ] || continue
-      chown mobile:mobile "$T" 2>/dev/null
-      chmod 0600 "$T" 2>/dev/null
-      N=$((N + 1))
+    seed_preferences "$D" && N=$((N + 1))
   done
-done
-for P in /var/mobile/Library/Preferences/com.nx.stheno.plist ; do
-  [ -f "$P" ] || continue
-  chown mobile:mobile "$P" 2>/dev/null
-  chmod 0600 "$P" 2>/dev/null
-  :
 done
 :
 
-if command -v defaults >/dev/null 2>&1 ; then
-  :
-  CUR=$(defaults read "$DOM" Key 2>/dev/null)
-  :
-  if [ "$CUR" = "$KEYVAL" ] ; then
-    :
-  else
-    defaults write "$DOM" Key -string "$KEYVAL" 2>/dev/null
-    :
-  fi
-  INJ=$(defaults read "$DOM" Inject 2>/dev/null)
-  if [ -z "$INJ" ] ; then
-    defaults write "$DOM" Inject -bool true 2>/dev/null
-    :
-  else
-    :
-  fi
-else
-  :
-fi
+# The shipped seed already contains Key and Inject defaults. Initialize the
+# primary domain only if absent, through the same atomic no-clobber path.
+# defaults write would overwrite a custom Key, mutate existing metadata, and
+# race a concurrently-created configuration even after an existence check.
+seed_preferences /var/mobile/Library/Preferences
 
 :
 for J in /var/containers/Bundle/Application/.jbroot-* ; do

@@ -58,7 +58,11 @@ BOOL STHSystemActionPresent(void *model){
  if(!model||!STHSystemActionRuntimeReady())return NO;
  NSString *identifier=CFBridgingRelease(STHSystemCopyModelIdentifier(model));
  if([identifier isEqualToString:@STH_APP_CHOOSER_ID]){
-  dispatch_async(dispatch_get_main_queue(),^{STHChooserShowFromNativeSelection();});return YES;
+  // Consume the exact virtual ID even when Inject is off; never launch it as an App.
+  if(STHSystemActionsEnabled())dispatch_async(dispatch_get_main_queue(),^{
+   if(STHSystemActionsEnabled())STHChooserShowFromNativeSelection();
+  });
+  return YES;
  }
  STHSystemAction action=STHSystemActionForIdentifier(identifier.UTF8String);
  if(action==STHSystemActionNone)return NO;

@@ -1,0 +1,126 @@
+#!/bin/sh
+# Restore explicit legacy quarantine records and the RootHide AppData fallback.
+# Never restore/replace the com.nx.stheno preference domain.
+# Keep the legacy ledger AND quarantine links, including successful entries:
+# unlinking an attacker-replaceable .stheno-off name after a check can delete a
+# different backup. Retaining both makes conflicts/failures safely retryable.
+set +e
+case "$1" in
+  remove|purge) ;;
+  # upgrade, failed-upgrade, abort-install/upgrade/remove and unknown phases
+  # must not re-enable an injection while dpkg is replacing the package.
+  *) exit 0 ;;
+esac
+
+private_stage() (
+  # Prefer the physical data-volume root; RootHide may remap /var/root.
+  for BASE in /private/var/root /var/root ; do
+    (
+      P=$(cd -P "$BASE" 2>/dev/null && pwd -P) || exit 1
+      C=$P
+      while : ; do
+        [ -d "$C" ] && [ ! -L "$C" ] || exit 1
+        M=$(stat -f '%u:%Lp' "$C" 2>/dev/null) ||
+          M=$(stat -c '%u:%a' "$C" 2>/dev/null) || exit 1
+        case "$M" in 0:*) M=${M#*:} ;; *) exit 1 ;; esac
+        case "$M" in ''|*[!0-7]*) exit 1 ;; esac
+        [ $((0$M & 0022)) -eq 0 ] || exit 1
+        [ "$C" != / ] || break
+        C=${C%/*}; [ -n "$C" ] || C=/
+      done
+      umask 077
+      mktemp -d "$P/.stheno-restore.XXXXXXXX" 2>/dev/null
+    ) && exit 0
+  done
+  exit 1
+)
+STAGE=$(private_stage)
+cleanup() {
+  [ -n "$STAGE" ] || return
+  rm -f "$STAGE"/* 2>/dev/null
+  rmdir "$STAGE" 2>/dev/null
+}
+trap cleanup 0
+trap 'exit 0' HUP INT TERM
+
+# Validate both the supplied path and the pinned physical directory. The old
+# mobile-writable ledger is not authority to create arbitrary root-owned paths.
+restore_directory() {
+  case "$1" in
+    /Library/MobileSubstrate/DynamicLibraries|/var/jb/Library/MobileSubstrate/DynamicLibraries|\
+    /var/mobile/Library/Preferences|/private/var/mobile/Library/Preferences|\
+    /var/jb/var/mobile/Library/Preferences|/var/jb/private/var/mobile/Library/Preferences)
+      return 0 ;;
+    /var/containers/Bundle/Application/.jbroot-*/*)
+      Q=${1#/var/containers/Bundle/Application/} ;;
+    /private/var/containers/Bundle/Application/.jbroot-*/*)
+      Q=${1#/private/var/containers/Bundle/Application/} ;;
+    *) return 1 ;;
+  esac
+  J=${Q%%/*}
+  case "$J" in .jbroot-?*) ;; *) return 1 ;; esac
+  case "${Q#*/}" in
+    var/mobile/Library/Preferences|private/var/mobile/Library/Preferences|Library/MobileSubstrate/DynamicLibraries)
+      return 0 ;;
+  esac
+  return 1
+}
+restore_one() (
+  [ -n "$STAGE" ] || exit 1
+  P=$1
+  case "$P" in /*) ;; *) exit 1 ;; esac
+  CR=$(printf '\r')
+  case "$P" in *//*|*/../*|*/./*|*'
+'*|*"$CR"*) exit 1 ;; esac
+  B=${P##*/}; A=${P%/*}
+  # The ledger historically listed exact names, not only AppData*. Keep that
+  # behavior inside injection/preferences directories, but protect our domain,
+  # hidden/internal staging names, and the already-quarantined suffix.
+  case "$B" in ''|.*|records|com.nx.stheno.plist|*.stheno-off) exit 1 ;; esac
+  restore_directory "$A" || exit 1
+  cd -P "$A" 2>/dev/null || exit 1
+  A=$(pwd -P) || exit 1
+  restore_directory "$A" || exit 1
+  [ ! -e "./$B" ] && [ ! -L "./$B" ] || exit 1
+  [ -f "./$B.stheno-off" ] && [ ! -L "./$B.stheno-off" ] || exit 1
+  # Capture an inode without opening its content. Recheck the captured type so
+  # a source swapped to a symlink cannot be restored. Never chmod/chown it.
+  T="$STAGE/$B"
+  ln "./$B.stheno-off" "$T" 2>/dev/null || exit 1
+  if [ -f "$T" ] && [ ! -L "$T" ] ; then
+    # The basename matches; a directory operand avoids ln's symlink/directory
+    # destination ambiguity. Existing files of every type win atomically.
+    ln "$T" ./ 2>/dev/null
+  fi
+  rm -f "$T" 2>/dev/null
+)
+
+RESTORE=/var/mobile/Documents/SthenoRestore.txt
+if [ -n "$STAGE" ] ; then
+  # Snapshot the ledger by link, not by following a mobile-controlled symlink.
+  (
+    cd -P /var/mobile/Documents 2>/dev/null || exit 1
+    case "$(pwd -P)" in /var/mobile/Documents|/private/var/mobile/Documents) ;; *) exit 1 ;; esac
+    [ -f ./SthenoRestore.txt ] && [ ! -L ./SthenoRestore.txt ] || exit 1
+    ln ./SthenoRestore.txt "$STAGE/records" 2>/dev/null
+  )
+  if [ -f "$STAGE/records" ] && [ ! -L "$STAGE/records" ] ; then
+    while IFS= read -r P || [ -n "$P" ] ; do
+      [ -n "$P" ] || continue
+      restore_one "$P"
+    done < "$STAGE/records"
+  fi
+  # Retain the original RootHide glob fallback, even with no ledger.
+  for J in /var/containers/Bundle/Application/.jbroot-* ; do
+    [ -d "$J" ] || continue
+    for D in "$J/var/mobile/Library/Preferences" "$J/private/var/mobile/Library/Preferences" ; do
+      [ -d "$D" ] || continue
+      for p in "$D"/AppData*.plist.stheno-off ; do
+        [ -f "$p" ] && [ ! -L "$p" ] || continue
+        restore_one "${p%.stheno-off}"
+      done
+    done
+  done
+fi
+killall -9 cfprefsd 2>/dev/null
+exit 0
