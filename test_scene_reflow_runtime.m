@@ -89,8 +89,8 @@ int main(void){@autoreleasepool{
   assert(appQueries+screenQueries+sceneQueries==queries);
   // A card that covers the physical screen is a full-screen presentation, and
   // must not be forced through a stale hosted cache.
-  prohibitUIKit=NO;host.hosted=YES;host.card=(STHVRect){0,0,430,932};changed();prohibitUIKit=YES;
-  assert(!cacheEnabled&&display.bounds.size.height==932);
+  prohibitUIKit=NO;host.hosted=YES;host.card=(STHVRect){0,0,430,932};scene.coordinateSpace.bounds=CGRectMake(0,0,430,932);changed();prohibitUIKit=YES;
+  assert(!cacheEnabled&&display.bounds.size.height==932);scene.coordinateSpace.bounds=CGRectMake(0,0,430,731);
   // A dock thumbnail is not a viewport: the card rule declines it and the scene
   // answer is used instead.
   prohibitUIKit=NO;host.card=(STHVRect){0,0,60,60};scene.coordinateSpace.bounds=CGRectMake(0,0,430,731);changed();prohibitUIKit=YES;
