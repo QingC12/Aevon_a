@@ -83,7 +83,9 @@ class Sandbox:
         # Native temporary storage supports real symlink/race tests on iSH;
         # the iOS-mounted repository does not. All device paths stay rebased.
         self.temp = tempfile.TemporaryDirectory(prefix='.installer-tests-')
-        self.base = Path(self.temp.name)
+        # macOS /var/folders resolves through /private/var; match the real
+        # script's pwd -P without weakening any production ancestry checks.
+        self.base = Path(self.temp.name).resolve()
         self.root = self.base / 'root'
         self.root.mkdir()
         probe = self.base / 'probe'

@@ -105,8 +105,8 @@
       "reason": "Add executable regression and artifact policy checks for the approved runtime, install/data-protection, animation-preservation, diagnostics, deployment-target, or final-binary contract changes."
     },
     "tests/test_installer_preferences.py": {
-      "sha256": "c32b2bdf94348601cab581a364a642605ec61547f759228b371f959de2f3a0cb",
-      "bytes": 11236,
+      "sha256": "2b78372355a5502560648fd2993dee0430dbb8b0b76d6f7c163e5d9d056c863a",
+      "bytes": 11397,
       "baseline_sha256": null,
       "reason": "Add executable regression and artifact policy checks for the approved runtime, install/data-protection, animation-preservation, diagnostics, deployment-target, or final-binary contract changes."
     },
