@@ -47,7 +47,10 @@ for token in ['dispatch_', '__attribute__((constructor))', 'NSTimer', 'performSe
 
 # The original frame is read once; every ratio derives from it, so a repeated
 # beat with an unchanged card writes nothing.
-assert 'entry[@"original"]' in s
+assert 'sthStoreRect(entry, @"original", original)' in s
+assert 'sthLoadRect(entry, @"original", &original)' in s
+# Foundation only: the CGRect boxing category belongs to UIKit and is not linked.
+assert 'NSValue valueWithCGRect' not in s and 'CGRectValue' not in s
 assert 'static BOOL sthSameRect(CGRect a, CGRect b)' in s
 assert 'if (sthSameRect(current, target))' in s
 # The current scene frame decides, not a remembered target: a dropped or reverted

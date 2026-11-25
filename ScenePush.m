@@ -46,6 +46,20 @@ static BOOL sthSameRect(CGRect a, CGRect b) {
   return fabs(a.origin.x - b.origin.x) < 0.5 && fabs(a.origin.y - b.origin.y) < 0.5 &&
          fabs(a.size.width - b.size.width) < 0.5 && fabs(a.size.height - b.size.height) < 0.5;
 }
+/* A rectangle is kept as four numbers. NSValue only knows how to box a CGRect
+ * once UIKit's geometry category is linked, and this module deliberately needs
+ * nothing but Foundation, so the four components are stored directly. */
+static void sthStoreRect(NSMutableDictionary *entry, NSString *key, CGRect rect) {
+  entry[key] = @[ @(rect.origin.x), @(rect.origin.y), @(rect.size.width), @(rect.size.height) ];
+}
+static BOOL sthLoadRect(NSMutableDictionary *entry, NSString *key, CGRect *rect) {
+  NSArray *value = entry[key];
+  if (![value isKindOfClass:NSArray.class] || value.count != 4) return NO;
+  if (rect)
+    *rect = CGRectMake([value[0] doubleValue], [value[1] doubleValue],
+                       [value[2] doubleValue], [value[3] doubleValue]);
+  return YES;
+}
 /* Every send below is one declared message behind its own guard. The guard is
  * the whole safety property: these objects come from the system, their exact
  * shape differs between releases, and a message this build does not know how to
@@ -180,9 +194,8 @@ void STHScenePushViewport(NSString *bundle, STHVRect card, STHVRect screen) {
     return;
   }
   CGRect original;
-  NSValue *saved = entry[@"original"];
-  if (saved) {
-    original = saved.CGRectValue;
+  if (sthLoadRect(entry, @"original", &original)) {
+    // Already read once, before the first push.
   } else {
     if (![scene respondsToSelector:@selector(settings)]) return;
     id settings = sthSettings(scene);
@@ -191,7 +204,7 @@ void STHScenePushViewport(NSString *bundle, STHVRect card, STHVRect screen) {
     if (!isfinite(original.size.width) || !isfinite(original.size.height) ||
         original.size.width < 80.0 || original.size.height < 80.0)
       return;
-    entry[@"original"] = [NSValue valueWithCGRect:original];
+    sthStoreRect(entry, @"original", original);
     if (STHVDiagnosticsEnabled())
       STHVLog(@"sb-scene-origin", bundle, @{@"frame": STHVRectJSON(sthVRect(original))});
   }
@@ -215,7 +228,7 @@ void STHScenePushViewport(NSString *bundle, STHVRect card, STHVRect screen) {
   if (!settings || ![settings respondsToSelector:@selector(frame)]) return;
   CGRect current = [settings frame];
   if (sthSameRect(current, target)) {
-    entry[@"applied"] = [NSValue valueWithCGRect:target];
+    sthStoreRect(entry, @"applied", target);
     return;
   }
   if (!sthApplyFrame(scene, target)) {
@@ -226,7 +239,7 @@ void STHScenePushViewport(NSString *bundle, STHVRect card, STHVRect screen) {
                 @"card": STHVRectJSON(card), @"screen": STHVRectJSON(screen)});
     return;
   }
-  entry[@"applied"] = [NSValue valueWithCGRect:target];
+  sthStoreRect(entry, @"applied", target);
   entry[@"retryAt"] = @0;
   if (STHVDiagnosticsEnabled())
     STHVLog(@"sb-scene-push", bundle,
@@ -238,15 +251,14 @@ void STHScenePushRestore(NSString *bundle) {
   if (!NSThread.isMainThread || !bundle.length || !sthEntries) return;
   NSMutableDictionary *entry = sthEntries[bundle];
   if (!entry) return;
-  NSValue *saved = entry[@"original"];
+  CGRect original;
   // No push ever happened for this application: nothing to put back.
-  if (!saved || !entry[@"applied"]) return;
+  if (!sthLoadRect(entry, @"original", &original) || !entry[@"applied"]) return;
   id scene = sthSceneFor(bundle);
   // The application may be gone already. The record is kept so a later launch
   // of the same identifier still restores the frame it was given, instead of
   // inheriting a carded rectangle it never asked for.
   if (!scene) return;
-  CGRect original = saved.CGRectValue;
   if (!sthApplyFrame(scene, original)) return;
   if (STHVDiagnosticsEnabled())
     STHVLog(@"sb-scene-restore", bundle, @{@"frame": STHVRectJSON(sthVRect(original))});
