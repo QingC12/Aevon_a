@@ -61,10 +61,12 @@ static STHVRect sthFromCGRect(CGRect r) {
 }
 static id sthBox(STHVRect r) { return @[ @(r.x), @(r.y), @(r.w), @(r.h) ]; }
 static BOOL sthUnbox(id value, STHVRect *rect) {
-  if (![value isKindOfClass:NSArray.class] || value.count != 4) return NO;
+  if (![value isKindOfClass:NSArray.class]) return NO;
+  NSArray *parts = (NSArray *)value;
+  if (parts.count != 4) return NO;
   if (rect)
-    *rect = (STHVRect){[value[0] doubleValue], [value[1] doubleValue],
-                       [value[2] doubleValue], [value[3] doubleValue]};
+    *rect = (STHVRect){[parts[0] doubleValue], [parts[1] doubleValue],
+                       [parts[2] doubleValue], [parts[3] doubleValue]};
   return YES;
 }
 /* Every send to a system object is declared above and guarded here. These
