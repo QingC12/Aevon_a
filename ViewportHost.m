@@ -10,6 +10,7 @@
 #import "ViewportAuthority.h"
 #import "ViewportDiagnostics.h"
 #import "ScreenAwake.h"
+#import "ScenePush.h"
 extern void *STHDockCopyFloating(void);
 extern size_t STHChooserManagersCount(void *);
 extern void *STHChooserCopyManagerAt(size_t,void *);
@@ -180,7 +181,13 @@ static void updateRegistry(BOOL nativeTransaction){
  if(processing||!NSThread.isMainThread||!STHSystemActionRuntimeReady())return;processing=YES;
  if(!STHSystemActionsEnabled()){
   restoreOwner(nativeTransaction,@"disabled");
-  for(NSString *bundle in publishedBundles)publishHostLayout(bundle,NO,(STHVRect){0},(STHVRect){0});
+  for(NSString *bundle in publishedBundles){
+   publishHostLayout(bundle,NO,(STHVRect){0},(STHVRect){0});
+   // Disabling the feature is not a hidden state: an application whose scene
+   // was narrowed for a card has to get its own rectangle back, or it stays a
+   // small window with no card around it.
+   STHScenePushRestore(bundle);
+  }
   publishedBundles=nil;STHScreenAwakeUpdate(0);awakeMissingAt=0;processing=NO;return;
  }
  maintainOwner(nativeTransaction);
@@ -215,13 +222,25 @@ static void updateRegistry(BOOL nativeTransaction){
      publishHostLayout(bundle,YES,currentTarget,ownerKeyboard);
     }else{
      STHNativeRefreshGeometry(pointer);STHVRect card=vr(STHNativeRect(pointer));
-     if(STHVValid(card))publishHostLayout(bundle,NO,card,(STHVRect){0});
+     if(STHVValid(card)){
+      publishHostLayout(bundle,NO,card,(STHVRect){0});
+      // The card rectangle is this application's scene. A ratio change happens
+      // on a card that has no keyboard, and that is exactly the state in which
+      // an application keeps the width it sampled while the card was moving, so
+      // the new rectangle is published to the scene here rather than through the
+      // keyboard transaction, which has its own delivery and its own timing.
+      STHScenePushViewport(bundle,card,viewportScreen());
+     }
     }
    }@finally{STHChooserReleaseSwift(pointer);}
   }
   if(viewportOwner&&(![current containsObject:ownerBundle]||!STHSystemActionsEnabled()))restoreOwner(nativeTransaction,@"removed-or-disabled");
   // Unavailable reads never change geometry; maintainOwner bounds actual loss.
-  for(NSString *bundle in publishedBundles)if(![current containsObject:bundle])publishHostLayout(bundle,NO,(STHVRect){0},(STHVRect){0});
+  for(NSString *bundle in publishedBundles)if(![current containsObject:bundle]){
+   publishHostLayout(bundle,NO,(STHVRect){0},(STHVRect){0});
+   // A closed card leaves the scened application on the rectangle it was given.
+   STHScenePushRestore(bundle);
+  }
   publishedBundles=[current copy];
   // Visible floating cards are the only reason to hold the system awake.
   STHScreenAwakeUpdate(current.count);

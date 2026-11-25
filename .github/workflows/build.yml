@@ -50,6 +50,7 @@ jobs:
           python3 tests/test_viewport_contract.py
           python3 tests/test_keyboard_alignment_contract.py
           python3 tests/test_log_completeness.py
+          python3 tests/test_scene_push_contract.py
       - name: Test default size only on first presentation
         run: |
           xcrun --sdk macosx clang -fobjc-arc -Wall -Wextra -Wno-unused-parameter test_default_size.m -framework Foundation -o /tmp/stheno-default-size
