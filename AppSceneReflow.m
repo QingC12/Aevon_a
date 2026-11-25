@@ -9,17 +9,6 @@
 #import <os/lock.h>
 #include <string.h>
 
-/* UIKit declares this on UIView. It is repeated here because the stand-in
- * UIWindow used by the deterministic test runner is deliberately minimal, while
- * the reflow runtime only ever sends this one layout request to a window. */
-@interface UIWindow (STHSceneReflowLayout)
--(void)setNeedsLayout;
-@end
-@interface UIView (STHSceneReflowTree)
--(NSArray *)subviews;
--(void)setNeedsLayout;
-@end
-
 /* The cached answer is read from every thread an application asks UIScreen from,
  * so it lives behind an unfair lock and is copied out in one shot. The getter
  * never calls UIKit, logs, allocates or posts while holding it. */
@@ -30,9 +19,6 @@ static CGRect cachedSceneBounds,cachedPhysicalBounds;
 static double cacheExpires;
 static BOOL cacheEnabled;
 static BOOL started,hookInstalled,refreshing,refreshQueued;
-static NSUInteger nudgeStamp;
-static double nudgeSince;
-static BOOL nudgePending;
 static __thread BOOL readingNative;
 static NSString *processBundle,*lastState;
 static CGRect hostedScene;
@@ -82,8 +68,6 @@ static void cacheRenew(double ttl){
 }
 static void cacheDisarm(void){
  os_unfair_lock_lock(&cacheLock);cacheEnabled=NO;os_unfair_lock_unlock(&cacheLock);
- // No carded viewport means no page can be laid out for a stale one either.
- nudgePending=NO;
 }
 static void cacheStorePhysical(CGRect physical){
  os_unfair_lock_lock(&cacheLock);cachedPhysicalBounds=physical;os_unfair_lock_unlock(&cacheLock);
@@ -151,7 +135,6 @@ static BOOL ensureHook(UIScreen *display){
 }
 static void stopWatch(void);
 static void refreshCache(NSString *reason);
-static void nudgeTick(void);
 static CFRunLoopObserverRef watchObserver;
 static double lastWatchAt;
 static void ensureWatch(void){
@@ -167,7 +150,6 @@ static void ensureWatch(void){
   if(!NSThread.isMainThread||refreshing)return;
   if(reflowNow()-lastWatchAt<0.10)return;
   lastWatchAt=reflowNow();
-  nudgeTick();
   refreshCache(@"scene-watch");
  });
  if(!watchObserver)return;
@@ -177,86 +159,6 @@ static void stopWatch(void){
  if(!watchObserver)return;
  CFRunLoopRemoveObserver(CFRunLoopGetMain(),watchObserver,kCFRunLoopCommonModes);
  CFRelease(watchObserver);watchObserver=NULL;
-}
-/* A size the application has not seen before is a new layout question. Marking
- * the windows dirty costs one pass and makes an application that reads the
- * screen size while laying out ask again, instead of keeping the previous ratio
- * on screen until something unrelated schedules a pass. It is only sent when the
- * answer really changed, and it never forces a layout from inside this cycle. */
-static void nudgeLayout(void){
- @try{
-  for(UIScene *candidate in UIApplication.sharedApplication.connectedScenes){
-   if(![candidate isKindOfClass:UIWindowScene.class])continue;
-   UIWindowScene *scene=(UIWindowScene *)candidate;
-   if(scene.screen!=UIScreen.mainScreen)continue;
-   for(UIWindow *window in scene.windows){
-    if([NSStringFromClass(window.class) containsString:@"Keyboard"])continue;
-    if([window respondsToSelector:@selector(setNeedsLayout)])[window setNeedsLayout];
-   }
-  }
- }@catch(NSException *exception){}
-}
-/* A ratio change animates the card, so an application sees several viewport
- * widths in a row. A feed that prepares its next page inside that window keeps
- * whatever width it read while the card was still moving. Douyin keeps it for
- * the life of that page, which is exactly the reported pattern: every second
- * video stayed laid out for a narrower card than the one on screen, while the
- * page next to it - prepared after the card had settled - was correct.
- *
- * The answer cannot repair that on its own, because the page never asks again.
- * Once the answer stops changing, every view is therefore marked for layout a
- * few times over the following seconds. Only the dirty flag is set: no layout is
- * forced from inside a run loop observer, so a page that does ask again is laid
- * out at its next natural pass with the settled width. */
-static const double nudgeStamps[5]={0.25,0.6,1.1,2.0,3.2};
-static NSUInteger walkViews(id root,NSUInteger budget){
- if(!root||!budget)return 0;
- if(![root respondsToSelector:@selector(subviews)]||![root respondsToSelector:@selector(setNeedsLayout)])return 0;
- NSMutableArray *pending=[NSMutableArray arrayWithObject:root];
- NSUInteger walked=0;
- while(pending.count&&walked<budget){
-  id view=pending.lastObject;[pending removeLastObject];walked++;
-  @try{
-   [view setNeedsLayout];
-   NSArray *children=[view subviews];
-   for(id child in children)if(walked+pending.count<budget)[pending addObject:child];
-  }@catch(NSException *exception){}
- }
- return walked;
-}
-static void nudgeSettledViews(void){
- @try{
-  for(UIScene *candidate in UIApplication.sharedApplication.connectedScenes){
-   if(![candidate isKindOfClass:UIWindowScene.class])continue;
-   UIWindowScene *scene=(UIWindowScene *)candidate;
-   if(scene.screen!=UIScreen.mainScreen)continue;
-   for(UIWindow *window in scene.windows){
-    if([NSStringFromClass(window.class) containsString:@"Keyboard"])continue;
-    walkViews(window,20000);
-   }
-  }
- }@catch(NSException *exception){}
-}
-static void nudgeSchedule(void){
- nudgeSince=reflowNow();nudgeStamp=0;nudgePending=YES;
-}
-/* Driven by the same run loop observer that refreshes the answer, so the first
- * stamp measures from the last change of the viewport and a resize that is still
- * animating simply moves it later. */
-static void nudgeTick(void){
- if(!nudgePending||!NSThread.isMainThread)return;
- if(nudgeStamp>=5){nudgePending=NO;return;}
- if(reflowNow()-nudgeSince<nudgeStamps[nudgeStamp])return;
- nudgeStamp++;
- nudgeSettledViews();
-}
-static BOOL answeredOnce;
-static STHRSize answeredSize;
-static void noteAnswer(CGRect answer){
- if(answeredOnce&&fabs(answer.size.width-answeredSize.width)<0.01&&fabs(answer.size.height-answeredSize.height)<0.01)return;
- answeredOnce=YES;answeredSize=(STHRSize){answer.size.width,answer.size.height};
- nudgeLayout();
- nudgeSchedule();
 }
 static void refreshCache(NSString *reason){
  if(!started||!NSThread.isMainThread||refreshing)return;
@@ -288,7 +190,7 @@ static void refreshCache(NSString *reason){
   if(STHRCardViewport(card,hrSize(physical),&viewport)){
    CGRect bounds=CGRectMake(0,0,viewport.width,viewport.height);
    hostedScene=bounds;hasHostedScene=YES;hostedSceneAt=reflowNow();
-   cacheArm(bounds,3.0);ensureWatch();noteAnswer(bounds);
+   cacheArm(bounds,3.0);ensureWatch();
    publishState(reason,YES,@"card",bounds,physical,0);
    return;
   }
@@ -301,7 +203,7 @@ static void refreshCache(NSString *reason){
    .sceneSize=hrSize(bounds),.physicalSize=hrSize(physical)};
   if(scene&&STHRShouldReflow(&policy)){
    hostedScene=bounds;hasHostedScene=YES;hostedSceneAt=reflowNow();
-   cacheArm(bounds,3.0);ensureWatch();noteAnswer(bounds);
+   cacheArm(bounds,3.0);ensureWatch();
    publishState(reason,YES,@"scene",bounds,physical,scene.activationState);
    return;
   }
@@ -317,7 +219,7 @@ static void refreshCache(NSString *reason){
   // while the host still reports the card, so the layout does not fall back to
   // the full screen and stay there.
   if(hasHostedScene&&reflowNow()-hostedSceneAt<60.0){
-   cacheArm(hostedScene,2.0);ensureWatch();noteAnswer(hostedScene);
+   cacheArm(hostedScene,2.0);ensureWatch();
    publishState(reason,YES,@"memory",hostedScene,physical,scene.activationState);
    return;
   }

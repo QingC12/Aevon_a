@@ -1,4 +1,4 @@
-"""Build stheno_2.0.56 from the frozen base.
+"""Build stheno_2.0.57 from the frozen base.
 
 Every binary patch that used to run at build time is already baked into
 inputs/base-patched.deb and recorded in inputs/base-patched.json. This script
@@ -117,7 +117,7 @@ sdk=run('xcrun','--sdk','iphoneos','--show-sdk-path').decode().strip()
 viewport_binary=OUT/'SthenoViewport.dylib'
 run('xcrun','clang','-target','arm64e-apple-ios16.1','-isysroot',sdk,'-fobjc-arc','-Oz','-dynamiclib','ViewportClient.m','ViewportStartup.m','AppSceneReflow.m','ViewportBus.m','ViewportDiagnostics.m','-framework','UIKit','-framework','Foundation','-framework','CoreGraphics','-framework','QuartzCore','-install_name','@loader_path/SthenoViewport.dylib','-o',viewport_binary)
 action_binary=OUT/'SthenoSystemActions.dylib'
-action_sources=['SystemActions.m','SystemActionRuntime.m','SystemActionPicker.m','SystemActionIcons.m','SystemActionHooks.m','SystemCapture.m','SystemActionNative.S','ChooserCatalog.m','ChooserState.m','ChooserNative.S','CenterChooserBridge.m','CenterChooserNative.S','SystemVisibilityBridge.m','DockQueueBridge.m','DockQueueNative.S','Gesture.m','DefaultSize.m','ViewportHost.m','ScenePush.m','ScreenAwake.m','ViewportBus.m','ViewportDiagnostics.m','ChooserInputNative.m','core-native-stubs.S']
+action_sources=['SystemActions.m','SystemActionRuntime.m','SystemActionPicker.m','SystemActionIcons.m','SystemActionHooks.m','SystemCapture.m','SystemActionNative.S','ChooserCatalog.m','ChooserState.m','ChooserNative.S','CenterChooserBridge.m','CenterChooserNative.S','SystemVisibilityBridge.m','DockQueueBridge.m','DockQueueNative.S','Gesture.m','DefaultSize.m','ViewportHost.m','SceneIntercept.m','ScreenAwake.m','ViewportBus.m','ViewportDiagnostics.m','ChooserInputNative.m','core-native-stubs.S']
 def compile_source(source):
  obj=OUT/(Path(source).stem+'.o')
  args=['xcrun','clang','-target','arm64e-apple-ios16.1','-isysroot',sdk,'-Oz','-c',source,'-o',obj]

@@ -54,13 +54,15 @@ BOOL STHVReadProbe(NSString *b,STHVRect *a,STHVRect *p){return NO;}
 NSDictionary *STHVRectJSON(STHVRect r){return @{@"x":@(r.x),@"y":@(r.y),@"w":@(r.w),@"h":@(r.h)};}
 void STHVLog(NSString *e,NSString *b,NSDictionary *v){}
 void STHVLogInstallRelay(void){}
-// The scene publication is springboard-only and its own file is not part of this
+// The scene interception is springboard-only and its own file is not part of this
 // harness, so it is counted here instead. What this harness proves is where the
-// host calls it: a card rectangle is published on the registry beat, and the
-// frame is put back when the card is gone.
-static int pushes,restores;
-void STHScenePushViewport(NSString *b,STHVRect card,STHVRect screen){assert(b.length);assert(STHVValid(card));pushes++;}
-void STHScenePushRestore(NSString *b){assert(b.length);restores++;}
+// host calls it: every live card is tracked with the rectangle the application is
+// shown, and the application is untracked when the card is gone or the feature is
+// switched off. Tracking with an unreadable rectangle or an untrack for an empty
+// identifier is the defect this counts.
+static int tracks,untracks;
+void STHSceneInterceptTrack(NSString *b,STHVRect card,STHVRect screen){assert(b.length);assert(STHVValid(card));assert(STHVValid(screen));tracks++;}
+void STHSceneInterceptUntrack(NSString *b){assert(b.length);untracks++;}
 static Card *make(NSString *b){Card *c=[Card new];c.bundle=b;c.scale=.8;return c;}
 static void claim(NSString *b,BOOL active,STHVRect raw){Packet *p=[Packet new];p.active=active;p.keyboard=raw;p.event=++events;requests[b]=p;if(active)offeredKey=STHVKey(b);}
 static void registry(void){STHCenterRunAnimation(^{updateRegistry(YES);},0);}
@@ -103,6 +105,6 @@ int main(void){@autoreleasepool{
   assert(STHViewportKeyboardExcludes(CGPointMake(100,650)));
  }
  sample(YES);unchanged=writes;claim(@"a",YES,realKeys);registry();assert(writes==unchanged&&!viewportOwner);
- assert(pushes>0&&restores>0);
- puts("Viewport32 host: scene publication on the card path and restore on removal; 200 lifecycle cycles plus uploaded 430x932 fixture; app774/804.667/835.333/932 never replaces SB590; inset241.5 retained; hide cannot be revived by app claims; native transactions and hosted baselines preserved");
+ assert(tracks>0&&untracks>0);
+ puts("Viewport32 host: scene tracking on every card beat and untrack on removal; 200 lifecycle cycles plus uploaded 430x932 fixture; app774/804.667/835.333/932 never replaces SB590; inset241.5 retained; hide cannot be revived by app claims; native transactions and hosted baselines preserved");
 }return 0;}

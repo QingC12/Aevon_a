@@ -99,11 +99,11 @@ int main(void){@autoreleasepool{
   prohibitUIKit=NO;host.card=(STHVRect){20,120,390,700};changed();prohibitUIKit=YES;
   assert(cacheEnabled&&fabs(display.bounds.size.width-390)<0.01&&fabs(display.bounds.size.height-700)<0.01);
   // A page that was prepared while the card was still moving keeps the width it
-  // read, and never asks again. The settled answer therefore marks every live
-  // view dirty at a few points in time - the flag only, never a forced pass.
-  assert(nudgePending&&nudgeStamp==0);
-  clockValue+=0.30;prohibitUIKit=NO;nudgeTick();nudgeTick();assert(nudgeStamp==1);prohibitUIKit=YES;
-  clockValue+=0.40;prohibitUIKit=NO;nudgeTick();assert(nudgeStamp==2);prohibitUIKit=YES;
+  // read and never asks again, which the answer alone cannot repair: the scene
+  // is resized for that, from springboard. Here the only contract left is that
+  // answering a new ratio changes nothing else - no layout is forced, and the
+  // answer keeps following the card.
+  assert(cacheEnabled);
   prohibitUIKit=NO;host.card=(STHVRect){43,173.6,344,584.8};changed();assert(cacheEnabled);prohibitUIKit=YES;
   clockValue+=3.1;assert(display.bounds.size.height==932);
   // NSUserDefaults change must neither recurse into policy nor schedule work.
