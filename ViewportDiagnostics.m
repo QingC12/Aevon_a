@@ -68,7 +68,7 @@ void STHVLog(NSString *event,NSString *bundle,NSDictionary *values){
  openSinks();
  NSMutableDictionary *record=[NSMutableDictionary dictionaryWithDictionary:values?:@{}];
  record[@"event"]=event?:@"unknown";record[@"bundle"]=bundle?:@"unknown";
- record[@"build"]=@"2.0.58";record[@"uptime"]=@(NSProcessInfo.processInfo.systemUptime);
+ record[@"build"]=@"2.0.59";record[@"uptime"]=@(NSProcessInfo.processInfo.systemUptime);
  // seq orders records across threads and across processes only within one
  // process; pid is what separates a springboard session from an app session.
  record[@"seq"]=@(++logSequence);record[@"pid"]=@(getpid());

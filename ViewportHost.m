@@ -10,7 +10,6 @@
 #import "ViewportAuthority.h"
 #import "ViewportDiagnostics.h"
 #import "ScreenAwake.h"
-#import "SceneUpdateHook.h"
 extern void *STHDockCopyFloating(void);
 extern size_t STHChooserManagersCount(void *);
 extern void *STHChooserCopyManagerAt(size_t,void *);
@@ -54,8 +53,8 @@ static void skipOwner(NSString *bundle,NSString *reason,STHVRect keyboard){
 }
 static void recordProbe(NSString *bundle){
  // Nothing here feeds geometry: it publishes a probe and a log line. With the
- // keyboard evidence switched off this costs a branch instead of two shared
- // memory reads on every registry beat.
+ // evidence switched off this costs a branch instead of two shared memory
+ // reads on every registry beat.
  if(!STHVDiagnosticsEnabled())return;
  static NSMutableDictionary *lastFrames;STHVSnapshot frame={0};
  if(STHVReadClientFrames(bundle,&frame)){
@@ -169,10 +168,7 @@ static void updateRegistry(BOOL nativeTransaction){
  if(processing||!NSThread.isMainThread||!STHSystemActionRuntimeReady())return;processing=YES;
  if(!STHSystemActionsEnabled()){
   restoreOwner(nativeTransaction,@"disabled");
-  for(NSString *bundle in publishedBundles){
-   publishHostLayout(bundle,NO,(STHVRect){0},(STHVRect){0});
-   STHSceneUpdateHookUntrack(bundle);
-  }
+  for(NSString *bundle in publishedBundles)publishHostLayout(bundle,NO,(STHVRect){0},(STHVRect){0});
   publishedBundles=nil;STHScreenAwakeUpdate(0);awakeMissingAt=0;processing=NO;return;
  }
  maintainOwner(nativeTransaction);
@@ -205,25 +201,15 @@ static void updateRegistry(BOOL nativeTransaction){
     }
     if(viewportOwner==(__bridge id)pointer&&hasWrittenGeometry){
      publishHostLayout(bundle,YES,currentTarget,ownerKeyboard);
-     // The scene is told the card it is shown in, so the application really lays
-     // itself out at that width instead of keeping the one it sampled before the
-     // ratio changed.
-     if(STHVValid(currentTarget))STHSceneUpdateHookTrack(bundle,currentTarget,viewportScreen());
     }else{
      STHNativeRefreshGeometry(pointer);STHVRect card=vr(STHNativeRect(pointer));
-     if(STHVValid(card)){
-      publishHostLayout(bundle,NO,card,(STHVRect){0});
-      STHSceneUpdateHookTrack(bundle,card,viewportScreen());
-     }
+     if(STHVValid(card))publishHostLayout(bundle,NO,card,(STHVRect){0});
     }
    }@finally{STHChooserReleaseSwift(pointer);}
   }
   if(viewportOwner&&(![current containsObject:ownerBundle]||!STHSystemActionsEnabled()))restoreOwner(nativeTransaction,@"removed-or-disabled");
   // Unavailable reads never change geometry; maintainOwner bounds actual loss.
-  for(NSString *bundle in publishedBundles)if(![current containsObject:bundle]){
-   publishHostLayout(bundle,NO,(STHVRect){0},(STHVRect){0});
-   STHSceneUpdateHookUntrack(bundle);
-  }
+  for(NSString *bundle in publishedBundles)if(![current containsObject:bundle])publishHostLayout(bundle,NO,(STHVRect){0},(STHVRect){0});
   publishedBundles=[current copy];
   // Visible floating cards are the only reason to hold the system awake.
   STHScreenAwakeUpdate(current.count);
@@ -457,7 +443,7 @@ static void installGeometry(NSString *trigger){
  if(!STHSystemActionRuntimeReady()){STHVLog(@"host-runtime-wait",@"com.apple.springboard",@{@"trigger":trigger});return;}
  geometryInstalled=YES;
  STHVObserveRequests(^{STHCenterRunAnimation(^{updateRegistry(YES);},0);});
- if(STHVDiagnosticsEnabled())for(NSString *name in @[UIKeyboardWillShowNotification,UIKeyboardWillChangeFrameNotification,UIKeyboardWillHideNotification]){
+ for(NSString *name in @[UIKeyboardWillShowNotification,UIKeyboardWillChangeFrameNotification,UIKeyboardWillHideNotification]){
   [NSNotificationCenter.defaultCenter addObserverForName:name object:nil queue:NSOperationQueue.mainQueue usingBlock:^(NSNotification *note){
    BOOL hide=[note.name isEqualToString:UIKeyboardWillHideNotification];
    id value=note.userInfo[UIKeyboardFrameEndUserInfoKey];
@@ -490,7 +476,7 @@ __attribute__((constructor)) static void installViewportHost(void){dispatch_asyn
  // log and could not be compared with a working one.
  BOOL runtimeReady=STHSystemActionRuntimeReady();
  STHVLog(@"host-runtime",@"com.apple.springboard",@{@"ready":@(runtimeReady),@"enabled":@(STHSystemActionsEnabled()),@"home":NSHomeDirectory()});
- for(NSString *name in @[UIKeyboardWillShowNotification,UIKeyboardDidShowNotification,UIKeyboardWillChangeFrameNotification,UIKeyboardDidChangeFrameNotification,UIKeyboardWillHideNotification,UIKeyboardDidHideNotification]){
+ if(STHVDiagnosticsEnabled())for(NSString *name in @[UIKeyboardWillShowNotification,UIKeyboardDidShowNotification,UIKeyboardWillChangeFrameNotification,UIKeyboardDidChangeFrameNotification,UIKeyboardWillHideNotification,UIKeyboardDidHideNotification]){
   [NSNotificationCenter.defaultCenter addObserverForName:name object:nil queue:NSOperationQueue.mainQueue usingBlock:^(NSNotification *note){
    id value=note.userInfo[UIKeyboardFrameEndUserInfoKey];
    CGRect frame=[value isKindOfClass:NSValue.class]?[value CGRectValue]:CGRectNull;
