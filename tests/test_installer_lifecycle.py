@@ -237,7 +237,9 @@ class InstallerLifecycle(unittest.TestCase):
         self.assertFalse(target.exists())
         off.unlink()
         off.write_bytes(b'old-quarantine')
-        self.s.run('postrm', 'remove', **self.hook('source-symlink', target, sentinel))
+        self.s.run('postrm', 'remove', LN_SOURCE_DEFAULT='follow',
+                   **self.hook('source-symlink', target, sentinel))
+        self.assertTrue(off.is_symlink(), 'the source-swap hook must execute')
         self.assertFalse(target.exists() or target.is_symlink())
         self.assertEqual(sentinel.read_bytes(), b'unrelated')
         self.assertEqual(self.s.ledger.read_bytes(), original)

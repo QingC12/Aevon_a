@@ -21,8 +21,8 @@
       "reason": "Seed missing preference domains only via private same-volume no-clobber publication; never overwrite existing user settings."
     },
     "installer/postrm": {
-      "sha256": "15b4b5506bc33fb3fedac4ef858b2db0bafb13177a2ba3658418ebe423984284",
-      "bytes": 4804,
+      "sha256": "267076cc80063c3aecf84b274fcc5d5a30583219c9b41a74e3a26e310522febf",
+      "bytes": 4872,
       "baseline_sha256": null,
       "reason": "Make restore actions phase-aware and non-clobbering; retain recovery records and backups on conflicts or failures."
     },
@@ -105,14 +105,14 @@
       "reason": "Add executable regression and artifact policy checks for the approved runtime, install/data-protection, animation-preservation, diagnostics, deployment-target, or final-binary contract changes."
     },
     "tests/test_installer_preferences.py": {
-      "sha256": "2b78372355a5502560648fd2993dee0430dbb8b0b76d6f7c163e5d9d056c863a",
-      "bytes": 11397,
+      "sha256": "d7eafe50f4f5887e92ac5fc5b3f2f90aff8dd17b672c9bd004c3473aaf1b6e2e",
+      "bytes": 11659,
       "baseline_sha256": null,
       "reason": "Add executable regression and artifact policy checks for the approved runtime, install/data-protection, animation-preservation, diagnostics, deployment-target, or final-binary contract changes."
     },
     "tests/test_installer_lifecycle.py": {
-      "sha256": "dbb25517847d553e03e1b8ec710a6a1e2a66710d62a3159e13001522bf33545f",
-      "bytes": 12901,
+      "sha256": "0ed87becb64ab2c9071bc37bbe26584261313dd3ae6598b92babb52006f68494",
+      "bytes": 13027,
       "baseline_sha256": null,
       "reason": "Add executable regression and artifact policy checks for the approved runtime, install/data-protection, animation-preservation, diagnostics, deployment-target, or final-binary contract changes."
     },

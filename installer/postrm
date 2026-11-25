@@ -83,10 +83,11 @@ restore_one() (
   restore_directory "$A" || exit 1
   [ ! -e "./$B" ] && [ ! -L "./$B" ] || exit 1
   [ -f "./$B.stheno-off" ] && [ ! -L "./$B.stheno-off" ] || exit 1
-  # Capture an inode without opening its content. Recheck the captured type so
-  # a source swapped to a symlink cannot be restored. Never chmod/chown it.
+  # Capture an inode without opening its content. -P explicitly links the
+  # symlink itself if a swap wins the race, independent of ln's platform
+  # default. Recheck the captured type; never chmod/chown the source.
   T="$STAGE/$B"
-  ln "./$B.stheno-off" "$T" 2>/dev/null || exit 1
+  ln -P "./$B.stheno-off" "$T" 2>/dev/null || exit 1
   if [ -f "$T" ] && [ ! -L "$T" ] ; then
     # The basename matches; a directory operand avoids ln's symlink/directory
     # destination ambiguity. Existing files of every type win atomically.
@@ -102,7 +103,7 @@ if [ -n "$STAGE" ] ; then
     cd -P /var/mobile/Documents 2>/dev/null || exit 1
     case "$(pwd -P)" in /var/mobile/Documents|/private/var/mobile/Documents) ;; *) exit 1 ;; esac
     [ -f ./SthenoRestore.txt ] && [ ! -L ./SthenoRestore.txt ] || exit 1
-    ln ./SthenoRestore.txt "$STAGE/records" 2>/dev/null
+    ln -P ./SthenoRestore.txt "$STAGE/records" 2>/dev/null
   )
   if [ -f "$STAGE/records" ] && [ ! -L "$STAGE/records" ] ; then
     while IFS= read -r P || [ -n "$P" ] ; do

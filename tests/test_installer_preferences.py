@@ -69,10 +69,13 @@ if name == 'ln' and args[-1] == './':
             old.symlink_to(sentinel, target_is_directory=True)
         elif hook == 'exdev':
             sys.exit(1)
-if name == 'ln' and os.environ.get('HOOK') == 'source-symlink' and args[0].endswith('.stheno-off'):
-    source = pathlib.Path(args[0])
+if name == 'ln' and os.environ.get('HOOK') == 'source-symlink' and args[-2].endswith('.stheno-off'):
+    source = pathlib.Path(args[-2])
     source.unlink()
     source.symlink_to(os.environ['HOOK_SENTINEL'])
+if name == 'ln' and os.environ.get('LN_SOURCE_DEFAULT') == 'follow' and not any(a in ('-P', '-L') for a in args):
+    # Resolve explicitly to model logical-source behavior on every host.
+    args = [*args[:-2], str(pathlib.Path(args[-2]).resolve()), args[-1]]
 real = json.loads(os.environ['REAL_TOOLS'])[name]
 sys.exit(subprocess.call([real, *args]))
 '''
