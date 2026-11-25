@@ -39,10 +39,12 @@ assert 'canonical=unionTop(canonical,ownTopInScene(canonical,appOwnFrame,host.ke
 assert 'STHVRect unified=unionTop(canonical,own);' in client
 assert 'client-union' in client
 assert 'appOwnFrame=(STHVRect){0};' in client
-# A union merges two descriptions of one docked keyboard, so both end on the
-# same edge. A frame that ends somewhere else was measured in another space, and
-# merging it would move the top while the bottom it belongs to stayed behind.
-assert 'if(fabs((own.y+own.h)-bottom)>2.0)return delivered;' in client
+# A union merges two descriptions of one docked keyboard. A frame that ends
+# ABOVE the delivered bottom belongs to a shorter viewport and may not donate a
+# top; one that ends BELOW it is the application's own screen space, whose
+# bottom is the physical screen, and merging it is the ordinary case.
+assert 'if(own.y+own.h<bottom-2.0)return delivered;' in client
+assert 'fabs((own.y+own.h)-bottom)>2.0' not in client
 # The conversion above cannot be the only reading. A scene whose origin is not
 # where it is assumed to be makes the conversion agree with itself, the union
 # silently returns the panel, and the composer keeps the last row of the panel

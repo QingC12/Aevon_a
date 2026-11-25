@@ -40,12 +40,15 @@ static NSUInteger unionLogged;
 static STHVRect unionTop(STHVRect delivered,STHVRect own){
  if(!STHVValid(delivered)||!STHVValid(own)||own.y>=delivered.y-0.5)return delivered;
  CGFloat bottom=delivered.y+delivered.h;
- // Both frames describe the same docked keyboard, so both end on the same edge.
- // A frame that ends somewhere else was measured in another coordinate space -
- // the application's own screen conversion is the identity for a carded window,
- // which is the usual case - and merging it would move the top while the bottom
- // it belongs to stayed behind.
- if(fabs((own.y+own.h)-bottom)>2.0)return delivered;
+ // A frame that ends ABOVE the delivered bottom is not the same keyboard: it
+ // was measured against a shorter viewport, and taking its top while keeping
+ // the delivered bottom would invent a band that neither process described.
+ // A frame that ends BELOW the delivered bottom is the ordinary case, not a
+ // mismatch: the application reports the keyboard in screen points, whose
+ // bottom is the physical screen, while the frame this scene hands over is
+ // clipped to the card's own bottom. Merging that one only raises the top and
+ // keeps the bottom the composer already has.
+ if(own.y+own.h<bottom-2.0)return delivered;
  return (STHVRect){delivered.x,own.y,delivered.w,bottom-own.y};
 }
 // The last end frame the application itself was handed, in screen points. Both

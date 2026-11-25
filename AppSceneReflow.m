@@ -25,7 +25,6 @@ static CGRect hostedScene;
 static BOOL hasHostedScene;
 static double hostedSceneAt;
 static double lastHostAt;
-static dispatch_source_t watchTimer;
 static double reflowNow(void){
 #if defined(STH_SCENE_REFLOW_TEST)
  extern double STHVReflowTestNow(void);return STHVReflowTestNow();
@@ -136,22 +135,55 @@ static BOOL ensureHook(UIScreen *display){
 }
 static void stopWatch(void);
 static void refreshCache(NSString *reason);
+static CFRunLoopObserverRef watchObserver;
+static double lastWatchAt;
 static void ensureWatch(void){
- if(watchTimer||!started)return;
- watchTimer=dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER,0,0,dispatch_get_main_queue());
- if(!watchTimer)return;
- dispatch_source_set_timer(watchTimer,dispatch_time(DISPATCH_TIME_NOW,200*NSEC_PER_MSEC),200*NSEC_PER_MSEC,80*NSEC_PER_MSEC);
- dispatch_source_set_event_handler(watchTimer,^{
+ if(watchObserver||!started)return;
+ // A card is resized by the windowing feature, not by this process, so the new
+ // viewport has to be observed rather than announced. A run loop observer is
+ // used instead of a timer because a resize is followed by a layout pass in the
+ // same cycle: the answer is refreshed at the next safe point of the main run
+ // loop, not up to a timer interval later, and an idle application spends
+ // nothing. The throttle keeps a full scene read off every single turn.
+ watchObserver=CFRunLoopObserverCreateWithHandler(NULL,kCFRunLoopBeforeWaiting|kCFRunLoopAfterWaiting,true,0,^(CFRunLoopObserverRef observer,CFRunLoopActivity activity){
+  (void)observer;(void)activity;
   if(!NSThread.isMainThread||refreshing)return;
-  // A card is resized by the windowing feature, not by this process: a short
-  // period is the only way to see the new viewport before the next host beat.
+  if(reflowNow()-lastWatchAt<0.10)return;
+  lastWatchAt=reflowNow();
   refreshCache(@"scene-watch");
  });
- dispatch_resume(watchTimer);
+ if(!watchObserver)return;
+ CFRunLoopAddObserver(CFRunLoopGetMain(),watchObserver,kCFRunLoopCommonModes);
 }
 static void stopWatch(void){
- if(!watchTimer)return;
- dispatch_source_cancel(watchTimer);watchTimer=nil;
+ if(!watchObserver)return;
+ CFRunLoopRemoveObserver(CFRunLoopGetMain(),watchObserver,kCFRunLoopCommonModes);
+ CFRelease(watchObserver);watchObserver=NULL;
+}
+/* A size the application has not seen before is a new layout question. Marking
+ * the windows dirty costs one pass and makes an application that reads the
+ * screen size while laying out ask again, instead of keeping the previous ratio
+ * on screen until something unrelated schedules a pass. It is only sent when the
+ * answer really changed, and it never forces a layout from inside this cycle. */
+static void nudgeLayout(void){
+ @try{
+  for(UIScene *candidate in UIApplication.sharedApplication.connectedScenes){
+   if(![candidate isKindOfClass:UIWindowScene.class])continue;
+   UIWindowScene *scene=(UIWindowScene *)candidate;
+   if(scene.screen!=UIScreen.mainScreen)continue;
+   for(UIWindow *window in scene.windows){
+    if([NSStringFromClass(window.class) containsString:@"Keyboard"])continue;
+    if([window respondsToSelector:@selector(setNeedsLayout)])[window setNeedsLayout];
+   }
+  }
+ }@catch(NSException *exception){}
+}
+static BOOL answeredOnce;
+static STHRSize answeredSize;
+static void noteAnswer(CGRect answer){
+ if(answeredOnce&&fabs(answer.size.width-answeredSize.width)<0.01&&fabs(answer.size.height-answeredSize.height)<0.01)return;
+ answeredOnce=YES;answeredSize=(STHRSize){answer.size.width,answer.size.height};
+ nudgeLayout();
 }
 static void refreshCache(NSString *reason){
  if(!started||!NSThread.isMainThread||refreshing)return;
@@ -174,6 +206,19 @@ static void refreshCache(NSString *reason){
   if(!finiteRect(physical))return;
   cacheStorePhysical(physical);
   if(!ensureHook(display))return;
+  // The card is the viewport. It is published in screen points on every change
+  // and the scene is in those same points, so it describes the size a custom
+  // window ratio produces even when the scene has not caught up yet - which is
+  // the case that used to leave an application laid out for the previous width
+  // while the card was already narrower.
+  STHRSize card={host.card.w,host.card.h},viewport={0};
+  if(STHRCardViewport(card,hrSize(physical),&viewport)){
+   CGRect bounds=CGRectMake(0,0,viewport.width,viewport.height);
+   hostedScene=bounds;hasHostedScene=YES;hostedSceneAt=reflowNow();
+   cacheArm(bounds,3.0);ensureWatch();noteAnswer(bounds);
+   publishState(reason,YES,@"card",bounds,physical,0);
+   return;
+  }
   BOOL fullScreen=NO;UIWindowScene *scene=cardedScene(display,physical,&fullScreen);
   CGRect bounds=scene?scene.coordinateSpace.bounds:CGRectZero;
   STHRPolicyInput policy={.inject=true,.settingMaskPresent=true,.settingBit31=host.reflowEnabled,
@@ -183,7 +228,7 @@ static void refreshCache(NSString *reason){
    .sceneSize=hrSize(bounds),.physicalSize=hrSize(physical)};
   if(scene&&STHRShouldReflow(&policy)){
    hostedScene=bounds;hasHostedScene=YES;hostedSceneAt=reflowNow();
-   cacheArm(bounds,3.0);ensureWatch();
+   cacheArm(bounds,3.0);ensureWatch();noteAnswer(bounds);
    publishState(reason,YES,@"scene",bounds,physical,scene.activationState);
    return;
   }
@@ -199,7 +244,7 @@ static void refreshCache(NSString *reason){
   // while the host still reports the card, so the layout does not fall back to
   // the full screen and stay there.
   if(hasHostedScene&&reflowNow()-hostedSceneAt<60.0){
-   cacheArm(hostedScene,2.0);ensureWatch();
+   cacheArm(hostedScene,2.0);ensureWatch();noteAnswer(hostedScene);
    publishState(reason,YES,@"memory",hostedScene,physical,scene.activationState);
    return;
   }

@@ -468,7 +468,15 @@ static void installGeometry(NSString *trigger){
   }];
  }
  static dispatch_source_t registryTimer;registryTimer=dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER,0,0,dispatch_get_main_queue());
- dispatch_source_set_timer(registryTimer,dispatch_time(DISPATCH_TIME_NOW,NSEC_PER_SEC/2),NSEC_PER_SEC,NSEC_PER_SEC/10);
+ // A custom window ratio is applied by the native gesture and geometry path,
+ // which does not call into this library, so the only way a hosted application
+ // learns the new viewport is this beat. Half a second was enough for the
+ // keyboard, which has its own event, but a ratio change reaches the carded app
+ // only here: at two beats a second it kept laying out for the previous width
+ // long enough for the result to be visible. Publishing is unchanged and still
+ // gated on a real difference, so the extra pass costs a registry read and one
+ // native rectangle per open card, and writes nothing when nothing moved.
+ dispatch_source_set_timer(registryTimer,dispatch_time(DISPATCH_TIME_NOW,NSEC_PER_SEC/4),NSEC_PER_SEC/4,NSEC_PER_SEC/20);
  dispatch_source_set_event_handler(registryTimer,^{updateRegistry(NO);});dispatch_resume(registryTimer);
  STHVLog(@"host-start",@"com.apple.springboard",@{@"architecture":@"viewport32",@"legacyAvoidanceCalled":@NO,@"trigger":trigger});
 }
